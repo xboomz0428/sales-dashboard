@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useId } from 'react'
+import { getStoredApiKey, setStoredApiKey } from './utils/ai'
 import { processExcelFile } from './utils/dataProcessor'
 import { useSalesData } from './hooks/useSalesData'
 import { getDateRange, hasDateOverlap } from './utils/dateUtils'
@@ -17,8 +18,14 @@ import ComparisonChart from './components/charts/ComparisonChart'
 import DataTable from './components/DataTable'
 import AIAnalysis from './components/AIAnalysis'
 import GlobalSearch from './components/GlobalSearch'
+import GoalDashboard from './components/GoalDashboard'
+import AnomalyPanel, { AnomalyBadge } from './components/AnomalyPanel'
+import CustomerHealthPanel from './components/CustomerHealthPanel'
+import SalesForecast from './components/SalesForecast'
+import ExecutiveSummary from './components/ExecutiveSummary'
 
 const TABS = [
+  { id: 'summary',     label: '執行摘要', icon: '📊' },
   { id: 'performance', label: '績效矩陣', icon: '🎯' },
   { id: 'comparison',  label: '對比分析', icon: '⚖️' },
   { id: 'trend',       label: '趨勢分析', icon: '📈' },
@@ -28,6 +35,10 @@ const TABS = [
   { id: 'brand',       label: '品牌分析', icon: '✨' },
   { id: 'heatmap',     label: '熱力圖',   icon: '🗓️' },
   { id: 'table',       label: '資料表格', icon: '📋' },
+  { id: 'goals',       label: '目標管理', icon: '🏆' },
+  { id: 'alerts',      label: '預警中心', icon: '🔔' },
+  { id: 'health',      label: '客戶健康', icon: '💊' },
+  { id: 'forecast',    label: '預測分析', icon: '🔮' },
 ]
 
 const DEFAULT_FILTERS = {
@@ -66,6 +77,9 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [dashboardOpen, setDashboardOpen] = useState(true)
+  const [keyModalOpen, setKeyModalOpen] = useState(false)
+  const [keyInput, setKeyInput] = useState('')
+  const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -303,6 +317,13 @@ export default function App() {
               </button>
             )}
 
+            {/* API Key */}
+            <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true) }}
+              title={keyHasValue ? 'API Key 已設定' : '尚未設定 API Key'}
+              className={`text-sm px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${keyHasValue ? 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100'}`}>
+              🔑 <span className="hidden sm:inline">{keyHasValue ? 'Key 已設定' : '設定 Key'}</span>
+            </button>
+
             {/* AI Analysis */}
             <button onClick={() => setAiOpen(true)}
               className="text-sm px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
@@ -386,16 +407,26 @@ export default function App() {
         <div className="flex border-b border-gray-100 bg-white px-3 flex-shrink-0 overflow-x-auto">
           {TABS.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}>
               <span className="text-base">{tab.icon}</span>{tab.label}
+              {tab.id === 'alerts' && <AnomalyBadge allRows={allRows} metric={filters.metric} />}
             </button>
           ))}
         </div>
 
         {/* Chart area */}
         <div className="flex-1 overflow-y-auto p-4" ref={chartAreaRef}>
+          {activeTab === 'summary' && (
+            <div data-pdf-section data-pdf-title="執行摘要">
+              <ExecutiveSummary
+                summary={summary} trendData={trendData} metric={filters.metric}
+                productData={productData} customerData={customerData}
+                brandData={brandData} channelData={channelData} allRows={allRows}
+              />
+            </div>
+          )}
           {activeTab === 'comparison' && (
             <div data-pdf-section data-pdf-title="對比分析">
               <ComparisonChart comparisonData={comparisonData} trendData={trendData} filtered={filtered} metric={filters.metric} />
@@ -439,6 +470,26 @@ export default function App() {
           {activeTab === 'table' && (
             <DataTable rows={filtered} />
           )}
+          {activeTab === 'goals' && (
+            <div data-pdf-section data-pdf-title="目標管理">
+              <GoalDashboard trendData={trendData} summary={summary} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'alerts' && (
+            <div data-pdf-section data-pdf-title="預警中心">
+              <AnomalyPanel allRows={allRows} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'health' && (
+            <div data-pdf-section data-pdf-title="客戶健康">
+              <CustomerHealthPanel allRows={allRows} />
+            </div>
+          )}
+          {activeTab === 'forecast' && (
+            <div data-pdf-section data-pdf-title="預測分析">
+              <SalesForecast trendData={trendData} metric={filters.metric} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -450,6 +501,48 @@ export default function App() {
         customerData={customerData}
         brandData={brandData}
       />
+
+      {/* API Key Modal */}
+      {keyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setKeyModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">🔑 設定 Anthropic API Key</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              用於 AI 分析、目標建議、執行摘要等功能。Key 只存在你的瀏覽器，不會上傳。
+            </p>
+            <input
+              type="password"
+              value={keyInput}
+              onChange={e => setKeyInput(e.target.value)}
+              placeholder="sk-ant-..."
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-base font-mono focus:outline-none focus:border-blue-400 mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              {keyHasValue && (
+                <button onClick={() => { setStoredApiKey(''); setKeyHasValue(false); setKeyModalOpen(false) }}
+                  className="px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm hover:bg-red-50 transition-colors">
+                  清除 Key
+                </button>
+              )}
+              <button onClick={() => setKeyModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors">
+                取消
+              </button>
+              <button onClick={() => {
+                const k = keyInput.trim()
+                setStoredApiKey(k)
+                setKeyHasValue(!!k)
+                setKeyModalOpen(false)
+              }}
+                disabled={!keyInput.trim()}
+                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40">
+                儲存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AIAnalysis
         open={aiOpen}
