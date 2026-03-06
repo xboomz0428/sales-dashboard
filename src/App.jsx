@@ -478,15 +478,16 @@ export default function App() {
       {keyModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setKeyModalOpen(false)}>
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">🔑 設定 Anthropic API Key</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-1">🔑 設定 Google AI Studio API Key</h3>
             <p className="text-sm text-gray-400 mb-4">
-              用於 AI 分析、目標建議、執行摘要等功能。Key 只存在你的瀏覽器，不會上傳。
+              用於 AI 分析、目標建議、執行摘要等功能。Key 只存在你的瀏覽器，不會上傳。<br />
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">→ 前往 Google AI Studio 取得 Key</a>
             </p>
             <input
               type="password"
               value={keyInput}
               onChange={e => setKeyInput(e.target.value)}
-              placeholder="sk-ant-..."
+              placeholder="AIza..."
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-base font-mono focus:outline-none focus:border-blue-400 mb-4"
               autoFocus
             />

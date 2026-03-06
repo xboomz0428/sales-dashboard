@@ -1,38 +1,40 @@
-const LS_KEY = 'sdash_anthropic_key'
+const LS_KEY = 'sdash_google_ai_key'
 
 export function getStoredApiKey() {
-  return localStorage.getItem(LS_KEY) || ''
+  // 同時支援舊 key 名稱（向下相容）
+  return localStorage.getItem(LS_KEY) || localStorage.getItem('sdash_anthropic_key') || ''
 }
 
 export function setStoredApiKey(key) {
+  localStorage.removeItem('sdash_anthropic_key') // 清除舊 key
   if (key) localStorage.setItem(LS_KEY, key)
   else localStorage.removeItem(LS_KEY)
 }
 
+// 呼叫 Google AI Studio (Gemini) API
 export async function callClaude(prompt, maxTokens = 1000) {
   const apiKey = getStoredApiKey()
   if (!apiKey) throw new Error('NO_API_KEY')
 
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const model = 'gemini-2.0-flash'
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
+
+  const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 },
     }),
   })
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}))
-    throw new Error(err.error?.message || `HTTP ${resp.status}`)
+    const msg = err.error?.message || `HTTP ${resp.status}`
+    throw new Error(msg)
   }
   const data = await resp.json()
-  return data.content?.[0]?.text || ''
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 }
 
 export function extractJSON(text) {

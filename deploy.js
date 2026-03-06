@@ -27,28 +27,26 @@ function ask(question) {
   })
 }
 
-function callClaude(apiKey, prompt) {
+function callGemini(apiKey, prompt) {
   return new Promise((resolve, reject) => {
+    const model = 'gemini-2.0-flash'
     const body = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 150,
-      messages: [{ role: 'user', content: prompt }]
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 150, temperature: 0.7 },
     })
     const req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/${model}:generateContent?key=${apiKey}`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
         'Content-Length': Buffer.byteLength(body),
       },
     }, res => {
       let data = ''
       res.on('data', c => data += c)
       res.on('end', () => {
-        try { resolve(JSON.parse(data).content?.[0]?.text || '') }
+        try { resolve(JSON.parse(data).candidates?.[0]?.content?.parts?.[0]?.text || '') }
         catch { reject(new Error('API 回應解析失敗')) }
       })
     })
@@ -82,19 +80,18 @@ async function main() {
   console.log()
 
   // 若無 API Key，詢問使用者（可直接 Enter 跳過）
-  if (!process.env.ANTHROPIC_API_KEY) {
-    const inputKey = await ask('🔑 Anthropic API Key（Enter 跳過 AI 說明）: ')
-    if (inputKey) process.env.ANTHROPIC_API_KEY = inputKey
+  if (!process.env.GOOGLE_AI_KEY) {
+    const inputKey = await ask('🔑 Google AI Studio API Key（Enter 跳過 AI 說明）: ')
+    if (inputKey) process.env.GOOGLE_AI_KEY = inputKey
   }
 
   // 嘗試用 AI 自動生成說明
   let description = ''
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = process.env.GOOGLE_AI_KEY
 
   if (apiKey) {
     try {
       process.stdout.write('🤖 AI 分析變更中...')
-      // 取得 diff（限制長度避免 token 過多）
       let diff = ''
       try { diff = run('git diff --unified=2').slice(0, 4000) } catch {}
 
@@ -108,15 +105,15 @@ ${diff || '（無 diff 資訊）'}
 
 只輸出那一句說明，不要其他內容。`
 
-      description = await callClaude(apiKey, prompt)
+      description = await callGemini(apiKey, prompt)
       description = description.trim().replace(/["'「」]/g, '').slice(0, 60)
       console.log(` ✅\n💡 AI 說明：${description}\n`)
     } catch (e) {
       console.log(` ❌（${e.message}）\n`)
     }
   } else {
-    console.log('⚠️  未設定 ANTHROPIC_API_KEY，將手動輸入說明\n')
-    console.log('提示：在 .env 檔案加入 ANTHROPIC_API_KEY=你的key 即可啟用 AI 自動說明\n')
+    console.log('⚠️  未設定 Google AI Key，將手動輸入說明\n')
+    console.log('提示：在 .env 檔案加入 GOOGLE_AI_KEY=你的key 即可啟用 AI 自動說明\n')
   }
 
   // 如果 AI 沒生成，改為手動輸入
