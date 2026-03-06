@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import ChartCard from '../ChartCard'
+import { calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16']
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
@@ -11,21 +12,33 @@ const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9
 function fmtVal(v, metric) {
   if (v == null || v === 0) return '—'
   if (metric === 'quantity') return Math.round(v).toLocaleString()
-  if (v >= 1e8) return (v / 1e8).toFixed(1) + '億'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '億'
   if (v >= 1e4) return (v / 1e4).toFixed(0) + '萬'
   return Math.round(v).toLocaleString()
 }
 
 function GrowthBadge({ rate }) {
-  if (rate == null) return <span className="text-gray-300 text-sm">—</span>
+  if (rate == null) return <span className="text-gray-300 text-base">—</span>
   const cls = rate > 0
     ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
     : rate < 0
     ? 'text-red-700 bg-red-50 border border-red-200'
     : 'text-gray-500 bg-gray-50 border border-gray-200'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-sm font-bold ${cls}`}>
-      {rate > 0 ? '▲' : rate < 0 ? '▼' : ''} {Math.abs(rate).toFixed(1)}%
+    <span className={`inline-block px-2 py-0.5 rounded text-base font-bold ${cls}`}>
+      {rate > 0 ? '▲' : rate < 0 ? '▼' : ''} {Math.abs(rate).toFixed(0)}%
+    </span>
+  )
+}
+
+function RankBadge({ rank }) {
+  const cls = rank === 1 ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    : rank === 2 ? 'bg-gray-100 text-gray-600 border-gray-200'
+    : rank === 3 ? 'bg-orange-50 text-orange-600 border-orange-200'
+    : 'bg-gray-50 text-gray-400 border-gray-100'
+  return (
+    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-base font-bold border ${cls}`}>
+      {rank}
     </span>
   )
 }
@@ -80,13 +93,19 @@ function YoYSection({ comparisonData, metric }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
-  const yoyRows = useMemo(() => byYear.map((d, i) => {
-    const prev = byYear[i - 1]
-    const growth = prev && prev[metric] > 0 ? ((d[metric] - prev[metric]) / prev[metric] * 100) : null
-    return { ...d, growth }
-  }), [byYear, metric])
+  const yoyRows = useMemo(() => {
+    const rows = byYear.map((d, i) => {
+      const prev = byYear[i - 1]
+      const growth = prev && prev[metric] > 0 ? ((d[metric] - prev[metric]) / prev[metric] * 100) : null
+      return { ...d, growth }
+    })
+    const sorted = [...rows].sort((a, b) => b[metric] - a[metric])
+    const rankMap = {}
+    sorted.forEach((r, i) => { rankMap[r.year] = i + 1 })
+    return rows.map(r => ({ ...r, rank: rankMap[r.year] }))
+  }, [byYear, metric])
 
-  if (!yoyRows.length) return <p className="text-gray-400 text-sm py-8 text-center">暫無資料</p>
+  if (!yoyRows.length) return <p className="text-gray-400 text-base py-8 text-center">暫無資料</p>
 
   return (
     <div className="space-y-4">
@@ -95,8 +114,8 @@ function YoYSection({ comparisonData, metric }) {
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={yoyRows} barCategoryGap="35%" margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-            <XAxis dataKey="year" tick={{ fontSize: 13, fontWeight: 600 }} />
-            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 11 }} width={60} />
+            <XAxis dataKey="year" tick={{ fontSize: 14, fontWeight: 600 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(getMaxValue(yoyRows, metric), v => fmtVal(v, metric))} />
             <Tooltip content={<CustomTooltip metric={metric} />} />
             <Bar dataKey={metric} name={metricLabel} fill="#3B82F6" radius={[8, 8, 0, 0]} maxBarSize={80} />
           </BarChart>
@@ -105,9 +124,10 @@ function YoYSection({ comparisonData, metric }) {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <SectionHeader title="年度明細" />
-        <table className="w-full text-sm">
+        <table className="w-full">
           <thead>
-            <tr className="text-sm text-gray-400 border-b border-gray-100">
+            <tr className="text-base text-gray-400 border-b border-gray-100">
+              <th className="text-center py-2 pr-4 w-12">排名</th>
               <th className="text-left py-2 pr-6">年份</th>
               <th className="text-right py-2 pr-6">{metricLabel}</th>
               <th className="text-right py-2 pr-6">較上年差異</th>
@@ -124,11 +144,12 @@ function YoYSection({ comparisonData, metric }) {
               const diff = prev ? row[metric] - prev[metric] : null
               return (
                 <tr key={row.year} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
+                  <td className="py-2.5 pr-4 text-center"><RankBadge rank={row.rank} /></td>
                   <td className="py-2.5 pr-6 font-bold text-gray-800 text-base">{row.year}</td>
-                  <td className="py-2.5 pr-6 text-right font-mono font-semibold text-gray-800">
+                  <td className="py-2.5 pr-6 text-right font-mono font-semibold text-base text-gray-800">
                     {fmtVal(row[metric], metric)}
                   </td>
-                  <td className="py-2.5 pr-6 text-right font-mono text-sm">
+                  <td className="py-2.5 pr-6 text-right font-mono text-base">
                     {diff != null ? (
                       <span className={diff >= 0 ? 'text-emerald-600' : 'text-red-500'}>
                         {diff >= 0 ? '+' : ''}{fmtVal(Math.abs(diff), metric)}
@@ -164,7 +185,15 @@ function QoQSection({ comparisonData, metric }) {
     return entry
   }), [byQuarter, years, metric])
 
-  if (!byQuarter.length) return <p className="text-gray-400 text-sm py-8 text-center">暫無資料</p>
+  const yearRankMap = useMemo(() => {
+    const totals = years.map(year => ({ year, val: byYear.find(d => d.year === year)?.[metric] || 0 }))
+    const sorted = [...totals].sort((a, b) => b.val - a.val)
+    const map = {}
+    sorted.forEach((r, i) => { map[r.year] = i + 1 })
+    return map
+  }, [years, byYear, metric])
+
+  if (!byQuarter.length) return <p className="text-gray-400 text-base py-8 text-center">暫無資料</p>
 
   return (
     <div className="space-y-4">
@@ -173,10 +202,10 @@ function QoQSection({ comparisonData, metric }) {
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={chartData} barCategoryGap="25%" barGap={4} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-            <XAxis dataKey="quarter" tick={{ fontSize: 13, fontWeight: 600 }} />
-            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 11 }} width={60} />
+            <XAxis dataKey="quarter" tick={{ fontSize: 14, fontWeight: 600 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(getMaxValue(chartData, years), v => fmtVal(v, metric))} />
             <Tooltip content={<CustomTooltip metric={metric} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
             {years.map((year, i) => (
               <Bar key={year} dataKey={year} fill={COLORS[i % COLORS.length]} radius={[6, 6, 0, 0]} maxBarSize={60} />
             ))}
@@ -186,12 +215,13 @@ function QoQSection({ comparisonData, metric }) {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-x-auto">
         <SectionHeader title="季度明細" />
-        <p className="text-sm text-gray-400 mb-3 flex items-center gap-1.5">
+        <p className="text-base text-gray-400 mb-3 flex items-center gap-1.5">
           括號內數字為與上年同季對比 <CalcHint type="qoq_quarter" />
         </p>
-        <table className="w-full text-sm">
+        <table className="w-full">
           <thead>
-            <tr className="text-sm text-gray-400 border-b border-gray-100">
+            <tr className="text-base text-gray-400 border-b border-gray-100">
+              <th className="text-center py-2 pr-3 w-12">排名</th>
               <th className="text-left py-2 pr-5">年份</th>
               {['Q1','Q2','Q3','Q4'].map(q => (
                 <th key={q} className="text-right py-2 px-4">{q}</th>
@@ -209,7 +239,8 @@ function QoQSection({ comparisonData, metric }) {
               const yGrowth = prevTotal > 0 ? ((yearTotal - prevTotal) / prevTotal * 100) : null
               return (
                 <tr key={year} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
-                  <td className="py-2.5 pr-5 font-bold text-gray-800">{year}</td>
+                  <td className="py-2.5 pr-3 text-center"><RankBadge rank={yearRankMap[year]} /></td>
+                  <td className="py-2.5 pr-5 font-bold text-base text-gray-800">{year}</td>
                   {[1,2,3,4].map(q => {
                     const found = byQuarter.find(d => d.year === year && d.quarter === q)
                     const prevYFound = prevYear ? byQuarter.find(d => d.year === prevYear && d.quarter === q) : null
@@ -218,7 +249,7 @@ function QoQSection({ comparisonData, metric }) {
                       : null
                     return (
                       <td key={q} className="py-2.5 px-4 text-right">
-                        <div className="font-mono text-gray-800 text-xs font-semibold">
+                        <div className="font-mono text-base text-gray-800 font-semibold">
                           {found ? fmtVal(found[metric], metric) : '—'}
                         </div>
                         {qGrowth != null && (
@@ -228,7 +259,7 @@ function QoQSection({ comparisonData, metric }) {
                     )
                   })}
                   <td className="py-2.5 pl-4 text-right border-l border-gray-100">
-                    <div className="font-mono font-bold text-blue-700">{fmtVal(yearTotal, metric)}</div>
+                    <div className="font-mono font-bold text-base text-blue-700">{fmtVal(yearTotal, metric)}</div>
                     {yGrowth != null && (
                       <div className="mt-0.5"><GrowthBadge rate={yGrowth} /></div>
                     )}
@@ -261,7 +292,29 @@ function MoMSection({ trendData, comparisonData, metric }) {
     return Object.values(monthMap).sort((a, b) => a.mIdx - b.mIdx)
   }, [trendData, metric])
 
-  if (!trendData.length) return <p className="text-gray-400 text-sm py-8 text-center">暫無資料</p>
+  const yearRankMap = useMemo(() => {
+    const totals = years.map(year => ({
+      year,
+      val: chartData.reduce((s, md) => s + (md[year] || 0), 0)
+    }))
+    const sorted = [...totals].sort((a, b) => b.val - a.val)
+    const map = {}
+    sorted.forEach((r, i) => { map[r.year] = i + 1 })
+    return map
+  }, [years, chartData])
+
+  // For each month, rank which year had the highest value
+  const monthRankMap = useMemo(() => {
+    const map = {}
+    chartData.forEach(md => {
+      const sorted = [...years].sort((a, b) => (md[b] || 0) - (md[a] || 0))
+      map[md.month] = {}
+      sorted.forEach((year, i) => { map[md.month][year] = i + 1 })
+    })
+    return map
+  }, [chartData, years])
+
+  if (!trendData.length) return <p className="text-gray-400 text-base py-8 text-center">暫無資料</p>
 
   return (
     <div className="space-y-4">
@@ -270,10 +323,10 @@ function MoMSection({ trendData, comparisonData, metric }) {
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 11 }} width={60} />
+            <XAxis dataKey="month" tick={{ fontSize: 13 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(getMaxValue(chartData, years), v => fmtVal(v, metric))} />
             <Tooltip content={<CustomTooltip metric={metric} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
             {years.map((year, i) => (
               <Line
                 key={year} type="monotone" dataKey={year}
@@ -288,13 +341,14 @@ function MoMSection({ trendData, comparisonData, metric }) {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 overflow-x-auto">
         <SectionHeader title="月度明細" />
-        <p className="text-sm text-gray-400 mb-3 flex items-center gap-1.5">
+        <p className="text-base text-gray-400 mb-3 flex items-center gap-1.5">
           括號內數字為與上年同月對比 <CalcHint type="mom" />
         </p>
-        <table className="w-full text-sm">
+        <table className="w-full">
           <thead>
-            <tr className="text-sm text-gray-400 border-b border-gray-100">
-              <th className="text-left py-2 pr-4 sticky left-0 bg-white">年份</th>
+            <tr className="text-base text-gray-400 border-b border-gray-100">
+              <th className="text-center py-2 pr-3 w-12 sticky left-0 bg-white">排名</th>
+              <th className="text-left py-2 pr-4 sticky left-12 bg-white">年份</th>
               {MONTH_LABELS.map(m => (
                 <th key={m} className="text-right py-2 px-2 whitespace-nowrap">{m}</th>
               ))}
@@ -305,15 +359,22 @@ function MoMSection({ trendData, comparisonData, metric }) {
               const prevYear = years[yi - 1]
               return (
                 <tr key={year} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
-                  <td className="py-2.5 pr-4 font-bold text-gray-800 sticky left-0 bg-white">{year}</td>
+                  <td className="py-2.5 pr-3 text-center sticky left-0 bg-white"><RankBadge rank={yearRankMap[year]} /></td>
+                  <td className="py-2.5 pr-4 font-bold text-base text-gray-800 sticky left-12 bg-white">{year}</td>
                   {chartData.map(md => {
                     const val = md[year]
                     const prevVal = prevYear ? md[prevYear] : null
                     const growth = prevVal > 0 && val != null ? ((val - prevVal) / prevVal * 100) : null
+                    const mRank = monthRankMap[md.month]?.[year]
                     return (
                       <td key={md.month} className="py-2.5 px-2 text-right">
-                        <div className="font-mono text-xs text-gray-800 font-semibold whitespace-nowrap">
-                          {val != null ? fmtVal(val, metric) : '—'}
+                        <div className="flex items-center justify-end gap-1">
+                          {mRank === 1 && val > 0 && (
+                            <span className="text-yellow-500 text-xs">★</span>
+                          )}
+                          <span className="font-mono text-base text-gray-800 font-semibold whitespace-nowrap">
+                            {val != null ? fmtVal(val, metric) : '—'}
+                          </span>
                         </div>
                         {growth != null && (
                           <div className="mt-0.5"><GrowthBadge rate={growth} /></div>

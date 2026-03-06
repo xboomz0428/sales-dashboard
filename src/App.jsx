@@ -59,6 +59,7 @@ export default function App() {
   const [notice, setNotice] = useState(null)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [activeTab, setActiveTab] = useState('performance')
+  const [panelOpen, setPanelOpen] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfProgress, setPdfProgress] = useState('')
@@ -261,7 +262,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <FilterPanel meta={meta} filters={filters} onChange={setFilters} />
+      <FilterPanel meta={meta} filters={filters} onChange={setFilters} allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}

@@ -66,10 +66,10 @@ function RankingChart({ customerData, metric }) {
                 </span>
                 <span className="text-base font-semibold text-gray-700 truncate">{c.name}</span>
               </div>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs">
-                <span className="text-gray-400">金額</span><span className="font-mono text-gray-700 text-right">{fmtY(c.subtotal)}</span>
-                <span className="text-gray-400">數量</span><span className="font-mono text-gray-500 text-right">{c.quantity.toLocaleString()}</span>
-                <span className="text-gray-400">客單價</span><span className="font-mono text-gray-500 text-right">{fmtY(c.avgOrderValue)}</span>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-base">
+                <span className="text-gray-400">金額</span><span className="font-mono font-semibold text-gray-700 text-right">{fmtY(c.subtotal)}</span>
+                <span className="text-gray-400">數量</span><span className="font-mono font-semibold text-gray-500 text-right">{c.quantity.toLocaleString()}</span>
+                <span className="text-gray-400">客單價</span><span className="font-mono font-semibold text-gray-500 text-right">{fmtY(c.avgOrderValue)}</span>
               </div>
               {c.channelTypes.length > 0 && (
                 <div className="flex flex-wrap gap-0.5 mt-1.5">
@@ -116,7 +116,7 @@ function ChannelCustomerChart({ channelCustomerData }) {
                 </div>
                 <span className="text-base font-bold" style={{ color: COLORS[i % COLORS.length] }}>{d.customerCount} 位客戶</span>
               </div>
-              <div className="grid grid-cols-3 gap-2 text-xs text-center">
+              <div className="grid grid-cols-3 gap-2 text-base text-center">
                 <div className="bg-white rounded-md p-1.5 border border-gray-100">
                   <div className="font-bold text-gray-700">{d.brandCount}</div>
                   <div className="text-gray-400">品牌</div>

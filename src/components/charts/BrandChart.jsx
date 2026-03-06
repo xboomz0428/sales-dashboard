@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
+import { calcValueAxisWidth, getXAxisTickProps, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = [
   '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -166,11 +167,15 @@ function BrandTrendChart({ trendByBrand, metric }) {
       {!showYoY && selectedBrands.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h4 className="text-base font-bold text-gray-700 mb-4">品牌月趨勢 — {label}</h4>
+          {(() => {
+            const xtp = getXAxisTickProps(trendData.length, { maxFlat: 18, maxAngle30: 36 })
+            const yW = calcValueAxisWidth(getMaxValue(trendData, selectedBrands), fmtY)
+            return (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={trendData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <LineChart data={trendData} margin={{ top: 5, right: 20, left: 4, bottom: xtp.height - 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="yearMonth" tick={{ fontSize: 14, fill: '#9ca3af' }} tickFormatter={v => v.slice(2)} />
-              <YAxis tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} width={58} />
+              <XAxis dataKey="yearMonth" tick={{ fontSize: 13, fill: '#9ca3af', angle: xtp.angle, textAnchor: xtp.textAnchor }} tickFormatter={v => v.slice(2)} height={xtp.height} interval={xtp.interval} />
+              <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
               <Tooltip content={<LinesTooltip />} />
               <Legend wrapperStyle={{ fontSize: 14 }} />
               {selectedBrands.map(brand => (
@@ -180,6 +185,8 @@ function BrandTrendChart({ trendByBrand, metric }) {
               ))}
             </LineChart>
           </ResponsiveContainer>
+            )
+          })()}
         </div>
       )}
 
@@ -190,11 +197,14 @@ function BrandTrendChart({ trendByBrand, metric }) {
             <h4 className="text-base font-bold text-gray-700">年度對比 — {selectedBrands[0]}</h4>
             <p className="text-base text-gray-400 mt-0.5">同月份跨年比較（以首選品牌為準）</p>
           </div>
+          {(() => {
+            const yW2 = calcValueAxisWidth(getMaxValue(yoyData, years), fmtY)
+            return (
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={yoyData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <LineChart data={yoyData} margin={{ top: 5, right: 20, left: 4, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis dataKey="label" tick={{ fontSize: 14, fill: '#9ca3af' }} />
-              <YAxis tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} width={58} />
+              <XAxis dataKey="label" tick={{ fontSize: 13, fill: '#9ca3af' }} />
+              <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW2} />
               <Tooltip formatter={(v, n) => [v?.toLocaleString(), n + ' 年']} />
               <Legend wrapperStyle={{ fontSize: 14 }} formatter={v => v + ' 年'} />
               {years.map((year, i) => (
@@ -204,6 +214,8 @@ function BrandTrendChart({ trendByBrand, metric }) {
               ))}
             </LineChart>
           </ResponsiveContainer>
+            )
+          })()}
         </div>
       )}
 
@@ -236,16 +248,16 @@ function BrandTrendChart({ trendByBrand, metric }) {
             <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">🌟</span>
-                <span className="text-sm font-bold text-emerald-700">旺季 Top 3</span>
+                <span className="text-base font-bold text-emerald-700">旺季 Top 3</span>
               </div>
               <div className="space-y-2.5">
                 {seasonData.peak.map((d, i) => (
                   <div key={d.month} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                      <span className="text-sm font-semibold text-gray-700">{d.name}</span>
+                      <span className="text-base font-semibold text-gray-700">{d.name}</span>
                     </div>
-                    <span className="text-sm font-bold font-mono text-emerald-700">{fmtY(d.avg)}</span>
+                    <span className="text-base font-bold font-mono text-emerald-700">{fmtY(d.avg)}</span>
                   </div>
                 ))}
               </div>
@@ -253,16 +265,16 @@ function BrandTrendChart({ trendByBrand, metric }) {
             <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">❄️</span>
-                <span className="text-sm font-bold text-blue-700">淡季 Bottom 3</span>
+                <span className="text-base font-bold text-blue-700">淡季 Bottom 3</span>
               </div>
               <div className="space-y-2.5">
                 {seasonData.low.map((d, i) => (
                   <div key={d.month} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-blue-400 text-white text-xs font-black flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                      <span className="text-sm font-semibold text-gray-700">{d.name}</span>
+                      <span className="text-base font-semibold text-gray-700">{d.name}</span>
                     </div>
-                    <span className="text-sm font-bold font-mono text-blue-700">{fmtY(d.avg)}</span>
+                    <span className="text-base font-bold font-mono text-blue-700">{fmtY(d.avg)}</span>
                   </div>
                 ))}
               </div>

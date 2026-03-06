@@ -21,7 +21,7 @@ function PiePct({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 
 function fmtAI(v) {
   if (!v && v !== 0) return '—'
-  if (v >= 1e8) return (v / 1e8).toFixed(1) + '億'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '億'
   if (v >= 1e4) return (v / 1e4).toFixed(0) + '萬'
   return Math.round(v).toLocaleString()
 }

@@ -301,13 +301,16 @@ export function useSalesData(rows, filters) {
   const performanceData = useMemo(() => {
     const productPerf = productData.map(d => ({ ...d }))
     const channelPerf = channelData.map(d => ({ ...d }))
+    const brandPerf = brandData.map(d => ({ ...d }))
+    const customerPerf = customerData.map(d => ({ ...d }))
     return {
-      productPerf,
-      channelPerf,
-      productMedian: { subtotal: median(productPerf.map(d => d.subtotal)), quantity: median(productPerf.map(d => d.quantity)) },
-      channelMedian: { subtotal: median(channelPerf.map(d => d.subtotal)), quantity: median(channelPerf.map(d => d.quantity)) },
+      productPerf, channelPerf, brandPerf, customerPerf,
+      productMedian:  { subtotal: median(productPerf.map(d => d.subtotal)),  quantity: median(productPerf.map(d => d.quantity)) },
+      channelMedian:  { subtotal: median(channelPerf.map(d => d.subtotal)),  quantity: median(channelPerf.map(d => d.quantity)) },
+      brandMedian:    { subtotal: median(brandPerf.map(d => d.subtotal)),    quantity: median(brandPerf.map(d => d.quantity)) },
+      customerMedian: { subtotal: median(customerPerf.map(d => d.subtotal)), quantity: median(customerPerf.map(d => d.quantity)) },
     }
-  }, [productData, channelData])
+  }, [productData, channelData, brandData, customerData])
 
   // Comparison: by year and by quarter
   const comparisonData = useMemo(() => {

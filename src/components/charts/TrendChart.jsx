@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
+import { calcValueAxisWidth, getXAxisTickProps, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16','#EC4899','#6366F1']
 
@@ -102,9 +103,16 @@ export default function TrendChart({ trendData, trendDataYoY, trendDataMoM, tren
     const h = expanded ? 'calc(100vh - 420px)' : 380
     if (!data.length) return <div className="flex items-center justify-center h-72 text-gray-400 text-base">無資料</div>
     const chartData = (groupBy === 'none' && showTrend) ? dataWithTrend : data
-    const commonProps = { data: chartData, margin: { top: 10, right: 24, bottom: 8, left: 8 } }
-    const xAxis = <XAxis dataKey="yearMonth" tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-    const yAxis = <YAxis tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={68} />
+    const xTickProps = getXAxisTickProps(chartData.length, { maxFlat: 18, maxAngle30: 36 })
+    const yWidth = calcValueAxisWidth(getMaxValue(chartData, series ? series : [metric]), fmtY)
+    const commonProps = { data: chartData, margin: { top: 10, right: 24, bottom: xTickProps.height - 10, left: 4 } }
+    const xAxis = (
+      <XAxis dataKey="yearMonth"
+        tick={{ fontSize: 13, fill: '#9ca3af', angle: xTickProps.angle, textAnchor: xTickProps.textAnchor }}
+        height={xTickProps.height} interval={xTickProps.interval}
+        axisLine={false} tickLine={false} />
+    )
+    const yAxis = <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={yWidth} />
     const grid = <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
     const tooltip = <Tooltip content={<CustomTooltip />} />
     const legend = <Legend wrapperStyle={{ fontSize: 14, paddingTop: 12 }} />

@@ -102,13 +102,32 @@ function detectQuickMode(dateRange) {
   return 'custom'
 }
 
-export default function FilterPanel({ meta, filters, onChange }) {
+export default function FilterPanel({ meta, filters, onChange, allRows = [], open = true, onToggle }) {
   const { years, channels, channelTypes, brands, customers = [], products = [] } = meta
   const [showCustomDate, setShowCustomDate] = useState(false)
   const quickMode = detectQuickMode(filters.dateRange)
 
   const isExpanded = filters.brands.length > 0 || (filters.products?.length > 0)
   const activeFilterCount = filters.brands.length + (filters.products?.length || 0)
+
+  // When brands are selected, filter products and channels to only those related to the selected brands
+  const availableProducts = useMemo(() => {
+    if (!filters.brands.length || !allRows.length) return products
+    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
+    return [...new Set(brandRows.map(r => r.product).filter(Boolean))].sort()
+  }, [filters.brands, allRows, products])
+
+  const availableChannels = useMemo(() => {
+    if (!filters.brands.length || !allRows.length) return channels
+    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
+    return [...new Set(brandRows.map(r => r.channel).filter(Boolean))].sort()
+  }, [filters.brands, allRows, channels])
+
+  const availableChannelTypes = useMemo(() => {
+    if (!filters.brands.length || !allRows.length) return channelTypes
+    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
+    return [...new Set(brandRows.map(r => r.channelType).filter(Boolean))].sort()
+  }, [filters.brands, allRows, channelTypes])
 
   const set = (key, clearDateRange = false) => (val) =>
     onChange({ ...filters, [key]: val, ...(clearDateRange ? { dateRange: null } : {}) })
@@ -143,6 +162,27 @@ export default function FilterPanel({ meta, filters, onChange }) {
     { v: 'custom', l: '自訂' },
   ]
 
+  // 收折狀態：只顯示一個細長欄
+  if (!open) {
+    return (
+      <div className="flex-shrink-0 bg-white border-r border-gray-100 flex flex-col items-center shadow-sm transition-all duration-300 w-10">
+        <button
+          onClick={onToggle}
+          title="展開篩選"
+          className="w-full flex flex-col items-center py-4 gap-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+        >
+          <span className="text-lg">▶</span>
+          {activeFilterCount > 0 && (
+            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+          <span className="text-xs font-bold text-gray-300 [writing-mode:vertical-rl] rotate-180 mt-1">篩選條件</span>
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div
       className="flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-hidden shadow-sm transition-all duration-300"
@@ -152,11 +192,18 @@ export default function FilterPanel({ meta, filters, onChange }) {
       <div className="px-4 py-3.5 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white">篩選條件</h2>
-          {isExpanded && (
-            <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">
-              已篩選 {activeFilterCount} 項
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {isExpanded && (
+              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">
+                已篩選 {activeFilterCount} 項
+              </span>
+            )}
+            <button
+              onClick={onToggle}
+              title="收折篩選面板"
+              className="w-6 h-6 rounded-md bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors text-sm font-bold"
+            >◀</button>
+          </div>
         </div>
         <p className="text-base text-blue-100 mt-0.5">
           {isExpanded ? '品牌/產品篩選中，面板已放大' : '點選條件以篩選資料'}
@@ -215,15 +262,18 @@ export default function FilterPanel({ meta, filters, onChange }) {
 
         <MultiSelect label="年份" options={years} selected={filters.years} onChange={set('years', true)} />
         <MultiSelect label="月份" options={MONTHS.map((m, i) => ({ value: m, label: MONTH_LABELS[i] }))} selected={filters.months} onChange={set('months', true)} />
-        <MultiSelect label="網路/實體" options={channels} selected={filters.channels} onChange={set('channels')} />
-        {channelTypes.length > 0 && <MultiSelect label="通路類型" options={channelTypes} selected={filters.channelTypes} onChange={set('channelTypes')} />}
+        <MultiSelect label="網路/實體" options={availableChannels} selected={filters.channels} onChange={set('channels')} />
+        {availableChannelTypes.length > 0 && <MultiSelect label="通路類型" options={availableChannelTypes} selected={filters.channelTypes} onChange={set('channelTypes')} />}
         <MultiSelect label="品牌" options={brands} selected={filters.brands} onChange={set('brands')} expanded={isExpanded} />
 
         {customers.length > 0 && (
           <SearchableCheckList label="客戶" options={customers} selected={filters.customers || []} onChange={set('customers')} placeholder="搜尋客戶名稱..." expanded={isExpanded} />
         )}
-        {products.length > 0 && (
-          <SearchableCheckList label="產品" options={products} selected={filters.products || []} onChange={set('products')} placeholder="搜尋產品名稱..." expanded={isExpanded} />
+        {availableProducts.length > 0 && (
+          <SearchableCheckList
+            label={filters.brands.length > 0 ? `產品（${filters.brands.join('、')} 相關）` : '產品'}
+            options={availableProducts} selected={filters.products || []} onChange={set('products')} placeholder="搜尋產品名稱..." expanded={isExpanded}
+          />
         )}
 
         <button

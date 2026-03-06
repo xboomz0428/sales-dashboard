@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
+import { calcNameAxisWidth, calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16','#EC4899','#6366F1','#14B8A6','#F43F5E']
 
@@ -76,23 +77,23 @@ function RankingChart({ data, metric }) {
   const top20 = data.slice(0, 20)
   const top8 = data.slice(0, 8)
   const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
-  // Compute max name length for dynamic Y-axis width
-  const maxNameLen = Math.max(0, ...top20.map(d => d.name?.length || 0))
-  const yAxisWidth = Math.min(220, Math.max(120, maxNameLen * 8))
+  const nameW = calcNameAxisWidth(top20)
+  const maxV = getMaxValue(top20, metric)
+  const labelW = calcValueAxisWidth(maxV, fmtY)
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h4 className="text-base font-bold text-gray-700 mb-4">產品排行（前20名）</h4>
         <ResponsiveContainer width="100%" height={520}>
-          <BarChart data={top20} layout="vertical" margin={{ top: 4, right: 80, left: 8, bottom: 4 }}>
+          <BarChart data={top20} layout="vertical" margin={{ top: 4, right: labelW, left: 4, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-            <XAxis type="number" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 14, fill: '#374151' }} width={yAxisWidth} />
+            <XAxis type="number" tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} axisLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fontSize: 13, fill: '#374151' }} width={nameW} />
             <Tooltip content={<CustomTooltip />} />
             <Bar dataKey={metric} name={label} radius={[0, 6, 6, 0]} maxBarSize={22}>
               {top20.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              <LabelList dataKey={metric} position="right" formatter={fmtY} style={{ fontSize: 14, fill: '#9ca3af' }} />
+              <LabelList dataKey={metric} position="right" formatter={fmtY} style={{ fontSize: 13, fill: '#9ca3af' }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -111,25 +112,25 @@ function RankingChart({ data, metric }) {
         </ResponsiveContainer>
         {/* Summary table */}
         <div className="mt-4 border-t pt-4">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead><tr className="text-gray-400">
-              <th className="text-left py-1.5 pr-2">產品</th>
-              <th className="text-right py-1.5 pr-2">金額</th>
-              <th className="text-right py-1.5 pr-2">數量</th>
-              <th className="text-right py-1.5">客戶</th>
+              <th className="text-left py-2 pr-2">產品</th>
+              <th className="text-right py-2 pr-2">金額</th>
+              <th className="text-right py-2 pr-2">數量</th>
+              <th className="text-right py-2">客戶</th>
             </tr></thead>
             <tbody>
               {top8.map((d, i) => (
                 <tr key={d.name} className="border-t border-gray-50">
-                  <td className="py-1.5 pr-2">
+                  <td className="py-2 pr-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-                      <span className="text-sm text-gray-700 truncate max-w-[120px]">{d.name}</span>
+                      <span className="text-base text-gray-700 truncate max-w-[120px]">{d.name}</span>
                     </div>
                   </td>
-                  <td className="text-right py-1.5 pr-2 font-mono text-sm text-gray-700">{fmtY(d.subtotal)}</td>
-                  <td className="text-right py-1.5 pr-2 font-mono text-sm text-gray-500">{d.quantity.toLocaleString()}</td>
-                  <td className="text-right py-1.5 text-sm text-gray-500">{d.customerCount}</td>
+                  <td className="text-right py-2 pr-2 font-mono text-base text-gray-700">{fmtY(d.subtotal)}</td>
+                  <td className="text-right py-2 pr-2 font-mono text-base text-gray-500">{d.quantity.toLocaleString()}</td>
+                  <td className="text-right py-2 text-base text-gray-500">{d.customerCount}</td>
                 </tr>
               ))}
             </tbody>

@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
+import { calcNameAxisWidth, calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16','#EC4899','#6366F1']
 
@@ -88,10 +89,17 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
                   </h4>
                   <div style={{ height: chartH, minHeight: 250 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 80, left: 10, bottom: 5 }}>
+                      {(() => {
+                        const nameW = calcNameAxisWidth(data)
+                        const maxV = getMaxValue(data, dataKey)
+                        const labelW = view === 'customerCount'
+                          ? String(maxV).length * 9 + 24
+                          : fmtY(maxV).length * 9 + 24
+                        return (
+                      <BarChart data={data} layout="vertical" margin={{ top: 5, right: labelW, left: 4, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                        <XAxis type="number" tickFormatter={view === 'customerCount' ? undefined : fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 14, fill: '#6b7280' }} width={90} />
+                        <XAxis type="number" tickFormatter={view === 'customerCount' ? undefined : fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} axisLine={false} />
+                        <YAxis type="category" dataKey="name" tick={{ fontSize: 13, fill: '#6b7280' }} width={nameW} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: 14 }} />
                         <Bar dataKey={dataKey} name={barLabel} radius={[0, 6, 6, 0]} maxBarSize={32}>
@@ -101,6 +109,8 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
                             style={{ fontSize: 14, fill: '#9ca3af' }} />
                         </Bar>
                       </BarChart>
+                        )
+                      })()}
                     </ResponsiveContainer>
                   </div>
                 </div>

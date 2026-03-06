@@ -16,6 +16,10 @@
   p, span, div, label, td, th, button, input, select, textarea {
     font-size: max(1rem, inherit);
   }
+  /* Recharts SVG 字體 — 確保中文正常顯示 */
+  svg text {
+    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', -apple-system, sans-serif !important;
+  }
   /* Better table readability */
   table { border-collapse: collapse; }
   th { font-weight: 700; font-size: 0.9rem; }

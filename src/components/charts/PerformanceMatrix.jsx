@@ -44,8 +44,16 @@ function ScatterTooltip({ active, payload }) {
   )
 }
 
+const DIM_CONFIG = {
+  product:  { nameLabel: '產品名稱',  extraCols: [{ label: '平均客單', key: 'avgOrderValue', mono: true }, { label: '客戶數', key: 'customerCount' }] },
+  channel:  { nameLabel: '通路名稱',  extraCols: [] },
+  brand:    { nameLabel: '品牌名稱',  extraCols: [] },
+  customer: { nameLabel: '客戶名稱',  extraCols: [{ label: '平均客單', key: 'avgOrderValue', mono: true }] },
+}
+
 // Quadrant detail table
 function QuadrantTable({ items, q, dimension }) {
+  const { nameLabel, extraCols } = DIM_CONFIG[dimension] || DIM_CONFIG.product
   if (!items.length) return (
     <div className={`rounded-2xl border p-4 ${q.bg} ${q.border}`}>
       <div className="flex items-center gap-2 mb-3">
@@ -62,28 +70,32 @@ function QuadrantTable({ items, q, dimension }) {
         <span className="text-sm font-bold text-white bg-white/20 px-2.5 py-0.5 rounded-full">{items.length} 項</span>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-base">
           <thead>
             <tr className="border-b border-white/60">
               <th className={`text-center px-3 py-3 font-semibold ${q.text} w-10`}>#</th>
-              <th className={`text-left px-3 py-3 font-semibold ${q.text}`}>{dimension === 'product' ? '產品名稱' : '通路名稱'}</th>
+              <th className={`text-left px-3 py-3 font-semibold ${q.text}`}>{nameLabel}</th>
               <th className={`text-right px-3 py-3 font-semibold ${q.text}`}>銷售金額</th>
               <th className={`text-right px-3 py-3 font-semibold ${q.text}`}>銷售數量</th>
               <th className={`text-right px-3 py-3 font-semibold ${q.text}`}>訂單數</th>
-              {dimension === 'product' && <th className={`text-right px-3 py-3 font-semibold ${q.text}`}>平均客單</th>}
-              {dimension === 'product' && <th className={`text-right px-3 py-3 font-semibold ${q.text}`}>客戶數</th>}
+              {extraCols.map(col => (
+                <th key={col.key} className={`text-right px-3 py-3 font-semibold ${q.text}`}>{col.label}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {items.sort((a, b) => b.subtotal - a.subtotal).map((d, i) => (
               <tr key={d.name} className={`border-t border-white/40 ${i % 2 === 0 ? '' : 'bg-white/30'}`}>
-                <td className={`text-center px-3 py-3 text-sm font-medium ${q.text}`}>{i + 1}</td>
-                <td className="px-3 py-3 text-sm font-medium text-gray-800">{d.name}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm text-gray-700">{d.subtotal.toLocaleString()}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm text-gray-600">{d.quantity.toLocaleString()}</td>
-                <td className="px-3 py-3 text-right text-sm text-gray-500">{d.count?.toLocaleString() || '—'}</td>
-                {dimension === 'product' && <td className="px-3 py-3 text-right font-mono text-sm text-gray-500">{d.avgOrderValue ? d.avgOrderValue.toLocaleString() : '—'}</td>}
-                {dimension === 'product' && <td className="px-3 py-3 text-right text-sm text-gray-500">{d.customerCount || '—'}</td>}
+                <td className={`text-center px-3 py-3 text-base font-medium ${q.text}`}>{i + 1}</td>
+                <td className="px-3 py-3 text-base font-medium text-gray-800">{d.name}</td>
+                <td className="px-3 py-3 text-right font-mono text-base text-gray-700">{d.subtotal.toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-base text-gray-600">{d.quantity.toLocaleString()}</td>
+                <td className="px-3 py-3 text-right text-base text-gray-500">{d.count?.toLocaleString() || '—'}</td>
+                {extraCols.map(col => (
+                  <td key={col.key} className={`px-3 py-3 text-right text-base text-gray-500 ${col.mono ? 'font-mono' : ''}`}>
+                    {d[col.key] != null ? d[col.key].toLocaleString() : '—'}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -93,13 +105,25 @@ function QuadrantTable({ items, q, dimension }) {
   )
 }
 
+const DIMENSIONS = [
+  { v: 'product',  l: '產品維度',  icon: '🏷️' },
+  { v: 'channel',  l: '通路維度',  icon: '🏪' },
+  { v: 'brand',    l: '品牌維度',  icon: '✨' },
+  { v: 'customer', l: '客戶維度',  icon: '👥' },
+]
+
 export default function PerformanceMatrix({ performanceData, metric }) {
   const [dimension, setDimension] = useState('product')
-  const { productPerf, channelPerf, productMedian, channelMedian } = performanceData
+  const { productPerf, channelPerf, brandPerf, customerPerf,
+          productMedian, channelMedian, brandMedian, customerMedian } = performanceData
 
-  const data = dimension === 'product' ? productPerf : channelPerf
-  const med = dimension === 'product' ? productMedian : channelMedian
-  const label = dimension === 'product' ? '產品' : '通路'
+  const dimMap = {
+    product:  { data: productPerf,  med: productMedian,  label: '產品' },
+    channel:  { data: channelPerf,  med: channelMedian,  label: '通路' },
+    brand:    { data: brandPerf,    med: brandMedian,    label: '品牌' },
+    customer: { data: customerPerf, med: customerMedian, label: '客戶' },
+  }
+  const { data, med, label } = dimMap[dimension]
 
   const classified = data.map(d => ({ ...d, quadrant: classify(d, med.subtotal, med.quantity) }))
   const byQuadrant = {}
@@ -111,11 +135,11 @@ export default function PerformanceMatrix({ performanceData, metric }) {
     <ChartCard title="績效矩陣 — 老闆視角" subtitle="銷售金額 × 銷售數量 · 四象限分析">
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-          {[{ v: 'product', l: '產品維度' }, { v: 'channel', l: '通路維度' }].map(t => (
+        <div className="flex flex-wrap gap-1 bg-gray-100 p-1 rounded-xl">
+          {DIMENSIONS.map(t => (
             <button key={t.v} onClick={() => setDimension(t.v)}
-              className={`px-4 py-2 rounded-lg text-base font-medium transition-all ${dimension === t.v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              {t.l}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-base font-medium transition-all ${dimension === t.v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <span>{t.icon}</span>{t.l}
             </button>
           ))}
         </div>
@@ -235,23 +259,37 @@ export default function PerformanceMatrix({ performanceData, metric }) {
         </div>
       </div>
 
-      {/* Channel dimension: full sortable data table */}
-      {dimension === 'channel' && data.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <ChartDataTable
-            title="通路完整銷售數據"
-            defaultOpen={true}
-            data={[...data].sort((a, b) => b.subtotal - a.subtotal).map((d, i) => ({ ...d, rank: i + 1 }))}
-            columns={[
-              { key: 'rank', label: '#', align: 'right', sortable: true },
-              { key: 'name', label: '通路名稱', sortable: true },
-              { key: 'subtotal', label: '銷售金額', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
-              { key: 'quantity', label: '銷售數量', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
-              { key: 'count', label: '訂單數', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
-            ]}
-          />
-        </div>
-      )}
+      {/* Full sortable data table */}
+      {data.length > 0 && (() => {
+        const baseColumns = [
+          { key: 'rank',     label: '#',     align: 'right', sortable: true },
+          { key: 'name',     label: `${label}名稱`, sortable: true },
+          { key: 'subtotal', label: '銷售金額', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
+          { key: 'quantity', label: '銷售數量', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
+          { key: 'count',    label: '訂單數',   align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
+        ]
+        const extraColumns = {
+          product:  [
+            { key: 'avgOrderValue', label: '平均客單', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
+            { key: 'customerCount', label: '客戶數',   align: 'right', sortable: true },
+          ],
+          channel:  [],
+          brand:    [],
+          customer: [
+            { key: 'avgOrderValue', label: '平均客單', align: 'right', sortable: true, fmt: v => v != null ? Math.round(v).toLocaleString() : '—' },
+          ],
+        }
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <ChartDataTable
+              title={`${label}完整銷售數據`}
+              defaultOpen={true}
+              data={[...data].sort((a, b) => b.subtotal - a.subtotal).map((d, i) => ({ ...d, rank: i + 1 }))}
+              columns={[...baseColumns, ...(extraColumns[dimension] || [])]}
+            />
+          </div>
+        )
+      })()}
     </div>
     </ChartCard>
   )
