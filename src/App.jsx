@@ -1,9 +1,8 @@
-import { useState, useCallback, useRef, useEffect, useId } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { getStoredApiKey, setStoredApiKey } from './utils/ai'
 import { processExcelFile } from './utils/dataProcessor'
 import { useSalesData } from './hooks/useSalesData'
 import { getDateRange, hasDateOverlap } from './utils/dateUtils'
-import { exportDashboardPDF } from './utils/pdfExport'
 import FileUpload from './components/FileUpload'
 import FilterPanel from './components/FilterPanel'
 import SummaryCards from './components/SummaryCards'
@@ -182,46 +181,16 @@ export default function App() {
     comparisonData,
   } = salesData
 
-  // Capture all dashboard tabs and return canvases array
-  const captureAllTabs = useCallback(async (onProgress) => {
-    if (!chartAreaRef.current) return []
-    const originalTab = activeTab
-    const { captureElement } = await import('./utils/pdfExport')
-    const captureTabIds = TABS.filter(t => t.id !== 'table').map(t => t.id)
-    const canvases = []
-    for (const tabId of captureTabIds) {
-      const tabMeta = TABS.find(t => t.id === tabId)
-      onProgress?.(`截圖 ${tabMeta?.label}...`)
-      setActiveTab(tabId)
-      await new Promise(r => setTimeout(r, 900))
-      try {
-        const el = chartAreaRef.current
-        // Expand to full scrollable height to capture tables + charts
-        const origOverflow = el.style.overflow
-        const origHeight = el.style.height
-        el.style.overflow = 'visible'
-        el.style.height = el.scrollHeight + 'px'
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-        const canvas = await captureElement(el)
-        el.style.overflow = origOverflow
-        el.style.height = origHeight
-        canvases.push({ canvas, title: tabMeta?.label || tabId })
-      } catch (e) {
-        console.warn('Failed to capture tab:', tabId, e)
-      }
-    }
-    setActiveTab(originalTab)
-    return canvases
-  }, [activeTab])
+  const pdfSalesData = useMemo(() => ({
+    summary, trendData, comparisonData,
+    productData, customerData, brandData, channelData, channelTypeData,
+  }), [summary, trendData, comparisonData, productData, customerData, brandData, channelData, channelTypeData])
 
   const handleExportPDF = useCallback(async () => {
-    if (!chartAreaRef.current) return
     setPdfLoading(true)
     try {
       const { exportDashboardPDF } = await import('./utils/pdfExport')
-      const canvases = await captureAllTabs(setPdfProgress)
-      setPdfProgress('建立 PDF 檔案...')
-      const filename = await exportDashboardPDF({ canvases, summaryData: { summary, trendData }, onProgress: setPdfProgress })
+      const filename = await exportDashboardPDF({ salesData: pdfSalesData, onProgress: setPdfProgress })
       setNotice(`✓ PDF 匯出完成：${filename}`)
       setTimeout(() => setNotice(null), 5000)
     } catch (e) {
@@ -230,21 +199,17 @@ export default function App() {
       setPdfLoading(false)
       setPdfProgress('')
     }
-  }, [captureAllTabs, summary, trendData])
+  }, [pdfSalesData])
 
-  // Full report PDF: summary cover + AI content + all dashboard screenshots
+  // Full report PDF: AI content + all dashboard data
   const handleAIExportFullPDF = useCallback(async (aiContent, analysisType) => {
     setAiOpen(false)
-    await new Promise(r => setTimeout(r, 400))
     setPdfLoading(true)
     try {
       const { exportFullReportPDF } = await import('./utils/pdfExport')
-      const canvases = await captureAllTabs(setPdfProgress)
       setPdfProgress('建立完整報告 PDF...')
       const filename = await exportFullReportPDF({
-        canvases, aiContent, analysisType,
-        summaryData: { summary, trendData },
-        onProgress: setPdfProgress,
+        salesData: pdfSalesData, aiContent, analysisType, onProgress: setPdfProgress,
       })
       setNotice(`✓ 完整報告 PDF 匯出完成：${filename}`)
       setTimeout(() => setNotice(null), 5000)
@@ -255,7 +220,7 @@ export default function App() {
       setPdfProgress('')
       setAiOpen(true)
     }
-  }, [captureAllTabs, summary, trendData])
+  }, [pdfSalesData])
 
   if (!meta && !loading) {
     return (
@@ -472,7 +437,14 @@ export default function App() {
           )}
           {activeTab === 'goals' && (
             <div data-pdf-section data-pdf-title="目標管理">
-              <GoalDashboard trendData={trendData} summary={summary} metric={filters.metric} />
+              <GoalDashboard
+                trendData={trendData}
+                comparisonData={comparisonData}
+                summary={summary}
+                brandData={brandData}
+                channelData={channelData}
+                metric={filters.metric}
+              />
             </div>
           )}
           {activeTab === 'alerts' && (
