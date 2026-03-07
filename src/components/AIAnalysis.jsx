@@ -549,6 +549,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
   const [history, setHistory] = useState(getHistory)
   const [saveStatus, setSaveStatus] = useState('') // '' | 'saving' | 'saved:path' | 'error'
   const [exportingPDF, setExportingPDF] = useState(false)
+  const [continueRound, setContinueRound] = useState(0)  // 目前自動繼續第幾輪
   const outputRef = useRef(null)
   const abortRef = useRef(false)
 
@@ -568,46 +569,70 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
     setError('')
     setOutput('')
     setSaveStatus('')
+    setContinueRound(0)
     setStreaming(true)
     setCurrentType(analysisType)
     setActiveTab('analysis')
     abortRef.current = false
 
     let fullOutput = ''
-    try {
-      const dataJson = buildAIPayload(salesData)
-      const prompt = buildPrompt(dataJson, analysisType)
-      await streamAnalysis({
+    const MAX_CONTINUES = 4
+
+    // 單輪串流，回傳 finishReason
+    const runOnce = (messages) => new Promise((resolve) => {
+      streamAnalysis({
         apiKey: apiKey.trim(),
-        prompt,
+        messages,
         onChunk: (text) => {
           if (abortRef.current) return
           fullOutput += text
           setOutput(prev => prev + text)
         },
-        onDone: async () => {
-          setStreaming(false)
-          const filename = makeFilename(analysisType)
-          setSaveStatus('saving')
-          const savedPath = await saveToServer(filename, fullOutput)
-          setSaveStatus(savedPath ? `saved:${savedPath}` : 'error')
-
-          const entry = {
-            id: Date.now(),
-            type: analysisType,
-            date: new Date().toLocaleDateString('zh-TW'),
-            filename,
-            savedPath,
-            preview: fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…',
-            content: fullOutput,
-          }
-          addToHistory(entry)
-          setHistory(getHistory())
-        },
-        onError: (msg) => { setError(msg); setStreaming(false) },
+        onDone: (reason) => resolve(reason),
+        onError: (msg) => { setError(msg); resolve('ERROR') },
       })
+    })
+
+    try {
+      const dataJson = buildAIPayload(salesData)
+      const originalPrompt = buildPrompt(dataJson, analysisType)
+
+      // 第一輪
+      let finishReason = await runOnce([{ role: 'user', parts: [{ text: originalPrompt }] }])
+
+      // 若被截斷（MAX_TOKENS），自動繼續
+      let round = 0
+      while (finishReason === 'MAX_TOKENS' && round < MAX_CONTINUES && !abortRef.current) {
+        round++
+        setContinueRound(round)
+        const snapshot = fullOutput  // 讓 model 知道已生成的內容
+        finishReason = await runOnce([
+          { role: 'user', parts: [{ text: originalPrompt }] },
+          { role: 'model', parts: [{ text: snapshot }] },
+          { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
+        ])
+      }
+
+      setStreaming(false)
+      setContinueRound(0)
+
+      const filename = makeFilename(analysisType)
+      setSaveStatus('saving')
+      const savedPath = await saveToServer(filename, fullOutput)
+      setSaveStatus(savedPath ? `saved:${savedPath}` : 'error')
+
+      addToHistory({
+        id: Date.now(),
+        type: analysisType,
+        date: new Date().toLocaleDateString('zh-TW'),
+        filename,
+        savedPath,
+        preview: fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…',
+        content: fullOutput,
+      })
+      setHistory(getHistory())
     } catch (e) {
-      setError(e.message); setStreaming(false)
+      setError(e.message); setStreaming(false); setContinueRound(0)
     }
   }
 
@@ -819,7 +844,11 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
                   {streaming && (
                     <div className="flex items-center gap-2 mt-2 text-blue-500 text-sm pb-4">
                       <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      <span>生成中...</span>
+                      <span>
+                        {continueRound > 0
+                          ? `自動繼續生成第 ${continueRound} 段...`
+                          : '生成中...'}
+                      </span>
                     </div>
                   )}
                 </>

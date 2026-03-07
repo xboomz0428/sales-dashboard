@@ -74,9 +74,9 @@ function secHeader(title, sub, color) {
   return `<div style="background:linear-gradient(135deg,${color},${color}bb);color:white;padding:16px 22px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between">
     <div>
       <div style="font-size:15px;font-weight:900">${esc(title)}</div>
-      ${sub ? `<div style="font-size:10px;opacity:.7;margin-top:2px">${esc(sub)}</div>` : ''}
+      ${sub ? `<div style="font-size:13px;opacity:.7;margin-top:2px">${esc(sub)}</div>` : ''}
     </div>
-    <div style="font-size:10px;opacity:.55">${new Date().toLocaleDateString('zh-TW')}</div>
+    <div style="font-size:13px;opacity:.55">${new Date().toLocaleDateString('zh-TW')}</div>
   </div>`
 }
 
@@ -96,11 +96,11 @@ function miniRank(items, color, maxRows = 5) {
     const rankFg = i < 3 ? '#fff' : '#6b7280'
     return `<tr style="border-bottom:1px solid #f3f4f6">
       <td style="padding:6px 10px;text-align:center;width:28px">
-        <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:10px;font-weight:800;line-height:20px;text-align:center">${i + 1}</span>
+        <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:20px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:6px 8px;font-size:11px;font-weight:600;color:#1f2937;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
-      <td style="padding:6px 8px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
-      <td style="padding:6px 8px;text-align:right;font-size:10px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
+      <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
       <td style="padding:6px 8px;min-width:70px">${hBar(barW, color, 6)}</td>
     </tr>`
   }).join('')
@@ -140,15 +140,15 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
   return `
   <!-- 封面 header -->
   <div style="background:linear-gradient(150deg,#0f172a 0%,#1e3a8a 45%,#2563eb 100%);padding:34px 30px;border-radius:14px;margin-bottom:16px;color:white">
-    <div style="font-size:10px;opacity:.5;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">銷售數據分析系統 — 完整報告</div>
+    <div style="font-size:13px;opacity:.5;font-weight:700;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">銷售數據分析系統 — 完整報告</div>
     <div style="font-size:28px;font-weight:900;margin-bottom:4px">Sales Performance Report</div>
-    <div style="font-size:12px;opacity:.6;margin-bottom:20px">產生日期：${dateStr}</div>
+    <div style="font-size:13px;opacity:.6;margin-bottom:20px">產生日期：${dateStr}</div>
     <div style="display:inline-flex;gap:20px;background:rgba(255,255,255,.12);border-radius:10px;padding:10px 16px">
-      <div><div style="font-size:9px;opacity:.6;margin-bottom:2px">分析週期</div><div style="font-size:13px;font-weight:700">${months[0] || '—'} ～ ${months[months.length - 1] || '—'}</div></div>
+      <div><div style="font-size:13px;opacity:.6;margin-bottom:2px">分析週期</div><div style="font-size:13px;font-weight:700">${months[0] || '—'} ～ ${months[months.length - 1] || '—'}</div></div>
       ${peak ? `<div style="width:1px;background:rgba(255,255,255,.2)"></div>
-      <div><div style="font-size:9px;opacity:.6;margin-bottom:2px">最高月份</div><div style="font-size:13px;font-weight:700">${peak.yearMonth}（${fmtN(peak.subtotal)}）</div></div>` : ''}
+      <div><div style="font-size:13px;opacity:.6;margin-bottom:2px">最高月份</div><div style="font-size:13px;font-weight:700">${peak.yearMonth}（${fmtN(peak.subtotal)}）</div></div>` : ''}
       ${low ? `<div style="width:1px;background:rgba(255,255,255,.2)"></div>
-      <div><div style="font-size:9px;opacity:.6;margin-bottom:2px">最低月份</div><div style="font-size:13px;font-weight:700">${low.yearMonth}（${fmtN(low.subtotal)}）</div></div>` : ''}
+      <div><div style="font-size:13px;opacity:.6;margin-bottom:2px">最低月份</div><div style="font-size:13px;font-weight:700">${low.yearMonth}（${fmtN(low.subtotal)}）</div></div>` : ''}
     </div>
   </div>
 
@@ -158,7 +158,7 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
     <div style="border-radius:10px;border:1.5px solid ${k.color}25;overflow:hidden">
       <div style="height:3px;background:${k.color}"></div>
       <div style="padding:10px 12px">
-        <div style="font-size:9px;color:#6b7280;margin-bottom:3px;font-weight:600">${k.label}</div>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:3px;font-weight:600">${k.label}</div>
         <div style="font-size:16px;font-weight:900;color:#111827;line-height:1.1">${k.value}</div>
       </div>
     </div>`).join('')}
@@ -168,26 +168,26 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
     <!-- Top 5 產品 -->
     <div style="border-radius:10px;border:1.5px solid #e11d4820;overflow:hidden">
-      <div style="background:#fef2f2;padding:8px 10px;font-size:11px;font-weight:700;color:#991b1b;border-bottom:1px solid #fecaca">🏷️ 產品 TOP 5</div>
+      <div style="background:#fef2f2;padding:8px 10px;font-size:13px;font-weight:700;color:#991b1b;border-bottom:1px solid #fecaca">🏷️ 產品 TOP 5</div>
       <table style="width:100%;border-collapse:collapse">
         <tbody>${miniRank(productData, '#e11d48', 5)}</tbody>
       </table>
     </div>
     <!-- Top 5 客戶 -->
     <div style="border-radius:10px;border:1.5px solid #0891b220;overflow:hidden">
-      <div style="background:#ecfeff;padding:8px 10px;font-size:11px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc">👥 客戶 TOP 5</div>
+      <div style="background:#ecfeff;padding:8px 10px;font-size:13px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc">👥 客戶 TOP 5</div>
       <table style="width:100%;border-collapse:collapse">
         <tbody>${miniRank(customerData, '#0891b2', 5)}</tbody>
       </table>
     </div>
     <!-- 通路類型分布 -->
     <div style="border-radius:10px;border:1.5px solid #d9780620;overflow:hidden">
-      <div style="background:#fffbeb;padding:8px 10px;font-size:11px;font-weight:700;color:#92400e;border-bottom:1px solid #fde68a">🏪 通路類型分布</div>
+      <div style="background:#fffbeb;padding:8px 10px;font-size:13px;font-weight:700;color:#92400e;border-bottom:1px solid #fde68a">🏪 通路類型分布</div>
       <div style="padding:8px 10px">
         ${channelTypeData.slice(0, 6).map(d => {
           const pct = ctTotal > 0 ? d.subtotal / ctTotal * 100 : 0
           return `<div style="margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
               <span style="font-weight:600;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${esc(d.name)}</span>
               <span style="color:#6b7280;font-family:monospace">${fmtN(d.subtotal)} (${pct.toFixed(0)}%)</span>
             </div>
@@ -202,14 +202,14 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <!-- Top 5 品牌 -->
     <div style="border-radius:10px;border:1.5px solid #7c3aed20;overflow:hidden">
-      <div style="background:#faf5ff;padding:8px 10px;font-size:11px;font-weight:700;color:#6b21a8;border-bottom:1px solid #e9d5ff">✨ 品牌 TOP 5</div>
+      <div style="background:#faf5ff;padding:8px 10px;font-size:13px;font-weight:700;color:#6b21a8;border-bottom:1px solid #e9d5ff">✨ 品牌 TOP 5</div>
       <table style="width:100%;border-collapse:collapse">
         <tbody>${miniRank(brandData, '#7c3aed', 5)}</tbody>
       </table>
     </div>
     <!-- 歷年摘要 -->
     <div style="border-radius:10px;border:1.5px solid #05966920;overflow:hidden">
-      <div style="background:#f0fdf4;padding:8px 10px;font-size:11px;font-weight:700;color:#166534;border-bottom:1px solid #bbf7d0">📅 歷年銷售摘要</div>
+      <div style="background:#f0fdf4;padding:8px 10px;font-size:13px;font-weight:700;color:#166534;border-bottom:1px solid #bbf7d0">📅 歷年銷售摘要</div>
       <table style="width:100%;border-collapse:collapse">
         ${byYear.slice(-5).map((r, i, arr) => {
           const prev = arr[i - 1]
@@ -217,9 +217,9 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
           const isPos = chg.startsWith('+')
           const maxV = Math.max(...arr.map(x => x.subtotal))
           return `<tr style="border-bottom:1px solid #f3f4f6">
-            <td style="padding:6px 10px;font-size:11px;font-weight:700;color:#1f2937">${r.year}</td>
-            <td style="padding:6px 8px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827">${fmtN(r.subtotal)}</td>
-            <td style="padding:6px 8px;text-align:right;font-size:10px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'};white-space:nowrap">${chg || '基準'}</td>
+            <td style="padding:6px 10px;font-size:13px;font-weight:700;color:#1f2937">${r.year}</td>
+            <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">${fmtN(r.subtotal)}</td>
+            <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'};white-space:nowrap">${chg || '基準'}</td>
             <td style="padding:6px 8px;min-width:60px">${hBar(r.subtotal / maxV * 100, '#059669', 6)}</td>
           </tr>`
         }).join('')}
@@ -243,10 +243,10 @@ function renderTrendHTML({ trendData = [] }) {
     const isPos = chg.startsWith('+')
     const barW = maxVal > 0 ? d.subtotal / maxVal * 100 : 0
     return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
-      <td style="padding:7px 14px;font-size:12px;font-weight:600;color:#374151">${d.yearMonth}</td>
-      <td style="padding:7px 14px;text-align:right;font-size:12px;font-weight:700;color:#111827;font-family:monospace">NT$ ${fmtN(d.subtotal)}</td>
-      <td style="padding:7px 14px;text-align:right;font-size:12px;color:#6b7280;font-family:monospace">${Math.round(d.quantity).toLocaleString()}</td>
-      <td style="padding:7px 14px;text-align:right;font-size:12px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'}">${chg || '—'}</td>
+      <td style="padding:7px 14px;font-size:13px;font-weight:600;color:#374151">${d.yearMonth}</td>
+      <td style="padding:7px 14px;text-align:right;font-size:13px;font-weight:700;color:#111827;font-family:monospace">NT$ ${fmtN(d.subtotal)}</td>
+      <td style="padding:7px 14px;text-align:right;font-size:13px;color:#6b7280;font-family:monospace">${Math.round(d.quantity).toLocaleString()}</td>
+      <td style="padding:7px 14px;text-align:right;font-size:13px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'}">${chg || '—'}</td>
       <td style="padding:7px 14px;min-width:110px">${hBar(barW, '#059669', 7)}</td>
     </tr>`
   }).join('')
@@ -257,16 +257,16 @@ function renderTrendHTML({ trendData = [] }) {
   return secCard(
     secHeader('月份趨勢分析', `最近 ${recent.length} 個月`, '#059669') +
     `<div style="padding:12px 16px 4px;border-bottom:1px solid #bbf7d0;background:#f0fdf4">
-      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:6px">月銷售金額趨勢圖</div>
+      <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:6px">月銷售金額趨勢圖</div>
       ${chartSVG}
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:#f0fdf4;border-bottom:2px solid #bbf7d0">
-        <th style="padding:9px 14px;text-align:left;font-size:10px;color:#166534;font-weight:700">月份</th>
-        <th style="padding:9px 14px;text-align:right;font-size:10px;color:#166534;font-weight:700">銷售金額</th>
-        <th style="padding:9px 14px;text-align:right;font-size:10px;color:#166534;font-weight:700">數量（件）</th>
-        <th style="padding:9px 14px;text-align:right;font-size:10px;color:#166534;font-weight:700">月增率</th>
-        <th style="padding:9px 14px;text-align:left;font-size:10px;color:#166534;font-weight:700">相對規模</th>
+        <th style="padding:9px 14px;text-align:left;font-size:13px;color:#166534;font-weight:700">月份</th>
+        <th style="padding:9px 14px;text-align:right;font-size:13px;color:#166534;font-weight:700">銷售金額</th>
+        <th style="padding:9px 14px;text-align:right;font-size:13px;color:#166534;font-weight:700">數量（件）</th>
+        <th style="padding:9px 14px;text-align:right;font-size:13px;color:#166534;font-weight:700">月增率</th>
+        <th style="padding:9px 14px;text-align:left;font-size:13px;color:#166534;font-weight:700">相對規模</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`,
@@ -290,7 +290,7 @@ function renderComparisonHTML({ comparisonData }) {
     return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
       <td style="padding:9px 14px;font-size:13px;font-weight:800;color:#1f2937">${r.year}</td>
       <td style="padding:9px 14px;text-align:right;font-size:13px;font-weight:700;color:#111827;font-family:monospace">NT$ ${fmtN(r.subtotal)}</td>
-      <td style="padding:9px 14px;text-align:right;font-size:12px;color:#6b7280;font-family:monospace">${Math.round(r.quantity || 0).toLocaleString()}</td>
+      <td style="padding:9px 14px;text-align:right;font-size:13px;color:#6b7280;font-family:monospace">${Math.round(r.quantity || 0).toLocaleString()}</td>
       <td style="padding:9px 14px;text-align:right;font-size:13px;font-weight:800;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'}">${chg || '基準年'}</td>
       <td style="padding:9px 14px;min-width:120px">${hBar(r.subtotal / maxVal * 100, '#7c3aed', 8)}</td>
     </tr>`
@@ -304,9 +304,9 @@ function renderComparisonHTML({ comparisonData }) {
     const chg = prev ? fmtPct(r.subtotal, prev.subtotal) : ''
     const isPos = chg.startsWith('+')
     return `<tr style="border-bottom:1px solid #f3f4f6">
-      <td style="padding:7px 10px;font-size:11px;font-weight:700;color:#374151">${r.label}</td>
-      <td style="padding:7px 10px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827">${fmtN(r.subtotal)}</td>
-      <td style="padding:7px 10px;text-align:right;font-size:10px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'}">${chg || '—'}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:700;color:#374151">${r.label}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">${fmtN(r.subtotal)}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;color:${isPos ? '#059669' : chg ? '#ef4444' : '#9ca3af'}">${chg || '—'}</td>
       <td style="padding:7px 10px;min-width:70px">${hBar(maxQ > 0 ? r.subtotal / maxQ * 100 : 0, '#6366f1', 6)}</td>
     </tr>`
   }).join('')
@@ -318,36 +318,36 @@ function renderComparisonHTML({ comparisonData }) {
     secHeader('年度 & 季度對比分析', '各年份 / 季度業績', '#7c3aed') +
     `<div style="display:grid;grid-template-columns:3fr 2fr;background:#faf5ff;border-bottom:1px solid #e9d5ff">
       <div style="padding:10px 14px;border-right:1px solid #e9d5ff">
-        <div style="font-size:10px;font-weight:700;color:#6b21a8;margin-bottom:4px">年度銷售趨勢</div>
+        <div style="font-size:13px;font-weight:700;color:#6b21a8;margin-bottom:4px">年度銷售趨勢</div>
         ${yearChartSVG}
       </div>
       <div style="padding:10px 14px">
-        <div style="font-size:10px;font-weight:700;color:#4338ca;margin-bottom:4px">季度銷售趨勢</div>
+        <div style="font-size:13px;font-weight:700;color:#4338ca;margin-bottom:4px">季度銷售趨勢</div>
         ${qChartSVG}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:3fr 2fr">
       <div style="border-right:1px solid #f3f4f6">
-        <div style="padding:8px 14px;font-size:11px;font-weight:700;color:#6b21a8;border-bottom:1px solid #f3f4f6;background:#faf5ff">年度對比</div>
+        <div style="padding:8px 14px;font-size:13px;font-weight:700;color:#6b21a8;border-bottom:1px solid #f3f4f6;background:#faf5ff">年度對比</div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#faf5ff;border-bottom:1px solid #e9d5ff">
-            <th style="padding:8px 14px;text-align:left;font-size:10px;color:#6b21a8;font-weight:700">年份</th>
-            <th style="padding:8px 14px;text-align:right;font-size:10px;color:#6b21a8;font-weight:700">銷售金額</th>
-            <th style="padding:8px 14px;text-align:right;font-size:10px;color:#6b21a8;font-weight:700">數量</th>
-            <th style="padding:8px 14px;text-align:right;font-size:10px;color:#6b21a8;font-weight:700">年增率</th>
-            <th style="padding:8px 14px;font-size:10px;color:#6b21a8;font-weight:700">規模</th>
+            <th style="padding:8px 14px;text-align:left;font-size:13px;color:#6b21a8;font-weight:700">年份</th>
+            <th style="padding:8px 14px;text-align:right;font-size:13px;color:#6b21a8;font-weight:700">銷售金額</th>
+            <th style="padding:8px 14px;text-align:right;font-size:13px;color:#6b21a8;font-weight:700">數量</th>
+            <th style="padding:8px 14px;text-align:right;font-size:13px;color:#6b21a8;font-weight:700">年增率</th>
+            <th style="padding:8px 14px;font-size:13px;color:#6b21a8;font-weight:700">規模</th>
           </tr></thead>
           <tbody>${yearRows}</tbody>
         </table>
       </div>
       <div>
-        <div style="padding:8px 10px;font-size:11px;font-weight:700;color:#4338ca;border-bottom:1px solid #f3f4f6;background:#eef2ff">季度趨勢（近 8 季）</div>
+        <div style="padding:8px 10px;font-size:13px;font-weight:700;color:#4338ca;border-bottom:1px solid #f3f4f6;background:#eef2ff">季度趨勢（近 8 季）</div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:#eef2ff;border-bottom:1px solid #e0e7ff">
-            <th style="padding:7px 10px;text-align:left;font-size:10px;color:#4338ca;font-weight:700">季度</th>
-            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#4338ca;font-weight:700">金額</th>
-            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#4338ca;font-weight:700">QoQ</th>
-            <th style="padding:7px 10px;font-size:10px;color:#4338ca;font-weight:700">規模</th>
+            <th style="padding:7px 10px;text-align:left;font-size:13px;color:#4338ca;font-weight:700">季度</th>
+            <th style="padding:7px 10px;text-align:right;font-size:13px;color:#4338ca;font-weight:700">金額</th>
+            <th style="padding:7px 10px;text-align:right;font-size:13px;color:#4338ca;font-weight:700">QoQ</th>
+            <th style="padding:7px 10px;font-size:13px;color:#4338ca;font-weight:700">規模</th>
           </tr></thead>
           <tbody>${qRows}</tbody>
         </table>
@@ -376,22 +376,22 @@ function renderPerformanceHTML({ performanceData }) {
     const med = median?.subtotal || 0
     return `
     <div style="border-radius:8px;overflow:hidden;border:1px solid ${color}20;margin-bottom:8px">
-      <div style="background:${color}12;padding:7px 10px;font-size:10px;font-weight:700;color:${color};border-bottom:1px solid ${color}20">${label}（共 ${items.length} 項，中位數 ${fmtN(med)}）</div>
+      <div style="background:${color}12;padding:7px 10px;font-size:13px;font-weight:700;color:${color};border-bottom:1px solid ${color}20">${label}（共 ${items.length} 項，中位數 ${fmtN(med)}）</div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="border-bottom:1px solid #f3f4f6">
-          <th style="padding:5px 8px;text-align:left;font-size:9px;color:#6b7280;font-weight:700">名稱</th>
-          <th style="padding:5px 8px;text-align:right;font-size:9px;color:#6b7280;font-weight:700">銷售額</th>
-          <th style="padding:5px 8px;text-align:center;font-size:9px;color:#6b7280;font-weight:700">表現</th>
-          <th style="padding:5px 8px;font-size:9px;color:#6b7280;font-weight:700">相對規模</th>
+          <th style="padding:5px 8px;text-align:left;font-size:13px;color:#6b7280;font-weight:700">名稱</th>
+          <th style="padding:5px 8px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">銷售額</th>
+          <th style="padding:5px 8px;text-align:center;font-size:13px;color:#6b7280;font-weight:700">表現</th>
+          <th style="padding:5px 8px;font-size:13px;color:#6b7280;font-weight:700">相對規模</th>
         </tr></thead>
         <tbody>
           ${items.slice(0, 12).map((d, i) => {
             const isAbove = d.subtotal >= med
-            const tag = isAbove ? `<span style="background:#dcfce7;color:#166534;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">高績效</span>`
-                                : `<span style="background:#fef9c3;color:#854d0e;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px">待提升</span>`
+            const tag = isAbove ? `<span style="background:#dcfce7;color:#166534;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">高績效</span>`
+                                : `<span style="background:#fef9c3;color:#854d0e;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">待提升</span>`
             return `<tr style="border-bottom:1px solid #f9fafb;${i % 2 === 0 ? 'background:#fafafa' : ''}">
-              <td style="padding:5px 8px;font-size:10px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
-              <td style="padding:5px 8px;text-align:right;font-size:10px;font-weight:700;font-family:monospace;color:#111827">${fmtN(d.subtotal)}</td>
+              <td style="padding:5px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+              <td style="padding:5px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">${fmtN(d.subtotal)}</td>
               <td style="padding:5px 8px;text-align:center">${tag}</td>
               <td style="padding:5px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
             </tr>`
@@ -429,9 +429,9 @@ function renderHeatmapHTML({ heatmapData }) {
   const colW = Math.max(44, Math.floor(500 / recentMonths.length))
 
   const thead = `<tr style="background:#f0f9ff;border-bottom:2px solid #bae6fd">
-    <th style="padding:7px 10px;text-align:left;font-size:9px;color:#0c4a6e;font-weight:700;min-width:80px">通路類型</th>
-    ${recentMonths.map(m => `<th style="padding:5px 4px;text-align:center;font-size:8px;color:#0c4a6e;font-weight:700;min-width:${colW}px;white-space:nowrap">${m.slice(5)}</th>`).join('')}
-    <th style="padding:7px 8px;text-align:right;font-size:9px;color:#0c4a6e;font-weight:700">合計</th>
+    <th style="padding:7px 10px;text-align:left;font-size:13px;color:#0c4a6e;font-weight:700;min-width:80px">通路類型</th>
+    ${recentMonths.map(m => `<th style="padding:5px 4px;text-align:center;font-size:10px;color:#0c4a6e;font-weight:700;min-width:${colW}px;white-space:nowrap">${m.slice(5)}</th>`).join('')}
+    <th style="padding:7px 8px;text-align:right;font-size:13px;color:#0c4a6e;font-weight:700">合計</th>
   </tr>`
 
   const tbody = data.map((row, ri) => {
@@ -441,12 +441,12 @@ function renderHeatmapHTML({ heatmapData }) {
       const pct = maxVal > 0 ? v / maxVal : 0
       const bg = v > 0 ? heatColor(pct) : '#f9fafb'
       const fg = pct > 0.55 ? '#fff' : '#374151'
-      return `<td style="padding:5px 3px;text-align:center;background:${bg};font-size:8px;font-weight:${pct > 0.3 ? '700' : '400'};color:${fg};white-space:nowrap">${v > 0 ? fmtN(v) : ''}</td>`
+      return `<td style="padding:5px 3px;text-align:center;background:${bg};font-size:10px;font-weight:${pct > 0.3 ? '700' : '400'};color:${fg};white-space:nowrap">${v > 0 ? fmtN(v) : ''}</td>`
     }).join('')
     return `<tr style="border-bottom:1px solid #f0f9ff">
-      <td style="padding:7px 10px;font-size:10px;font-weight:700;color:#1f2937;white-space:nowrap">${esc(row.channelType)}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:700;color:#1f2937;white-space:nowrap">${esc(row.channelType)}</td>
       ${cells}
-      <td style="padding:7px 8px;text-align:right;font-size:10px;font-weight:700;color:#0c4a6e;font-family:monospace">${fmtN(rowTotal)}</td>
+      <td style="padding:7px 8px;text-align:right;font-size:13px;font-weight:700;color:#0c4a6e;font-family:monospace">${fmtN(rowTotal)}</td>
     </tr>`
   }).join('')
 
@@ -454,9 +454,9 @@ function renderHeatmapHTML({ heatmapData }) {
   const colTotals = recentMonths.map(m => data.reduce((s, r) => s + (r[m] || 0), 0))
   const grandTotal = colTotals.reduce((s, v) => s + v, 0)
   const tfoot = `<tr style="background:#e0f2fe;border-top:2px solid #7dd3fc">
-    <td style="padding:7px 10px;font-size:10px;font-weight:800;color:#0c4a6e">月合計</td>
-    ${colTotals.map(v => `<td style="padding:5px 3px;text-align:center;font-size:8px;font-weight:700;color:#0369a1;font-family:monospace">${fmtN(v)}</td>`).join('')}
-    <td style="padding:7px 8px;text-align:right;font-size:10px;font-weight:800;color:#0c4a6e;font-family:monospace">${fmtN(grandTotal)}</td>
+    <td style="padding:7px 10px;font-size:13px;font-weight:800;color:#0c4a6e">月合計</td>
+    ${colTotals.map(v => `<td style="padding:5px 3px;text-align:center;font-size:10px;font-weight:700;color:#0369a1;font-family:monospace">${fmtN(v)}</td>`).join('')}
+    <td style="padding:7px 8px;text-align:right;font-size:13px;font-weight:800;color:#0c4a6e;font-family:monospace">${fmtN(grandTotal)}</td>
   </tr>`
 
   return secCard(
@@ -468,7 +468,7 @@ function renderHeatmapHTML({ heatmapData }) {
         <tfoot>${tfoot}</tfoot>
       </table>
     </div>
-    <div style="padding:8px 14px;font-size:9px;color:#94a3b8">
+    <div style="padding:8px 14px;font-size:13px;color:#94a3b8">
       深色 = 高銷售額 ｜ 淺色 = 低銷售額 ｜ 空白 = 無銷售記錄
     </div>`,
     '#0891b2'
@@ -486,11 +486,11 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
       const pct = total > 0 ? d.subtotal / total * 100 : 0
       return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
         <td style="padding:6px 10px;text-align:center;width:24px">
-          <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${i < 3 ? color : '#e5e7eb'};color:${i < 3 ? '#fff' : '#6b7280'};font-size:9px;font-weight:800;line-height:18px;text-align:center">${i + 1}</span>
+          <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${i < 3 ? color : '#e5e7eb'};color:${i < 3 ? '#fff' : '#6b7280'};font-size:13px;font-weight:800;line-height:18px;text-align:center">${i + 1}</span>
         </td>
-        <td style="padding:6px 8px;font-size:11px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
-        <td style="padding:6px 8px;text-align:right;font-size:10px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
+        <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
+        <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
         <td style="padding:6px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
       </tr>`
     }).join('')
@@ -502,25 +502,25 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
     secHeader('品牌 & 通路分析', '品牌 TOP 12 / 通路 TOP 12 / 通路類型分布', '#d97706') +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
       <div style="border-right:1px solid #f3f4f6">
-        <div style="padding:8px 12px;font-size:11px;font-weight:700;color:#92400e;border-bottom:1px solid #fef3c7;background:#fffbeb">✨ 品牌排行（前 12）</div>
+        <div style="padding:8px 12px;font-size:13px;font-weight:700;color:#92400e;border-bottom:1px solid #fef3c7;background:#fffbeb">✨ 品牌排行（前 12）</div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="border-bottom:1px solid #fef3c7;background:#fffbeb">
-            <th style="padding:6px 10px;font-size:9px;color:#78350f;font-weight:700" colspan="2">品牌</th>
-            <th style="padding:6px 8px;text-align:right;font-size:9px;color:#78350f;font-weight:700">金額</th>
-            <th style="padding:6px 8px;text-align:right;font-size:9px;color:#78350f;font-weight:700">佔比</th>
-            <th style="padding:6px 8px;font-size:9px;color:#78350f;font-weight:700">規模</th>
+            <th style="padding:6px 10px;font-size:13px;color:#78350f;font-weight:700" colspan="2">品牌</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700">金額</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700">佔比</th>
+            <th style="padding:6px 8px;font-size:13px;color:#78350f;font-weight:700">規模</th>
           </tr></thead>
           <tbody>${renderMiniTable(brandData, '#d97706')}</tbody>
         </table>
       </div>
       <div>
-        <div style="padding:8px 12px;font-size:11px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc;background:#ecfeff">🏪 通路排行（前 12）</div>
+        <div style="padding:8px 12px;font-size:13px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc;background:#ecfeff">🏪 通路排行（前 12）</div>
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="border-bottom:1px solid #a5f3fc;background:#ecfeff">
-            <th style="padding:6px 10px;font-size:9px;color:#0e7490;font-weight:700" colspan="2">通路</th>
-            <th style="padding:6px 8px;text-align:right;font-size:9px;color:#0e7490;font-weight:700">金額</th>
-            <th style="padding:6px 8px;text-align:right;font-size:9px;color:#0e7490;font-weight:700">佔比</th>
-            <th style="padding:6px 8px;font-size:9px;color:#0e7490;font-weight:700">規模</th>
+            <th style="padding:6px 10px;font-size:13px;color:#0e7490;font-weight:700" colspan="2">通路</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700">金額</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700">佔比</th>
+            <th style="padding:6px 8px;font-size:13px;color:#0e7490;font-weight:700">規模</th>
           </tr></thead>
           <tbody>${renderMiniTable(channelData, '#0891b2')}</tbody>
         </table>
@@ -528,14 +528,14 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
     </div>
     ${channelTypeData.length ? `
     <div style="border-top:2px solid #fef3c7;padding:10px 14px;background:#fffbeb">
-      <div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:8px">通路類型分布（總計 ${fmtN(ctTotal)}）</div>
+      <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px">通路類型分布（總計 ${fmtN(ctTotal)}）</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${channelTypeData.slice(0, 6).map(d => {
           const pct = ctTotal > 0 ? d.subtotal / ctTotal * 100 : 0
           return `<div style="background:white;border-radius:8px;padding:8px 10px;border:1px solid #fde68a;min-width:80px;flex:1">
-            <div style="font-size:9px;color:#6b7280;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</div>
+            <div style="font-size:13px;color:#6b7280;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</div>
             <div style="font-size:13px;font-weight:800;color:#d97706;margin-top:2px">${fmtN(d.subtotal)}</div>
-            <div style="font-size:9px;color:#9ca3af">${pct.toFixed(0)}%</div>
+            <div style="font-size:13px;color:#9ca3af">${pct.toFixed(0)}%</div>
             <div style="margin-top:4px">${hBar(pct, '#d97706', 4)}</div>
           </div>`
         }).join('')}
@@ -560,29 +560,29 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
     const rankFg = i < 3 ? '#fff' : '#6b7280'
     return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
       <td style="padding:7px 12px;text-align:center;width:32px">
-        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:10px;font-weight:800;line-height:22px;text-align:center">${i + 1}</span>
+        <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:22px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:7px 10px;font-size:11px;font-weight:600;color:#1f2937;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
-      <td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:700;color:#111827;font-family:monospace;white-space:nowrap">NT$ ${fmtN(d.subtotal)}</td>
-      <td style="padding:7px 10px;text-align:right;font-size:11px;color:#6b7280;font-family:monospace">${Math.round(d.quantity || 0).toLocaleString()}</td>
-      <td style="padding:7px 10px;text-align:right;font-size:10px;color:#9ca3af">${pct.toFixed(1)}%</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#1f2937;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;color:#111827;font-family:monospace;white-space:nowrap">NT$ ${fmtN(d.subtotal)}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:13px;color:#6b7280;font-family:monospace">${Math.round(d.quantity || 0).toLocaleString()}</td>
+      <td style="padding:7px 10px;text-align:right;font-size:13px;color:#9ca3af">${pct.toFixed(1)}%</td>
       <td style="padding:7px 10px;min-width:90px">${hBar(d.subtotal / maxVal * 100, color, 6)}</td>
     </tr>`
   }).join('')
 
   return secCard(
     secHeader(title, subtitle, color) +
-    `<div style="padding:8px 14px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:10px;color:#6b7280">
+    `<div style="padding:8px 14px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280">
       共 ${items.length} 項 · 顯示前 ${top.length} 名 · 合計 NT$ ${fmtN(total)}
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:${color}08;border-bottom:2px solid ${color}30">
-        <th style="padding:8px 12px;text-align:center;font-size:9px;color:#6b7280;font-weight:700;width:36px">排名</th>
-        <th style="padding:8px 10px;text-align:left;font-size:9px;color:#6b7280;font-weight:700">名稱</th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;color:#6b7280;font-weight:700">銷售金額</th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;color:#6b7280;font-weight:700">數量</th>
-        <th style="padding:8px 10px;text-align:right;font-size:9px;color:#6b7280;font-weight:700">佔比</th>
-        <th style="padding:8px 10px;font-size:9px;color:#6b7280;font-weight:700">相對規模</th>
+        <th style="padding:8px 12px;text-align:center;font-size:13px;color:#6b7280;font-weight:700;width:36px">排名</th>
+        <th style="padding:8px 10px;text-align:left;font-size:13px;color:#6b7280;font-weight:700">名稱</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">銷售金額</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">數量</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">佔比</th>
+        <th style="padding:8px 10px;font-size:13px;color:#6b7280;font-weight:700">相對規模</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`,
@@ -616,7 +616,7 @@ async function _waitLayout() {
 }
 
 /* 主分頁函數：HTML → A4 頁面 canvas 陣列 */
-async function htmlToPagedCanvases(html, width = 820) {
+async function htmlToPagedCanvases(html, width = 750) {
   const PAGE_PX = Math.round(width * 1.414)   // A4 直式比例
 
   /* ── 1. 量測元素位置 ── */
@@ -647,9 +647,17 @@ async function htmlToPagedCanvases(html, width = 820) {
     })
   })
 
-  // 非表格區塊底部也作為 break point（避免段落被切斷）
+  // 非表格區塊底部也作為 break point
   div.querySelectorAll('p, li, h3, h4').forEach(el => {
     rowBreaks.push({ y: Math.round(el.getBoundingClientRect().bottom - divTop), tid: null })
+  })
+  // SVG 圖表底部（避免圖表被截斷）
+  div.querySelectorAll('svg').forEach(el => {
+    rowBreaks.push({ y: Math.round(el.getBoundingClientRect().bottom - divTop), tid: null })
+  })
+  // 各 section 卡片底部（最粗粒度的安全分頁點）
+  Array.from(div.children).forEach(child => {
+    rowBreaks.push({ y: Math.round(child.getBoundingClientRect().bottom - divTop), tid: null })
   })
 
   rowBreaks.sort((a, b) => a.y - b.y)
@@ -679,8 +687,15 @@ async function htmlToPagedCanvases(html, width = 820) {
       const td = best.tid ? tableData[best.tid] : null
       nextTid = (td && td.bottom > breakY) ? best.tid : null
     } else {
-      // 沒有安全斷點，強制在頁面高度處截斷
-      breakY = Math.min(targetBottom, totalH)
+      // targetBottom 內找不到安全斷點（可能被 theadReserve 壓縮），
+      // 退而求其次：在整頁高度（不扣 thead）內尋找
+      const fallback = rowBreaks.filter(rb => rb.y > y && rb.y <= y + PAGE_PX)
+      if (fallback.length > 0) {
+        breakY = fallback[fallback.length - 1].y
+      } else {
+        // 仍無斷點：整頁截斷（最後手段）
+        breakY = Math.min(y + PAGE_PX, totalH)
+      }
       nextTid = null
     }
 
@@ -692,7 +707,7 @@ async function htmlToPagedCanvases(html, width = 820) {
     // 先渲染表頭（需要知道實際高度）
     let theadCanvas = null
     if (tInfo?.theadHTML) {
-      const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">${tInfo.theadHTML}</table>`
+      const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">${tInfo.theadHTML}</table>`
       const theadDiv = _makeDiv(theadHTML, width, '0 24px')
       document.body.appendChild(theadDiv)
       await _waitLayout()
@@ -861,12 +876,12 @@ function renderYoYMoMHTML({ trendData = [] }) {
       const yoyColor = yoy === null ? '' : yoy >= 0 ? (fg === '#fff' ? '#a7f3d0' : '#059669') : (fg === '#fff' ? '#fca5a5' : '#ef4444')
       const yoyText = yoy === null ? '' : (yoy >= 0 ? '+' : '') + yoy.toFixed(0) + '%'
       return `<td style="padding:5px 6px;text-align:center;background:${bg};border:1px solid #e5e7eb">
-        <div style="font-size:10px;font-weight:700;color:${fg};font-family:monospace">${val > 0 ? fmtN(val) : '—'}</div>
-        ${yoyText ? `<div style="font-size:8px;color:${yoyColor};font-weight:700">${yoyText}</div>` : ''}
+        <div style="font-size:13px;font-weight:700;color:${fg};font-family:monospace">${val > 0 ? fmtN(val) : '—'}</div>
+        ${yoyText ? `<div style="font-size:10px;color:${yoyColor};font-weight:700">${yoyText}</div>` : ''}
       </td>`
     }).join('')
     return `<tr>
-      <td style="padding:5px 10px;font-size:11px;font-weight:700;color:#374151;white-space:nowrap;background:#f9fafb;border:1px solid #e5e7eb">${MONTH_LABELS[mi]}</td>
+      <td style="padding:5px 10px;font-size:13px;font-weight:700;color:#374151;white-space:nowrap;background:#f9fafb;border:1px solid #e5e7eb">${MONTH_LABELS[mi]}</td>
       ${cells}
     </tr>`
   }).join('')
@@ -881,10 +896,10 @@ function renderYoYMoMHTML({ trendData = [] }) {
     const momColor = mom === null ? '#9ca3af' : mom >= 0 ? '#059669' : '#ef4444'
     const yoyColor = yoy === null ? '#9ca3af' : yoy >= 0 ? '#059669' : '#ef4444'
     return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
-      <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#374151">${d.yearMonth}</td>
-      <td style="padding:6px 10px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827">NT$ ${fmtN(d.subtotal)}</td>
-      <td style="padding:6px 10px;text-align:right;font-size:12px;font-weight:700;color:${momColor}">${mom !== null ? (mom >= 0 ? '+' : '') + mom.toFixed(0) + '%' : '—'}</td>
-      <td style="padding:6px 10px;text-align:right;font-size:12px;font-weight:700;color:${yoyColor}">${yoy !== null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(0) + '%' : '—'}</td>
+      <td style="padding:6px 10px;font-size:13px;font-weight:600;color:#374151">${d.yearMonth}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">NT$ ${fmtN(d.subtotal)}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:13px;font-weight:700;color:${momColor}">${mom !== null ? (mom >= 0 ? '+' : '') + mom.toFixed(0) + '%' : '—'}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:13px;font-weight:700;color:${yoyColor}">${yoy !== null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(0) + '%' : '—'}</td>
       <td style="padding:6px 10px;min-width:90px">${hBar(d.subtotal / maxVal * 100, '#2563eb', 6)}</td>
     </tr>`
   }).join('')
@@ -892,13 +907,13 @@ function renderYoYMoMHTML({ trendData = [] }) {
   return secCard(
     secHeader('YoY & MoM 年月比對分析', '年增率 / 月增率 完整追蹤', '#2563eb') +
     `<div style="padding:12px 16px">
-      <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:8px">月份 × 年份 銷售矩陣（顏色深淺代表銷售規模，小字為 YoY 年增率）</div>
+      <div style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:8px">月份 × 年份 銷售矩陣（顏色深淺代表銷售規模，小字為 YoY 年增率）</div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead>
             <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
-              <th style="padding:7px 10px;text-align:left;font-size:10px;color:#1d4ed8;font-weight:700">月份</th>
-              ${years.map(y => `<th style="padding:7px 10px;text-align:center;font-size:10px;color:#1d4ed8;font-weight:700">${y}</th>`).join('')}
+              <th style="padding:7px 10px;text-align:left;font-size:13px;color:#1d4ed8;font-weight:700">月份</th>
+              ${years.map(y => `<th style="padding:7px 10px;text-align:center;font-size:13px;color:#1d4ed8;font-weight:700">${y}</th>`).join('')}
             </tr>
           </thead>
           <tbody>${matrixRows}</tbody>
@@ -906,15 +921,15 @@ function renderYoYMoMHTML({ trendData = [] }) {
       </div>
     </div>
     <div style="border-top:2px solid #bfdbfe">
-      <div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:#1d4ed8">近 ${recent18.length} 個月 MoM / YoY 明細</div>
+      <div style="padding:8px 16px 4px;font-size:13px;font-weight:700;color:#1d4ed8">近 ${recent18.length} 個月 MoM / YoY 明細</div>
       <table style="width:100%;border-collapse:collapse">
         <thead>
           <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
-            <th style="padding:7px 14px;text-align:left;font-size:10px;color:#1d4ed8;font-weight:700">月份</th>
-            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">銷售金額</th>
-            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">MoM 月增率</th>
-            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">YoY 年增率</th>
-            <th style="padding:7px 10px;font-size:10px;color:#1d4ed8;font-weight:700">相對規模</th>
+            <th style="padding:7px 14px;text-align:left;font-size:13px;color:#1d4ed8;font-weight:700">月份</th>
+            <th style="padding:7px 10px;text-align:right;font-size:13px;color:#1d4ed8;font-weight:700">銷售金額</th>
+            <th style="padding:7px 10px;text-align:right;font-size:13px;color:#1d4ed8;font-weight:700">MoM 月增率</th>
+            <th style="padding:7px 10px;text-align:right;font-size:13px;color:#1d4ed8;font-weight:700">YoY 年增率</th>
+            <th style="padding:7px 10px;font-size:13px;color:#1d4ed8;font-weight:700">相對規模</th>
           </tr>
         </thead>
         <tbody>${detailRows}</tbody>
@@ -933,7 +948,7 @@ const TYPE_LABELS = { comprehensive: '完整分析', channel: '通路分析', pr
 function inlineHTML(t) {
   return esc(t)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code style="background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-size:11px;font-family:monospace">$1</code>')
+    .replace(/`([^`]+)`/g, '<code style="background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-size:13px;font-family:monospace">$1</code>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
 }
 
@@ -953,7 +968,7 @@ function renderSectionHTML(lines, color) {
       html += '<ol style="margin:8px 0 12px;padding:0;list-style:none">'
       listItems.forEach((item, idx) => {
         html += `<li style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px">
-          <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${idx + 1}</span>
+          <span style="width:20px;height:20px;border-radius:50%;background:${color};color:white;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${idx + 1}</span>
           <span style="font-size:13px;color:#374151;line-height:1.5">${inlineHTML(item)}</span></li>`
       })
       html += '</ol>'
@@ -967,16 +982,16 @@ function renderSectionHTML(lines, color) {
     const rows = tableBuffer.filter(l => !isSep(l))
     const [header, ...body] = rows
     const headers = parseRow(header || '')
-    html += `<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:12px">`
+    html += `<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:13px">`
     html += `<thead><tr style="background:${color}18;border-bottom:2px solid ${color}50">`
     headers.forEach(h => {
-      html += `<th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:700;color:${color};white-space:nowrap">${inlineHTML(h)}</th>`
+      html += `<th style="padding:7px 10px;text-align:left;font-size:13px;font-weight:700;color:${color};white-space:nowrap">${inlineHTML(h)}</th>`
     })
     html += `</tr></thead><tbody>`
     body.forEach((row, ri) => {
       html += `<tr style="border-bottom:1px solid #f3f4f6;${ri % 2 === 0 ? 'background:#fafafa' : 'background:white'}">`
       parseRow(row).forEach(c => {
-        html += `<td style="padding:6px 10px;font-size:12px;color:#374151;line-height:1.4">${inlineHTML(c)}</td>`
+        html += `<td style="padding:6px 10px;font-size:13px;color:#374151;line-height:1.4">${inlineHTML(c)}</td>`
       })
       html += `</tr>`
     })
@@ -993,7 +1008,7 @@ function renderSectionHTML(lines, color) {
     if (tableBuffer.length) flushTable()
     if (line.startsWith('```')) {
       if (inCode) {
-        html += `<pre style="background:#111827;color:#6ee7b7;padding:12px;border-radius:8px;font-size:11px;margin:10px 0;font-family:monospace;line-height:1.5;white-space:pre-wrap">${codeLines.map(esc).join('\n')}</pre>`
+        html += `<pre style="background:#111827;color:#6ee7b7;padding:12px;border-radius:8px;font-size:13px;margin:10px 0;font-family:monospace;line-height:1.5;white-space:pre-wrap">${codeLines.map(esc).join('\n')}</pre>`
         codeLines = []; inCode = false
       } else { flushList(); inCode = true }
       return
@@ -1040,15 +1055,15 @@ function markdownToStyledHTML(text, analysisType) {
   const dateStr = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })
   let html = `<div style="font-family:system-ui,-apple-system,sans-serif;width:760px;background:white;box-sizing:border-box;word-wrap:break-word">`
   html += `<div style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:white;padding:30px;border-radius:14px;margin-bottom:18px">
-    <div style="font-size:10px;opacity:.65;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">AI 智慧分析報告</div>
+    <div style="font-size:13px;opacity:.65;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">AI 智慧分析報告</div>
     <div style="font-size:21px;font-weight:900;margin-bottom:3px">${inlineHTML(docTitle || TYPE_LABELS[analysisType] || 'AI 分析')}</div>
-    <div style="font-size:10px;opacity:.55">${dateStr}</div>
+    <div style="font-size:13px;opacity:.55">${dateStr}</div>
   </div>`
   sections.filter(s => s.title).forEach(section => {
     const color = COLORS[sc % COLORS.length]; sc++
     html += `<div style="border-radius:12px;overflow:hidden;margin-bottom:14px;border:1px solid ${color}25">
       <div style="background:${color};padding:11px 18px;display:flex;align-items:center;gap:10px">
-        <span style="width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.25);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0">${sc}</span>
+        <span style="width:24px;height:24px;border-radius:7px;background:rgba(255,255,255,.25);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;color:white;flex-shrink:0">${sc}</span>
         <span style="font-size:13px;font-weight:700;color:white">${inlineHTML(section.title)}</span>
       </div>
       <div style="background:${color}0d;padding:14px 18px">${renderSectionHTML(section.lines, color)}</div>

@@ -167,15 +167,17 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 - **凡是比較、排行、矩陣、數字對照等表格型資料，一律使用標準 Markdown 表格語法**（第一行為標題行，第二行為分隔行 | --- |，之後為資料行）。**嚴禁使用 ASCII 符號（+-=）手繪表格邊框**`
 }
 
-export async function streamAnalysis({ apiKey, prompt, onChunk, onDone, onError }) {
+/* messages: 多輪對話陣列 [{ role, parts }]；若只傳 prompt 則自動包裝 */
+export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone, onError }) {
   try {
+    const contents = messages ?? [{ role: 'user', parts: [{ text: prompt }] }]
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents,
           generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
         }),
       }
@@ -188,13 +190,13 @@ export async function streamAnalysis({ apiKey, prompt, onChunk, onDone, onError 
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
+    let finishReason = null
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
       const chunk = decoder.decode(value, { stream: true })
-      const lines = chunk.split('\n')
-      for (const line of lines) {
+      for (const line of chunk.split('\n')) {
         if (!line.startsWith('data: ')) continue
         const data = line.slice(6).trim()
         if (data === '[DONE]') continue
@@ -202,10 +204,12 @@ export async function streamAnalysis({ apiKey, prompt, onChunk, onDone, onError 
           const parsed = JSON.parse(data)
           const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
           if (text) onChunk(text)
+          const reason = parsed.candidates?.[0]?.finishReason
+          if (reason) finishReason = reason
         } catch {}
       }
     }
-    onDone?.()
+    onDone?.(finishReason)
   } catch (err) {
     onError?.(err.message)
   }
