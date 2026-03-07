@@ -20,11 +20,17 @@ export function buildAIPayload({ summary, productData, brandData, channelData, c
       品項數: summary.productCount > 0 ? summary.productCount : '無產品資料',
       平均折扣率: summary.avgDiscount > 0 ? Math.round(summary.avgDiscount * 100) + '%' : '無折扣資料',
     },
-    月度趨勢: trendData.slice(-12).map(d => ({
-      月份: d.yearMonth,
-      銷售金額: fmtN(d.subtotal),
-      銷售數量: d.quantity,
-    })),
+    月度趨勢_含YoY_MoM: (() => {
+      const sorted = [...trendData].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
+      const map = Object.fromEntries(sorted.map(d => [d.yearMonth, d.subtotal]))
+      return sorted.slice(-18).map((d, i, arr) => {
+        const prev = arr[i - 1]
+        const prevYM = `${parseInt(d.yearMonth.slice(0, 4)) - 1}-${d.yearMonth.slice(5)}`
+        const mom = prev?.subtotal > 0 ? ((d.subtotal - prev.subtotal) / prev.subtotal * 100).toFixed(0) + '%' : '—'
+        const yoy = map[prevYM] > 0 ? ((d.subtotal - map[prevYM]) / map[prevYM] * 100).toFixed(0) + '%' : '—'
+        return { 月份: d.yearMonth, 銷售金額: fmtN(d.subtotal), MoM月增率: mom, YoY年增率: yoy }
+      })
+    })(),
     TOP產品: topN(productData).map((d, i) => ({
       排名: i + 1,
       產品: d.name,
@@ -133,7 +139,8 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 - 重要數字要明確列出
 - 每個建議都要說明「為什麼」（依據是什麼）
 - 結論要具體可執行，不要泛泛而談
-- 在每個主要分析章節標示哪位專家的視角（例如：🏢 企業管理觀點）`
+- 在每個主要分析章節標示哪位專家的視角（例如：🏢 企業管理觀點）
+- **凡是比較、排行、矩陣、數字對照等表格型資料，一律使用標準 Markdown 表格語法**（第一行為標題行，第二行為分隔行 `| --- |`，之後為資料行）。**嚴禁使用 ASCII 符號（+-=）手繪表格邊框**`
 }
 
 export async function streamAnalysis({ apiKey, prompt, onChunk, onDone, onError }) {

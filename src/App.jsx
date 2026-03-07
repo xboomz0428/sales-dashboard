@@ -184,7 +184,9 @@ export default function App() {
   const pdfSalesData = useMemo(() => ({
     summary, trendData, comparisonData,
     productData, customerData, brandData, channelData, channelTypeData,
-  }), [summary, trendData, comparisonData, productData, customerData, brandData, channelData, channelTypeData])
+    performanceData, heatmapData,
+    trendByChannel, trendByBrand,
+  }), [summary, trendData, comparisonData, productData, customerData, brandData, channelData, channelTypeData, performanceData, heatmapData, trendByChannel, trendByBrand])
 
   const handleExportPDF = useCallback(async () => {
     setPdfLoading(true)
