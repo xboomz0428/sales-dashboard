@@ -549,9 +549,12 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
   const [history, setHistory] = useState(getHistory)
   const [saveStatus, setSaveStatus] = useState('') // '' | 'saving' | 'saved:path' | 'error'
   const [exportingPDF, setExportingPDF] = useState(false)
-  const [continueRound, setContinueRound] = useState(0)  // 目前自動繼續第幾輪
+  const [continueRound, setContinueRound] = useState(0)
+  const [canManualContinue, setCanManualContinue] = useState(false)  // 顯示「繼續生成」按鈕
   const outputRef = useRef(null)
   const abortRef = useRef(false)
+  const originalPromptRef = useRef('')   // 儲存原始 prompt 供繼續使用
+  const fullOutputRef = useRef('')       // 與 fullOutput 同步，供繼續函式取用
 
   useEffect(() => {
     if (streaming && outputRef.current) {
@@ -570,13 +573,19 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
     setOutput('')
     setSaveStatus('')
     setContinueRound(0)
+    setCanManualContinue(false)
     setStreaming(true)
     setCurrentType(analysisType)
     setActiveTab('analysis')
     abortRef.current = false
+    fullOutputRef.current = ''
 
-    let fullOutput = ''
     const MAX_CONTINUES = 4
+
+    // 建立原始 prompt 並儲存到 ref（供手動繼續使用）
+    const dataJson = buildAIPayload(salesData)
+    const originalPrompt = buildPrompt(dataJson, analysisType)
+    originalPromptRef.current = originalPrompt
 
     // 單輪串流，回傳 finishReason
     const runOnce = (messages) => new Promise((resolve) => {
@@ -585,7 +594,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
         messages,
         onChunk: (text) => {
           if (abortRef.current) return
-          fullOutput += text
+          fullOutputRef.current += text
           setOutput(prev => prev + text)
         },
         onDone: (reason) => resolve(reason),
@@ -594,28 +603,27 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
     })
 
     try {
-      const dataJson = buildAIPayload(salesData)
-      const originalPrompt = buildPrompt(dataJson, analysisType)
-
       // 第一輪
       let finishReason = await runOnce([{ role: 'user', parts: [{ text: originalPrompt }] }])
 
-      // 若被截斷（MAX_TOKENS），自動繼續
+      // 若被截斷（MAX_TOKENS），自動繼續，最多 MAX_CONTINUES 輪
       let round = 0
       while (finishReason === 'MAX_TOKENS' && round < MAX_CONTINUES && !abortRef.current) {
         round++
         setContinueRound(round)
-        const snapshot = fullOutput  // 讓 model 知道已生成的內容
         finishReason = await runOnce([
           { role: 'user', parts: [{ text: originalPrompt }] },
-          { role: 'model', parts: [{ text: snapshot }] },
+          { role: 'model', parts: [{ text: fullOutputRef.current }] },
           { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
         ])
       }
 
       setStreaming(false)
       setContinueRound(0)
+      // 非 MAX_TOKENS 結束（STOP 或其他），顯示手動繼續按鈕供用戶判斷
+      setCanManualContinue(true)
 
+      const fullOutput = fullOutputRef.current
       const filename = makeFilename(analysisType)
       setSaveStatus('saving')
       const savedPath = await saveToServer(filename, fullOutput)
@@ -633,6 +641,65 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
       setHistory(getHistory())
     } catch (e) {
       setError(e.message); setStreaming(false); setContinueRound(0)
+    }
+  }
+
+  // 手動繼續生成（當內容看起來不完整時）
+  async function handleManualContinue() {
+    if (!originalPromptRef.current || streaming) return
+    setError('')
+    setCanManualContinue(false)
+    setStreaming(true)
+    abortRef.current = false
+
+    const runOnce = (messages) => new Promise((resolve) => {
+      streamAnalysis({
+        apiKey: apiKey.trim(),
+        messages,
+        onChunk: (text) => {
+          if (abortRef.current) return
+          fullOutputRef.current += text
+          setOutput(prev => prev + text)
+        },
+        onDone: (reason) => resolve(reason),
+        onError: (msg) => { setError(msg); resolve('ERROR') },
+      })
+    })
+
+    try {
+      let finishReason = await runOnce([
+        { role: 'user', parts: [{ text: originalPromptRef.current }] },
+        { role: 'model', parts: [{ text: fullOutputRef.current }] },
+        { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
+      ])
+
+      let round = 0
+      while (finishReason === 'MAX_TOKENS' && round < 4 && !abortRef.current) {
+        round++
+        finishReason = await runOnce([
+          { role: 'user', parts: [{ text: originalPromptRef.current }] },
+          { role: 'model', parts: [{ text: fullOutputRef.current }] },
+          { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
+        ])
+      }
+
+      setStreaming(false)
+      setCanManualContinue(true)
+
+      const fullOutput = fullOutputRef.current
+      const filename = makeFilename(currentType)
+      const savedPath = await saveToServer(filename, fullOutput)
+      setSaveStatus(savedPath ? `saved:${savedPath}` : 'error')
+      addToHistory({
+        id: Date.now(), type: currentType,
+        date: new Date().toLocaleDateString('zh-TW'),
+        filename, savedPath,
+        preview: fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…',
+        content: fullOutput,
+      })
+      setHistory(getHistory())
+    } catch (e) {
+      setError(e.message); setStreaming(false)
     }
   }
 
@@ -860,7 +927,17 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
               <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50/80 flex-shrink-0">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <SaveStatusBadge />
-                  <div className="flex gap-2 ml-auto">
+                  <div className="flex gap-2 ml-auto flex-wrap">
+                    {/* 手動繼續按鈕：內容看起來不完整時點擊 */}
+                    {canManualContinue && (
+                      <button
+                        onClick={handleManualContinue}
+                        className="text-xs px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+                        title="若分析報告未完整，點此繼續生成剩餘內容"
+                      >
+                        ▶ 繼續生成
+                      </button>
+                    )}
                     <button
                       onClick={() => downloadMD(output, makeFilename(currentType))}
                       className="text-xs px-3 py-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"

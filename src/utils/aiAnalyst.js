@@ -178,7 +178,7 @@ export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents,
-          generationConfig: { maxOutputTokens: 4096, temperature: 0.7 },
+          generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
         }),
       }
     )
