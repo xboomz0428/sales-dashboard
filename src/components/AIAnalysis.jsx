@@ -278,7 +278,7 @@ function renderInline(text) {
 // ─── Section content renderer ─────────────────────────────────────────────────
 function SectionContent({ lines, theme }) {
   const elements = []
-  let listType = null, listItems = [], inCode = false, codeLines = []
+  let listType = null, listItems = [], inCode = false, codeLines = [], tableBuffer = []
 
   const flushList = (key) => {
     if (!listItems.length) return
@@ -308,7 +308,57 @@ function SectionContent({ lines, theme }) {
     listItems = []; listType = null
   }
 
+  const flushTable = (key) => {
+    if (!tableBuffer.length) return
+    const isSep = l => /^\|[\s|:-]+\|?\s*$/.test(l.trim())
+    const parseRow = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim())
+    const rows = tableBuffer.filter(l => !isSep(l))
+    const [header, ...body] = rows
+    const headers = parseRow(header || '')
+    const numCols = Math.max(headers.length, ...body.map(r => parseRow(r).length))
+    const thBg = theme?.num ? '' : 'bg-blue-600'
+    elements.push(
+      <div key={`tbl-${key}`} className="my-3 overflow-x-auto rounded-xl border border-gray-200">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className={`${theme ? '' : thBg}`} style={theme ? { background: theme.num?.replace('bg-', '') } : {}}>
+              {headers.map((h, j) => (
+                <th key={j} className={`px-3 py-2 text-left font-bold text-xs whitespace-nowrap ${theme ? theme.text + ' bg-opacity-20' : 'text-white'}`}
+                  style={theme ? { background: 'rgba(0,0,0,0.08)', color: 'inherit' } : {}}>
+                  {renderInline(h)}
+                </th>
+              ))}
+              {Array.from({ length: Math.max(0, numCols - headers.length) }).map((_, j) => <th key={`ph-${j}`} />)}
+            </tr>
+          </thead>
+          <tbody>
+            {body.map((row, ri) => {
+              const cells = parseRow(row)
+              return (
+                <tr key={ri} className={ri % 2 === 0 ? 'bg-gray-50' : 'bg-white'} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  {cells.map((c, ci) => (
+                    <td key={ci} className="px-3 py-1.5 text-gray-700">{renderInline(c)}</td>
+                  ))}
+                  {Array.from({ length: Math.max(0, numCols - cells.length) }).map((_, j) => <td key={`pc-${j}`} />)}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+    tableBuffer = []
+  }
+
   lines.forEach((line, i) => {
+    const isTableRow = line.trim().startsWith('|') && line.trim().endsWith('|')
+    if (isTableRow) {
+      if (listType) flushList(i)
+      tableBuffer.push(line)
+      return
+    }
+    if (tableBuffer.length) flushTable(i)
+
     if (line.startsWith('```')) {
       if (inCode) {
         elements.push(
@@ -355,6 +405,7 @@ function SectionContent({ lines, theme }) {
     }
   })
   flushList('end')
+  flushTable('end')
   return <>{elements}</>
 }
 

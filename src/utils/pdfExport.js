@@ -599,15 +599,24 @@ function buildPDF(canvases, footerText = '') {
 function buildDashboardSections(salesData) {
   const { summary, trendData, comparisonData, productData = [], customerData = [],
     brandData = [], channelData = [], channelTypeData = [], performanceData, heatmapData } = salesData
+
+  // 合併趨勢 + YoYMoM，減少空白頁
+  const trendAndYoY = [renderTrendHTML({ trendData }), renderYoYMoMHTML({ trendData })].filter(Boolean).join('\n')
+  // 合併績效矩陣 + 熱力圖
+  const perfAndHeat = [renderPerformanceHTML({ performanceData }), renderHeatmapHTML({ heatmapData })].filter(Boolean).join('\n')
+  // 合併產品 + 客戶排行
+  const productsAndCustomers = [
+    renderRankingHTML({ items: productData, title: '產品銷售排行', subtitle: `TOP 20 · 共 ${productData.length} 項`, color: '#e11d48' }),
+    renderRankingHTML({ items: customerData, title: '客戶銷售排行', subtitle: `TOP 20 · 共 ${customerData.length} 位`, color: '#0891b2' }),
+  ].filter(Boolean).join('\n')
+
   return [
-    { name: 'KPI 封面',   html: renderCoverHTML({ summary, trendData, comparisonData, productData, customerData, brandData, channelData, channelTypeData }) },
-    { name: '月份趨勢',   html: renderTrendHTML({ trendData }) },
-    { name: '年度季度對比', html: renderComparisonHTML({ comparisonData }) },
-    { name: '績效矩陣',   html: renderPerformanceHTML({ performanceData }) },
-    { name: '熱力圖',     html: renderHeatmapHTML({ heatmapData }) },
-    { name: '產品排行',   html: renderRankingHTML({ items: productData, title: '產品銷售排行', subtitle: `TOP 20 · 共 ${productData.length} 項`, color: '#e11d48' }) },
-    { name: '客戶排行',   html: renderRankingHTML({ items: customerData, title: '客戶銷售排行', subtitle: `TOP 20 · 共 ${customerData.length} 位`, color: '#0891b2' }) },
-    { name: '品牌通路',   html: renderBrandChannelHTML({ brandData, channelData, channelTypeData }) },
+    { name: 'KPI 封面',       html: renderCoverHTML({ summary, trendData, comparisonData, productData, customerData, brandData, channelData, channelTypeData }) },
+    { name: '年度季度對比',   html: renderComparisonHTML({ comparisonData }) },
+    { name: '趨勢 & YoY/MoM', html: trendAndYoY },
+    { name: '績效 & 熱力圖',  html: perfAndHeat },
+    { name: '產品 & 客戶排行', html: productsAndCustomers },
+    { name: '品牌通路',       html: renderBrandChannelHTML({ brandData, channelData, channelTypeData }) },
   ]
 }
 
@@ -631,6 +640,96 @@ export async function exportDashboardPDF({ salesData = {}, onProgress }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   YoY & MoM 年月比對（矩陣 + 明細表）
+═══════════════════════════════════════════════════════════════ */
+function renderYoYMoMHTML({ trendData = [] }) {
+  if (!trendData.length) return ''
+  const sorted = [...trendData].sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
+  const byYM = Object.fromEntries(sorted.map(d => [d.yearMonth, d.subtotal]))
+
+  const years = [...new Set(sorted.map(d => d.yearMonth.slice(0, 4)))].sort()
+  const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12']
+  const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+  const maxVal = Math.max(...sorted.map(d => d.subtotal), 1)
+
+  // Year × Month matrix
+  const matrixRows = MONTHS.map((m, mi) => {
+    const cells = years.map(y => {
+      const key = `${y}-${m}`
+      const val = byYM[key] || 0
+      const prevKey = `${parseInt(y) - 1}-${m}`
+      const prev = byYM[prevKey] || 0
+      const yoy = prev > 0 ? (val - prev) / prev * 100 : null
+      const pct = maxVal > 0 ? val / maxVal : 0
+      const bg = val > 0 ? heatColor(pct) : '#f9fafb'
+      const fg = pct > 0.55 ? '#fff' : '#1f2937'
+      const yoyColor = yoy === null ? '' : yoy >= 0 ? (fg === '#fff' ? '#a7f3d0' : '#059669') : (fg === '#fff' ? '#fca5a5' : '#ef4444')
+      const yoyText = yoy === null ? '' : (yoy >= 0 ? '+' : '') + yoy.toFixed(0) + '%'
+      return `<td style="padding:5px 6px;text-align:center;background:${bg};border:1px solid #e5e7eb">
+        <div style="font-size:10px;font-weight:700;color:${fg};font-family:monospace">${val > 0 ? fmtN(val) : '—'}</div>
+        ${yoyText ? `<div style="font-size:8px;color:${yoyColor};font-weight:700">${yoyText}</div>` : ''}
+      </td>`
+    }).join('')
+    return `<tr>
+      <td style="padding:5px 10px;font-size:11px;font-weight:700;color:#374151;white-space:nowrap;background:#f9fafb;border:1px solid #e5e7eb">${MONTH_LABELS[mi]}</td>
+      ${cells}
+    </tr>`
+  }).join('')
+
+  // Last 18 months MoM/YoY detail
+  const recent18 = sorted.slice(-18)
+  const detailRows = recent18.map((d, i) => {
+    const prev = recent18[i - 1]
+    const prevYM = `${parseInt(d.yearMonth.slice(0, 4)) - 1}-${d.yearMonth.slice(5)}`
+    const mom = prev?.subtotal > 0 ? (d.subtotal - prev.subtotal) / prev.subtotal * 100 : null
+    const yoy = byYM[prevYM] > 0 ? (d.subtotal - byYM[prevYM]) / byYM[prevYM] * 100 : null
+    const momColor = mom === null ? '#9ca3af' : mom >= 0 ? '#059669' : '#ef4444'
+    const yoyColor = yoy === null ? '#9ca3af' : yoy >= 0 ? '#059669' : '#ef4444'
+    return `<tr style="border-bottom:1px solid #f3f4f6;${i % 2 === 0 ? 'background:#fafafa' : ''}">
+      <td style="padding:6px 10px;font-size:11px;font-weight:600;color:#374151">${d.yearMonth}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:11px;font-weight:700;font-family:monospace;color:#111827">NT$ ${fmtN(d.subtotal)}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:12px;font-weight:700;color:${momColor}">${mom !== null ? (mom >= 0 ? '+' : '') + mom.toFixed(0) + '%' : '—'}</td>
+      <td style="padding:6px 10px;text-align:right;font-size:12px;font-weight:700;color:${yoyColor}">${yoy !== null ? (yoy >= 0 ? '+' : '') + yoy.toFixed(0) + '%' : '—'}</td>
+      <td style="padding:6px 10px;min-width:90px">${hBar(d.subtotal / maxVal * 100, '#2563eb', 6)}</td>
+    </tr>`
+  }).join('')
+
+  return secCard(
+    secHeader('YoY & MoM 年月比對分析', '年增率 / 月增率 完整追蹤', '#2563eb') +
+    `<div style="padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:8px">月份 × 年份 銷售矩陣（顏色深淺代表銷售規模，小字為 YoY 年增率）</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:#1d4ed8;font-weight:700">月份</th>
+              ${years.map(y => `<th style="padding:7px 10px;text-align:center;font-size:10px;color:#1d4ed8;font-weight:700">${y}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>${matrixRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div style="border-top:2px solid #bfdbfe">
+      <div style="padding:8px 16px 4px;font-size:11px;font-weight:700;color:#1d4ed8">近 ${recent18.length} 個月 MoM / YoY 明細</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
+            <th style="padding:7px 14px;text-align:left;font-size:10px;color:#1d4ed8;font-weight:700">月份</th>
+            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">銷售金額</th>
+            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">MoM 月增率</th>
+            <th style="padding:7px 10px;text-align:right;font-size:10px;color:#1d4ed8;font-weight:700">YoY 年增率</th>
+            <th style="padding:7px 10px;font-size:10px;color:#1d4ed8;font-weight:700">相對規模</th>
+          </tr>
+        </thead>
+        <tbody>${detailRows}</tbody>
+      </table>
+    </div>`,
+    '#2563eb'
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════
    Markdown → styled HTML（AI 分析報告）
 ═══════════════════════════════════════════════════════════════ */
 const COLORS = ['#2563eb', '#059669', '#7c3aed', '#d97706', '#e11d48', '#0891b2', '#4f46e5']
@@ -644,7 +743,7 @@ function inlineHTML(t) {
 }
 
 function renderSectionHTML(lines, color) {
-  let html = '', listType = null, listItems = [], inCode = false, codeLines = []
+  let html = '', listType = null, listItems = [], inCode = false, codeLines = [], tableBuffer = []
   const flushList = () => {
     if (!listItems.length) return
     if (listType === 'ul') {
@@ -666,7 +765,37 @@ function renderSectionHTML(lines, color) {
     }
     listItems = []; listType = null
   }
+  const flushTable = () => {
+    if (!tableBuffer.length) return
+    const isSep = l => /^\|[\s|:-]+\|?\s*$/.test(l.trim())
+    const parseRow = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim())
+    const rows = tableBuffer.filter(l => !isSep(l))
+    const [header, ...body] = rows
+    const headers = parseRow(header || '')
+    html += `<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:12px">`
+    html += `<thead><tr style="background:${color}18;border-bottom:2px solid ${color}50">`
+    headers.forEach(h => {
+      html += `<th style="padding:7px 10px;text-align:left;font-size:11px;font-weight:700;color:${color};white-space:nowrap">${inlineHTML(h)}</th>`
+    })
+    html += `</tr></thead><tbody>`
+    body.forEach((row, ri) => {
+      html += `<tr style="border-bottom:1px solid #f3f4f6;${ri % 2 === 0 ? 'background:#fafafa' : 'background:white'}">`
+      parseRow(row).forEach(c => {
+        html += `<td style="padding:6px 10px;font-size:12px;color:#374151;line-height:1.4">${inlineHTML(c)}</td>`
+      })
+      html += `</tr>`
+    })
+    html += `</tbody></table></div>`
+    tableBuffer = []
+  }
   lines.forEach(line => {
+    const isTableRow = line.trim().startsWith('|') && line.trim().endsWith('|')
+    if (isTableRow) {
+      if (listType) flushList()
+      tableBuffer.push(line)
+      return
+    }
+    if (tableBuffer.length) flushTable()
     if (line.startsWith('```')) {
       if (inCode) {
         html += `<pre style="background:#111827;color:#6ee7b7;padding:12px;border-radius:8px;font-size:11px;margin:10px 0;font-family:monospace;line-height:1.5;white-space:pre-wrap">${codeLines.map(esc).join('\n')}</pre>`
@@ -694,6 +823,7 @@ function renderSectionHTML(lines, color) {
     }
   })
   flushList()
+  flushTable()
   return html
 }
 
