@@ -32,6 +32,43 @@ function hBar(pct, color = '#3B82F6', h = 7) {
     <div style="background:${color};height:${h}px;width:${w}%;border-radius:${h}px"></div></div>`
 }
 
+/* SVG 直條圖，嵌入 HTML 段落 */
+function svgBarChart(items, { chartWidth = 740, chartHeight = 160, color = '#059669', labelKey = 'yearMonth', valueKey = 'subtotal' } = {}) {
+  if (!items.length) return ''
+  const padL = 52, padB = 28, padT = 12, padR = 8
+  const W = chartWidth - padL - padR
+  const H = chartHeight - padT - padB
+  const maxV = Math.max(...items.map(d => d[valueKey] || 0), 1)
+  const barW = Math.max(4, Math.floor(W / items.length) - 2)
+  const step = W / items.length
+
+  const bars = items.map((d, i) => {
+    const v = d[valueKey] || 0
+    const bh = Math.round(v / maxV * H)
+    const x = padL + i * step + (step - barW) / 2
+    const y = padT + H - bh
+    const raw = String(d[labelKey] || '')
+    // 年份: "2024" → "2024"; 年月: "2024-03" → "03"; 季度: "2024-Q1" → "Q1"
+    const label = raw.length <= 4 ? raw : raw.slice(-3).replace(/^-/, '')
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${bh}" fill="${color}" rx="2" opacity="0.82"/>
+      <text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 18).toFixed(1)}" text-anchor="middle" font-size="8" fill="#9ca3af" font-family="system-ui">${label}</text>`
+  }).join('\n')
+
+  // Y 軸 3 刻度線
+  const ticks = [0, 0.5, 1].map(t => {
+    const y = (padT + H - t * H).toFixed(1)
+    return `<line x1="${padL - 4}" y1="${y}" x2="${padL + W}" y2="${y}" stroke="#e5e7eb" stroke-width="0.8"/>
+      <text x="${(padL - 6).toFixed(1)}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="8" fill="#9ca3af" font-family="system-ui">${fmtN(maxV * t)}</text>`
+  }).join('\n')
+
+  return `<svg width="${chartWidth}" height="${chartHeight}" xmlns="http://www.w3.org/2000/svg" style="display:block">
+    ${ticks}
+    ${bars}
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + H}" stroke="#d1d5db" stroke-width="1"/>
+    <line x1="${padL}" y1="${padT + H}" x2="${padL + W}" y2="${padT + H}" stroke="#d1d5db" stroke-width="1"/>
+  </svg>`
+}
+
 /* 色帶 section header */
 function secHeader(title, sub, color) {
   return `<div style="background:linear-gradient(135deg,${color},${color}bb);color:white;padding:16px 22px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between">
@@ -214,9 +251,16 @@ function renderTrendHTML({ trendData = [] }) {
     </tr>`
   }).join('')
 
+  const chartItems = recent.slice(-24)
+  const chartSVG = svgBarChart(chartItems, { chartWidth: 740, chartHeight: 150, color: '#059669', labelKey: 'yearMonth', valueKey: 'subtotal' })
+
   return secCard(
     secHeader('月份趨勢分析', `最近 ${recent.length} 個月`, '#059669') +
-    `<table style="width:100%;border-collapse:collapse">
+    `<div style="padding:12px 16px 4px;border-bottom:1px solid #bbf7d0;background:#f0fdf4">
+      <div style="font-size:10px;font-weight:700;color:#166534;margin-bottom:6px">月銷售金額趨勢圖</div>
+      ${chartSVG}
+    </div>
+    <table style="width:100%;border-collapse:collapse">
       <thead><tr style="background:#f0fdf4;border-bottom:2px solid #bbf7d0">
         <th style="padding:9px 14px;text-align:left;font-size:10px;color:#166534;font-weight:700">月份</th>
         <th style="padding:9px 14px;text-align:right;font-size:10px;color:#166534;font-weight:700">銷售金額</th>
@@ -267,9 +311,22 @@ function renderComparisonHTML({ comparisonData }) {
     </tr>`
   }).join('')
 
+  const yearChartSVG = svgBarChart(byYear, { chartWidth: 420, chartHeight: 120, color: '#7c3aed', labelKey: 'year', valueKey: 'subtotal' })
+  const qChartSVG = svgBarChart(recentQ, { chartWidth: 270, chartHeight: 120, color: '#6366f1', labelKey: 'label', valueKey: 'subtotal' })
+
   return secCard(
     secHeader('年度 & 季度對比分析', '各年份 / 季度業績', '#7c3aed') +
-    `<div style="display:grid;grid-template-columns:3fr 2fr">
+    `<div style="display:grid;grid-template-columns:3fr 2fr;background:#faf5ff;border-bottom:1px solid #e9d5ff">
+      <div style="padding:10px 14px;border-right:1px solid #e9d5ff">
+        <div style="font-size:10px;font-weight:700;color:#6b21a8;margin-bottom:4px">年度銷售趨勢</div>
+        ${yearChartSVG}
+      </div>
+      <div style="padding:10px 14px">
+        <div style="font-size:10px;font-weight:700;color:#4338ca;margin-bottom:4px">季度銷售趨勢</div>
+        ${qChartSVG}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:3fr 2fr">
       <div style="border-right:1px solid #f3f4f6">
         <div style="padding:8px 14px;font-size:11px;font-weight:700;color:#6b21a8;border-bottom:1px solid #f3f4f6;background:#faf5ff">年度對比</div>
         <table style="width:100%;border-collapse:collapse">
@@ -631,10 +688,25 @@ async function htmlToPagedCanvases(html, width = 820) {
     if (breakY <= y) breakY = Math.min(y + PAGE_PX, totalH)
     const sliceH = breakY - y
 
-    /* ── 組合當頁 canvas ── */
+    /* ── 組合當頁 canvas（高度依實際內容裁切，避免大量空白） ── */
+    // 先渲染表頭（需要知道實際高度）
+    let theadCanvas = null
+    if (tInfo?.theadHTML) {
+      const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">${tInfo.theadHTML}</table>`
+      const theadDiv = _makeDiv(theadHTML, width, '0 24px')
+      document.body.appendChild(theadDiv)
+      await _waitLayout()
+      theadCanvas = await _renderToCanvas(theadDiv, width)
+      document.body.removeChild(theadDiv)
+    }
+
+    const theadPx = theadCanvas ? theadCanvas.height : 0
+    const slicePx = Math.round(sliceH * _SCALE)
+    const canvasH = Math.max(theadPx + slicePx, 1)
+
     const pc = document.createElement('canvas')
     pc.width = Math.round(width * _SCALE)
-    pc.height = Math.round(PAGE_PX * _SCALE)
+    pc.height = canvasH
     const ctx = pc.getContext('2d')
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, pc.width, pc.height)
@@ -642,14 +714,7 @@ async function htmlToPagedCanvases(html, width = 820) {
     let destY = 0
 
     // 如果是接續頁，先在頂部渲染「(續)」表頭
-    if (tInfo?.theadHTML) {
-      const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">${tInfo.theadHTML}</table>`
-      const theadDiv = _makeDiv(theadHTML, width, '0 24px')
-      document.body.appendChild(theadDiv)
-      await _waitLayout()
-      const theadCanvas = await _renderToCanvas(theadDiv, width)
-      document.body.removeChild(theadDiv)
-
+    if (theadCanvas) {
       ctx.drawImage(theadCanvas, 0, 0, theadCanvas.width, theadCanvas.height,
         0, 0, pc.width, theadCanvas.height)
       destY = theadCanvas.height
@@ -657,7 +722,7 @@ async function htmlToPagedCanvases(html, width = 820) {
 
     // 複製主內容切片
     const srcY = Math.round(y * _SCALE)
-    const srcH = Math.round(sliceH * _SCALE)
+    const srcH = slicePx
     if (srcH > 0) {
       ctx.drawImage(fullCanvas, 0, srcY, fullCanvas.width, srcH, 0, destY, pc.width, srcH)
     }
@@ -682,22 +747,38 @@ async function htmlToCanvas(html, width = 820) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   PDF Builder
+   PDF Builder（頂對齊 + 自動合併短內容到同頁）
 ═══════════════════════════════════════════════════════════════ */
 function buildPDF(canvases, footerText = '') {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
-  const margin = 8, availW = pageW - margin * 2, availH = pageH - margin * 2 - 6
+  const margin = 8
+  const availW = pageW - margin * 2
+  const availH = pageH - margin * 2 - 6  // 留底部頁碼空間
+  const gap = 4  // 同頁多段之間的間距（mm）
+
   let first = true
+  let curY = margin  // 當前頁已用到的 Y 位置
+
   for (const canvas of canvases) {
-    if (!first) pdf.addPage(); first = false
     const imgData = canvas.toDataURL('image/jpeg', 0.93)
     const ratio = canvas.width / canvas.height
     let w = availW, h = w / ratio
     if (h > availH) { h = availH; w = h * ratio }
-    pdf.addImage(imgData, 'JPEG', margin + (availW - w) / 2, margin + (availH - h) / 2, w, h)
+
+    // 若此段放不進剩餘空間，換頁
+    if (!first && curY + h > pageH - margin - 6) {
+      pdf.addPage()
+      curY = margin
+    }
+    if (first) first = false
+
+    // 頂對齊放置（不再垂直置中）
+    pdf.addImage(imgData, 'JPEG', margin + (availW - w) / 2, curY, w, h)
+    curY += h + gap
   }
+
   const total = pdf.internal.getNumberOfPages()
   for (let i = 1; i <= total; i++) {
     pdf.setPage(i); pdf.setFontSize(7); pdf.setTextColor(170, 170, 170)
