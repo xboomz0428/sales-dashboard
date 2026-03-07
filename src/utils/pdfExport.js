@@ -534,37 +534,151 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HTML → Canvas
+   HTML → 智慧分頁 Canvases（表格列感知，自動重複表頭）
 ═══════════════════════════════════════════════════════════════ */
-async function htmlToCanvas(html, width = 820) {
-  const wrapper = document.createElement('div')
-  wrapper.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:white;padding:20px 24px;z-index:-9999;box-sizing:border-box;font-family:system-ui,-apple-system,"Microsoft JhengHei","PingFang TC",sans-serif`
-  wrapper.innerHTML = html
-  document.body.appendChild(wrapper)
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
-  const canvas = await html2canvas(wrapper, {
-    scale: 1.8, backgroundColor: '#ffffff', useCORS: true,
-    logging: false, scrollX: 0, scrollY: 0,
-    width, height: wrapper.scrollHeight, windowWidth: width,
-  })
-  document.body.removeChild(wrapper)
-  return canvas
+const _SCALE = 1.8
+const _FONT = `system-ui,-apple-system,"Microsoft JhengHei","PingFang TC",sans-serif`
+
+function _makeDiv(html, width, pad = '20px 24px') {
+  const d = document.createElement('div')
+  d.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:white;padding:${pad};z-index:-9999;box-sizing:border-box;font-family:${_FONT}`
+  d.innerHTML = html
+  return d
 }
 
-function splitCanvasToPages(canvas) {
-  const pageH = Math.round(canvas.width * 1.414)
+async function _renderToCanvas(div, width) {
+  return html2canvas(div, {
+    scale: _SCALE, backgroundColor: '#ffffff', useCORS: true,
+    logging: false, scrollX: 0, scrollY: 0,
+    width, height: div.scrollHeight, windowWidth: width,
+  })
+}
+
+async function _waitLayout() {
+  return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+}
+
+/* 主分頁函數：HTML → A4 頁面 canvas 陣列 */
+async function htmlToPagedCanvases(html, width = 820) {
+  const PAGE_PX = Math.round(width * 1.414)   // A4 直式比例
+
+  /* ── 1. 量測元素位置 ── */
+  const div = _makeDiv(html, width)
+  document.body.appendChild(div)
+  await _waitLayout()
+
+  const divTop = div.getBoundingClientRect().top
+  const totalH = div.scrollHeight
+
+  // 收集所有 <tr> 的底部位置（safe break points）
+  const rowBreaks = []  // { y, tid }
+  const tableData = {} // tid -> { theadHTML, theadH, bottom }
+
+  div.querySelectorAll('table').forEach((tbl, ti) => {
+    const tid = `t${ti}`
+    const thead = tbl.querySelector('thead')
+    const tblR = tbl.getBoundingClientRect()
+
+    tableData[tid] = {
+      theadHTML: thead ? thead.outerHTML : null,
+      theadH: thead ? Math.round(thead.getBoundingClientRect().height) : 0,
+      bottom: Math.round(tblR.bottom - divTop),
+    }
+
+    tbl.querySelectorAll('tbody tr').forEach(row => {
+      rowBreaks.push({ y: Math.round(row.getBoundingClientRect().bottom - divTop), tid })
+    })
+  })
+
+  // 非表格區塊底部也作為 break point（避免段落被切斷）
+  div.querySelectorAll('p, li, h3, h4').forEach(el => {
+    rowBreaks.push({ y: Math.round(el.getBoundingClientRect().bottom - divTop), tid: null })
+  })
+
+  rowBreaks.sort((a, b) => a.y - b.y)
+
+  /* ── 2. 渲染完整 canvas ── */
+  const fullCanvas = await _renderToCanvas(div, width)
+  document.body.removeChild(div)
+
+  /* ── 3. 智慧分頁 ── */
   const pages = []
   let y = 0
-  while (y < canvas.height) {
-    const sliceH = Math.min(pageH, canvas.height - y)
+  let continueTid = null   // 若不為 null，下一頁頂部需要重複表頭
+
+  while (y < totalH) {
+    const tInfo = continueTid ? tableData[continueTid] : null
+    const theadReserve = tInfo ? tInfo.theadH + 4 : 0   // 為表頭預留空間
+    const targetBottom = y + PAGE_PX - theadReserve
+
+    // 找出 y ~ targetBottom 之間最後一個安全斷點
+    const valid = rowBreaks.filter(rb => rb.y > y && rb.y <= targetBottom)
+    let breakY, nextTid
+
+    if (valid.length > 0) {
+      const best = valid[valid.length - 1]
+      breakY = best.y
+      // 判斷下一頁是否還在同一個表格裡
+      const td = best.tid ? tableData[best.tid] : null
+      nextTid = (td && td.bottom > breakY) ? best.tid : null
+    } else {
+      // 沒有安全斷點，強制在頁面高度處截斷
+      breakY = Math.min(targetBottom, totalH)
+      nextTid = null
+    }
+
+    // 確保一定會前進，避免無限迴圈
+    if (breakY <= y) breakY = Math.min(y + PAGE_PX, totalH)
+    const sliceH = breakY - y
+
+    /* ── 組合當頁 canvas ── */
     const pc = document.createElement('canvas')
-    pc.width = canvas.width; pc.height = pageH
+    pc.width = Math.round(width * _SCALE)
+    pc.height = Math.round(PAGE_PX * _SCALE)
     const ctx = pc.getContext('2d')
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, pageH)
-    ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
-    pages.push(pc); y += pageH
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, pc.width, pc.height)
+
+    let destY = 0
+
+    // 如果是接續頁，先在頂部渲染「(續)」表頭
+    if (tInfo?.theadHTML) {
+      const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">${tInfo.theadHTML}</table>`
+      const theadDiv = _makeDiv(theadHTML, width, '0 24px')
+      document.body.appendChild(theadDiv)
+      await _waitLayout()
+      const theadCanvas = await _renderToCanvas(theadDiv, width)
+      document.body.removeChild(theadDiv)
+
+      ctx.drawImage(theadCanvas, 0, 0, theadCanvas.width, theadCanvas.height,
+        0, 0, pc.width, theadCanvas.height)
+      destY = theadCanvas.height
+    }
+
+    // 複製主內容切片
+    const srcY = Math.round(y * _SCALE)
+    const srcH = Math.round(sliceH * _SCALE)
+    if (srcH > 0) {
+      ctx.drawImage(fullCanvas, 0, srcY, fullCanvas.width, srcH, 0, destY, pc.width, srcH)
+    }
+
+    pages.push(pc)
+    y = breakY
+    continueTid = nextTid
+    if (y >= totalH) break
   }
+
   return pages
+}
+
+/* 向後相容：單一 canvas（部分內部流程仍使用） */
+async function htmlToCanvas(html, width = 820) {
+  const div = _makeDiv(html, width)
+  document.body.appendChild(div)
+  await _waitLayout()
+  const canvas = await _renderToCanvas(div, width)
+  document.body.removeChild(div)
+  return canvas
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -629,8 +743,8 @@ export async function exportDashboardPDF({ salesData = {}, onProgress }) {
   for (const sec of sections) {
     if (!sec.html) continue
     onProgress?.(`渲染 ${sec.name}...`)
-    const canvas = await htmlToCanvas(sec.html)
-    splitCanvasToPages(canvas).forEach(p => allPages.push(p))
+    const pages = await htmlToPagedCanvases(sec.html)
+    pages.forEach(p => allPages.push(p))
   }
   onProgress?.('建立 PDF 檔案...')
   const pdf = buildPDF(allPages, `銷售數據分析報告 · ${new Date().toLocaleDateString('zh-TW')}`)
@@ -865,8 +979,7 @@ function markdownToStyledHTML(text, analysisType) {
 
 async function renderMarkdownToCanvases(text, analysisType) {
   const html = markdownToStyledHTML(text, analysisType)
-  const canvas = await htmlToCanvas(html)
-  return splitCanvasToPages(canvas)
+  return htmlToPagedCanvases(html, 820)
 }
 
 export async function exportAIReportPDF({ content, analysisType }) {
@@ -894,8 +1007,8 @@ export async function exportFullReportPDF({ salesData = {}, aiContent, analysisT
   for (const sec of sections) {
     if (!sec.html) continue
     onProgress?.(`渲染 ${sec.name}...`)
-    const canvas = await htmlToCanvas(sec.html)
-    splitCanvasToPages(canvas).forEach(p => allPages.push(p))
+    const pages = await htmlToPagedCanvases(sec.html)
+    pages.forEach(p => allPages.push(p))
   }
 
   const typeLabel = TYPE_LABELS[analysisType] || analysisType
