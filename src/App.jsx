@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { getStoredApiKey, setStoredApiKey } from './utils/ai'
 import { processExcelFile } from './utils/dataProcessor'
 import { useSalesData } from './hooks/useSalesData'
+import { useDarkMode } from './hooks/useDarkMode'
 import { getDateRange, hasDateOverlap } from './utils/dateUtils'
 import FileUpload from './components/FileUpload'
 import FilterPanel from './components/FilterPanel'
@@ -63,6 +64,7 @@ function buildMeta(rows) {
 }
 
 export default function App() {
+  const [dark, setDark] = useDarkMode()
   const [allRows, setAllRows] = useState([])
   const [meta, setMeta] = useState(null)
   const [uploadHistory, setUploadHistory] = useState([])
@@ -87,7 +89,7 @@ export default function App() {
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Open search on "/" key (when not typing in an input)
+  // Open search on "/" key
   useEffect(() => {
     const handler = (e) => {
       if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
@@ -97,6 +99,12 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // Close mobile panel on tab change
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTab(tabId)
+    if (window.innerWidth < 768) setPanelOpen(false)
   }, [])
 
   const handleFileLoaded = useCallback(async (file) => {
@@ -124,13 +132,8 @@ export default function App() {
       let duplicateCount = 0
 
       if (!existingRange || !hasDateOverlap(existingRange, newRange)) {
-        // No date overlap → import all directly
         finalNewRows = data.rows
       } else {
-        // Date overlap → only dedup rows within overlapping date range
-        const overlapMin = Math.max(existingRange.min, newRange.min) <= existingRange.max ? newRange.min : existingRange.min
-        const overlapMax = existingRange.max
-
         const existingKeysInOverlap = new Set(
           allRows.filter(r => r.date >= newRange.min && r.date <= newRange.max).map(r => r._key)
         )
@@ -226,7 +229,6 @@ export default function App() {
     }
   }, [pdfSalesData])
 
-  // Full report PDF: AI content + all dashboard data
   const handleAIExportFullPDF = useCallback(async (aiContent, analysisType) => {
     setAiOpen(false)
     setPdfLoading(true)
@@ -251,7 +253,7 @@ export default function App() {
     return (
       <div>
         {error && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow text-sm">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/80 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg shadow text-sm">
             ⚠️ {error}
           </div>
         )}
@@ -265,69 +267,112 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
-      <FilterPanel meta={meta} filters={filters} onChange={setFilters} allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)} />
+    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+
+      {/* Mobile backdrop overlay */}
+      {panelOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-20 bg-black/60 backdrop-blur-sm"
+          onClick={() => setPanelOpen(false)}
+        />
+      )}
+
+      {/* Filter sidebar — mobile: fixed overlay; desktop: flex item */}
+      <div className={`
+        fixed inset-y-0 left-0 z-30 h-full
+        md:relative md:inset-auto md:z-auto md:h-auto md:flex md:flex-shrink-0
+        transition-transform duration-300 ease-in-out
+        ${panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <FilterPanel
+          meta={meta} filters={filters} onChange={setFilters}
+          allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
+        />
+      </div>
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center justify-between flex-shrink-0 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm">S</div>
-            <div>
-              <h1 className="text-sm font-bold text-gray-800">銷售數據分析系統</h1>
-              <p className="text-sm text-gray-400">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-3 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 shadow-sm gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setPanelOpen(v => !v)}
+              className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+              title="篩選條件"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <path d="M2 4h12M4 8h8M6 12h4" />
+              </svg>
+            </button>
+
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">S</div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">銷售數據分析系統</h1>
+              <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-tight">
                 {uploadHistory.length} 個檔案 · {meta?.totalRows?.toLocaleString()} 筆 · 顯示 {filtered.length.toLocaleString()} 筆
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {loading && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
 
-            {/* Upload history button */}
+            {/* Upload history — hidden on mobile */}
             <button onClick={() => setShowHistory(v => !v)}
-              className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1">
-              📁 <span>記錄</span>
-              <span className="bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5 text-xs font-medium">{uploadHistory.length}</span>
+              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1">
+              📁 <span className="hidden md:inline">記錄</span>
+              <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-1.5 py-0.5 text-xs font-medium">{uploadHistory.length}</span>
             </button>
 
-            {/* Add file button */}
+            {/* Add file */}
             <button onClick={() => fileInputRef.current?.click()}
-              className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm">
-              ＋ 新增檔案
+              className="text-sm px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm">
+              <span className="text-base leading-none">＋</span>
+              <span className="hidden sm:inline">新增檔案</span>
             </button>
             <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.csv" className="hidden"
               onChange={e => { if (e.target.files[0]) handleFileLoaded(e.target.files[0]); e.target.value = '' }} />
 
-            {/* Global search */}
+            {/* Global search — hidden on mobile */}
             {meta && (
               <button onClick={() => setSearchOpen(true)}
-                className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-                🔍 <span className="hidden sm:inline">搜尋</span>
-                <kbd className="hidden md:inline text-sm bg-gray-100 border border-gray-200 rounded px-1 py-0.5 font-mono">/</kbd>
+                className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1.5">
+                🔍
+                <kbd className="hidden md:inline text-xs bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 font-mono text-gray-400">/</kbd>
               </button>
             )}
 
-            {/* API Key */}
+            {/* API Key — hidden on mobile */}
             <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true) }}
               title={keyHasValue ? 'API Key 已設定' : '尚未設定 API Key'}
-              className={`text-sm px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${keyHasValue ? 'border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100'}`}>
-              🔑 <span className="hidden sm:inline">{keyHasValue ? 'Key 已設定' : '設定 Key'}</span>
+              className={`hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border transition-colors items-center gap-1 ${keyHasValue ? 'border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30' : 'border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30'}`}>
+              🔑 <span className="hidden md:inline">{keyHasValue ? 'Key 已設定' : '設定 Key'}</span>
             </button>
 
             {/* AI Analysis */}
             <button onClick={() => setAiOpen(true)}
-              className="text-sm px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
-              🤖 AI 分析
+              className="text-sm px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
+              🤖 <span className="hidden sm:inline">AI 分析</span>
             </button>
 
-            {/* PDF export */}
+            {/* PDF export — hidden on mobile */}
             <button onClick={handleExportPDF} disabled={pdfLoading}
-              className="text-sm px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center gap-1 disabled:opacity-60">
-              {pdfLoading ? '⏳' : '📄'} <span>{pdfLoading ? pdfProgress || 'PDF...' : 'PDF 匯出'}</span>
+              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1 disabled:opacity-60">
+              {pdfLoading ? '⏳' : '📄'} <span className="hidden md:inline">{pdfLoading ? pdfProgress || 'PDF...' : 'PDF'}</span>
             </button>
 
+            {/* Dark mode toggle */}
+            <button
+              onClick={() => setDark(d => !d)}
+              title={dark ? '切換淺色模式' : '切換深色模式'}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-base"
+            >
+              {dark ? '☀️' : '🌙'}
+            </button>
+
+            {/* Reset — hidden on mobile */}
             <button onClick={handleReset}
-              className="text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
+              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               重置
             </button>
           </div>
@@ -335,7 +380,11 @@ export default function App() {
 
         {/* Notifications */}
         {(notice || error) && (
-          <div className={`mx-4 mt-2 px-4 py-2 rounded-lg text-sm flex items-center justify-between flex-shrink-0 ${notice ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <div className={`mx-3 sm:mx-4 mt-2 px-4 py-2 rounded-lg text-sm flex items-center justify-between flex-shrink-0 ${
+            notice
+              ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
+              : 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400'
+          }`}>
             <span>{notice ? `✓ ${notice}` : `⚠️ ${error}`}</span>
             <button onClick={() => { setNotice(null); setError(null) }} className="ml-2 opacity-60 hover:opacity-100">✕</button>
           </div>
@@ -343,14 +392,14 @@ export default function App() {
 
         {/* Upload history panel */}
         {showHistory && (
-          <div className="mx-4 mt-2 bg-white border border-gray-100 rounded-xl p-3 flex-shrink-0 shadow-sm">
+          <div className="mx-3 sm:mx-4 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex-shrink-0 shadow-sm overflow-x-auto">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-gray-600">上傳記錄</span>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+              <span className="text-sm font-bold text-gray-600 dark:text-gray-300">上傳記錄</span>
+              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">✕</button>
             </div>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
-                <tr className="text-xs text-gray-400 border-b">
+                <tr className="text-xs text-gray-400 dark:text-gray-500 border-b dark:border-gray-700">
                   <th className="text-left py-1 pr-3">檔案</th>
                   <th className="text-center py-1 pr-3">日期範圍</th>
                   <th className="text-right py-1 pr-3">新增</th>
@@ -360,14 +409,14 @@ export default function App() {
               </thead>
               <tbody>
                 {uploadHistory.map(f => (
-                  <tr key={f.id} className="border-b border-gray-50 hover:bg-gray-50">
-                    <td className="py-1 pr-3 text-gray-700 font-medium max-w-[200px] truncate">{f.name}</td>
-                    <td className="py-1 pr-3 text-center text-gray-400 text-xs">
+                  <tr key={f.id} className="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="py-1 pr-3 text-gray-700 dark:text-gray-200 font-medium max-w-[200px] truncate">{f.name}</td>
+                    <td className="py-1 pr-3 text-center text-gray-400 dark:text-gray-500 text-xs">
                       {f.dateRange ? `${f.dateRange.min} ~ ${f.dateRange.max}` : '—'}
                     </td>
-                    <td className="py-1 pr-3 text-right text-emerald-600 font-mono">+{f.addedCount.toLocaleString()}</td>
-                    <td className="py-1 pr-3 text-right text-gray-400 font-mono">{f.duplicateCount.toLocaleString()}</td>
-                    <td className="py-1 text-right text-gray-400">{f.time}</td>
+                    <td className="py-1 pr-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">+{f.addedCount.toLocaleString()}</td>
+                    <td className="py-1 pr-3 text-right text-gray-400 dark:text-gray-500 font-mono">{f.duplicateCount.toLocaleString()}</td>
+                    <td className="py-1 text-right text-gray-400 dark:text-gray-500">{f.time}</td>
                   </tr>
                 ))}
               </tbody>
@@ -376,45 +425,50 @@ export default function App() {
         )}
 
         {/* KPI Cards toggle bar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
           <button
             onClick={() => setDashboardOpen(v => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
             <span className={`transition-transform duration-200 text-xs ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
             {dashboardOpen ? '收折儀表板' : '展開儀表板'}
           </button>
           {!dashboardOpen && (
-            <span className="text-sm text-gray-400 ml-1">（KPI 數據已收折）</span>
+            <span className="text-sm text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">（KPI 數據已收折）</span>
           )}
         </div>
+
         {/* KPI Cards */}
         {dashboardOpen && (
-          <SummaryCards summary={summary} metric={filters.metric} trendData={trendData} productData={productData} customerData={customerData} customerByChannelTop={customerByChannelTop} costs={productCosts} />
+          <SummaryCards
+            summary={summary} metric={filters.metric} trendData={trendData}
+            productData={productData} customerData={customerData}
+            customerByChannelTop={customerByChannelTop} costs={productCosts}
+          />
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 bg-white px-3 flex-shrink-0 overflow-x-auto">
+        <div className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 sm:px-3 flex-shrink-0 overflow-x-auto">
           {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            <button key={tab.id} onClick={() => handleTabChange(tab.id)}
+              className={`flex-shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2.5 sm:py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}>
-              <span className="text-base">{tab.icon}</span>{tab.label}
+              <span className="text-sm sm:text-base">{tab.icon}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden text-xs">{tab.label.length > 4 ? tab.label.slice(0, 4) : tab.label}</span>
               {tab.id === 'alerts' && <AnomalyBadge allRows={allRows} metric={filters.metric} />}
             </button>
           ))}
         </div>
 
         {/* Chart area */}
-        <div className="flex-1 overflow-y-auto p-4" ref={chartAreaRef}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4" ref={chartAreaRef}>
           {activeTab === 'summary' && (
             <div data-pdf-section data-pdf-title="執行摘要">
-              <ExecutiveSummary
-                summary={summary} trendData={trendData} metric={filters.metric}
-                productData={productData} customerData={customerData}
-                brandData={brandData} channelData={channelData} allRows={allRows}
-              />
+              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} />
             </div>
           )}
           {activeTab === 'comparison' && (
@@ -470,14 +524,7 @@ export default function App() {
           )}
           {activeTab === 'goals' && (
             <div data-pdf-section data-pdf-title="目標管理">
-              <GoalDashboard
-                trendData={trendData}
-                comparisonData={comparisonData}
-                summary={summary}
-                brandData={brandData}
-                channelData={channelData}
-                metric={filters.metric}
-              />
+              <GoalDashboard trendData={trendData} comparisonData={comparisonData} summary={summary} brandData={brandData} channelData={channelData} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'alerts' && (
@@ -501,7 +548,7 @@ export default function App() {
       <GlobalSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onNavigate={(tab) => { setActiveTab(tab); setSearchOpen(false) }}
+        onNavigate={(tab) => { handleTabChange(tab); setSearchOpen(false) }}
         productData={productData}
         customerData={customerData}
         brandData={brandData}
@@ -509,37 +556,33 @@ export default function App() {
 
       {/* API Key Modal */}
       {keyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setKeyModalOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-gray-800 mb-1">🔑 設定 Google AI Studio API Key</h3>
-            <p className="text-sm text-gray-400 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => setKeyModalOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">🔑 設定 Google AI Studio API Key</h3>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
               用於 AI 分析、目標建議、執行摘要等功能。Key 只存在你的瀏覽器，不會上傳。<br />
               <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">→ 前往 Google AI Studio 取得 Key</a>
             </p>
             <input
-              type="password"
-              value={keyInput}
-              onChange={e => setKeyInput(e.target.value)}
+              type="password" value={keyInput} onChange={e => setKeyInput(e.target.value)}
               placeholder="AIza..."
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-base font-mono focus:outline-none focus:border-blue-400 mb-4"
+              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-base font-mono focus:outline-none focus:border-blue-400 mb-4 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               autoFocus
             />
             <div className="flex gap-2 justify-end">
               {keyHasValue && (
                 <button onClick={() => { setStoredApiKey(''); setKeyHasValue(false); setKeyModalOpen(false) }}
-                  className="px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm hover:bg-red-50 transition-colors">
+                  className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-700 text-red-600 dark:text-red-400 text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                   清除 Key
                 </button>
               )}
               <button onClick={() => setKeyModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm hover:bg-gray-50 transition-colors">
+                className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 取消
               </button>
               <button onClick={() => {
                 const k = keyInput.trim()
-                setStoredApiKey(k)
-                setKeyHasValue(!!k)
-                setKeyModalOpen(false)
+                setStoredApiKey(k); setKeyHasValue(!!k); setKeyModalOpen(false)
               }}
                 disabled={!keyInput.trim()}
                 className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-40">

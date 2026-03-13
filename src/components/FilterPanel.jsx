@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react'
 import { getThisMonthRange, getThisQuarterRange, getThisYearRange, getLastMonthRange } from '../utils/dateUtils'
-import dayjs from 'dayjs'
 
 const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12']
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
@@ -11,9 +10,9 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
-        <label className={`font-bold text-gray-400 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
+        <label className={`font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
         {!allSelected && (
-          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-700 ${expanded ? 'text-sm' : 'text-base'}`}>清除</button>
+          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-400 ${expanded ? 'text-sm' : 'text-base'}`}>清除</button>
         )}
       </div>
       <div className={`flex flex-wrap ${expanded ? 'gap-2' : 'gap-1.5'}`}>
@@ -27,7 +26,7 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
               } ${
                 selected.includes(val)
                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                  : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400'
               }`}>{lbl}</button>
           )
         })}
@@ -48,9 +47,9 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
-        <label className={`font-bold text-gray-400 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
+        <label className={`font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
         {selected.length > 0 && (
-          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-700 ${expanded ? 'text-sm' : 'text-base'}`}>
+          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-400 ${expanded ? 'text-sm' : 'text-base'}`}>
             清除 ({selected.length})
           </button>
         )}
@@ -58,30 +57,30 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
       <input
         type="text" value={q} onChange={e => setQ(e.target.value)}
         placeholder={placeholder}
-        className={`w-full border border-gray-200 rounded-lg mb-1.5 focus:outline-none focus:border-blue-400 bg-gray-50 transition-all ${
+        className={`w-full border border-gray-200 dark:border-gray-600 rounded-lg mb-1.5 focus:outline-none focus:border-blue-400 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-all ${
           expanded ? 'text-sm px-3 py-2.5' : 'text-base px-2.5 py-2'
         }`}
       />
-      <div className={`overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 transition-all ${
+      <div className={`overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 transition-all ${
         expanded ? 'max-h-64 space-y-1 p-2' : 'max-h-40 space-y-0.5 p-1.5'
       }`}>
         {shown.length === 0 ? (
-          <p className={`text-gray-400 px-2 py-1 ${expanded ? 'text-sm' : 'text-base'}`}>無結果</p>
+          <p className={`text-gray-400 dark:text-gray-500 px-2 py-1 ${expanded ? 'text-sm' : 'text-base'}`}>無結果</p>
         ) : shown.map(opt => (
           <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors ${
             expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-2 py-1.5'
-          } ${selSet.has(opt) ? 'bg-blue-50' : 'hover:bg-white'}`}>
+          } ${selSet.has(opt) ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-white dark:hover:bg-gray-600'}`}>
             <input
               type="checkbox" checked={selSet.has(opt)} onChange={() => toggle(opt)}
               className={`accent-blue-600 flex-shrink-0 ${expanded ? 'w-5 h-5' : 'w-3.5 h-3.5'}`}
             />
             <span className={`truncate ${expanded ? 'text-sm' : 'text-base'} ${
-              selSet.has(opt) ? 'text-blue-700 font-semibold' : 'text-gray-700'
+              selSet.has(opt) ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'
             }`}>{opt}</span>
           </label>
         ))}
         {options.length > 60 && (
-          <p className="text-xs text-gray-400 px-2 py-1 border-t">共 {options.length} 項，請搜尋縮小範圍</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 border-t border-gray-200 dark:border-gray-600">共 {options.length} 項，請搜尋縮小範圍</p>
         )}
       </div>
     </div>
@@ -108,7 +107,8 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
   const quickMode = detectQuickMode(filters.dateRange)
 
   const isExpanded = filters.brands.length > 0 || (filters.products?.length > 0)
-  const activeFilterCount = filters.brands.length + (filters.products?.length || 0) +
+  const activeFilterCount =
+    filters.brands.length + (filters.products?.length || 0) +
     filters.channels.length + filters.channelTypes.length +
     filters.years.length + filters.months.length +
     (filters.customers?.length || 0)
@@ -156,19 +156,15 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
   }
 
   const QUICK_BTNS = [
-    { v: 'all', l: '全部' },
-    { v: 'month', l: '本月' },
-    { v: 'lastMonth', l: '上月' },
-    { v: 'quarter', l: '本季' },
-    { v: 'year', l: '本年' },
-    { v: 'custom', l: '自訂' },
+    { v: 'all', l: '全部' }, { v: 'month', l: '本月' }, { v: 'lastMonth', l: '上月' },
+    { v: 'quarter', l: '本季' }, { v: 'year', l: '本年' }, { v: 'custom', l: '自訂' },
   ]
 
   const panelWidth = !open ? 40 : (isExpanded ? 380 : 288)
 
   return (
     <div
-      className="flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-hidden shadow-sm"
+      className="flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden shadow-sm"
       style={{ width: panelWidth, transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
     >
       {/* Collapsed state */}
@@ -176,7 +172,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
         <button
           onClick={onToggle}
           title="展開篩選"
-          className="w-full flex flex-col items-center py-4 gap-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex-1"
+          className="w-full flex flex-col items-center py-4 gap-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-1"
         >
           <span className="text-lg">▶</span>
           {activeFilterCount > 0 && (
@@ -184,15 +180,14 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
               {activeFilterCount > 9 ? '9+' : activeFilterCount}
             </span>
           )}
-          <span className="text-xs font-bold text-gray-300 [writing-mode:vertical-rl] rotate-180 mt-1">篩選條件</span>
+          <span className="text-xs font-bold text-gray-300 dark:text-gray-600 [writing-mode:vertical-rl] rotate-180 mt-1">篩選條件</span>
         </button>
       )}
 
       {/* Expanded state */}
       {open && (
         <>
-          {/* Header */}
-          <div className="px-4 py-3.5 border-b border-gray-100 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
+          <div className="px-4 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-white">篩選條件</h2>
               <div className="flex items-center gap-2">
@@ -216,12 +211,14 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
           <div className="flex-1 overflow-y-auto p-3.5">
             {/* Metric */}
             <div className="mb-4">
-              <label className="text-base font-bold text-gray-400 uppercase tracking-wider block mb-1.5">分析指標</label>
-              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 rounded-lg">
+              <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">分析指標</label>
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                 {[{ v: 'subtotal', l: '銷售金額' }, { v: 'quantity', l: '銷售數量' }].map(({ v, l }) => (
                   <button key={v} onClick={() => onChange({ ...filters, metric: v })}
                     className={`text-base py-2 rounded-md transition-all font-medium ${
-                      filters.metric === v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      filters.metric === v
+                        ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                     }`}>{l}</button>
                 ))}
               </div>
@@ -229,35 +226,37 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
 
             {/* Time quick select */}
             <div className="mb-4">
-              <label className="text-base font-bold text-gray-400 uppercase tracking-wider block mb-1.5">時間週期</label>
+              <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">時間週期</label>
               <div className="grid grid-cols-3 gap-1">
                 {QUICK_BTNS.map(({ v, l }) => (
                   <button key={v} onClick={() => setQuick(v)}
                     className={`text-base py-2 rounded-md border transition-all ${
-                      quickMode === v ? 'bg-blue-600 border-blue-600 text-white shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-blue-400'
+                      quickMode === v
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500'
                     }`}>{l}</button>
                 ))}
               </div>
               {(showCustomDate || quickMode === 'custom') && (
                 <div className="mt-2 space-y-1.5">
-                  <div>
-                    <label className="text-base text-gray-500 mb-0.5 block">開始日期</label>
-                    <input type="date" value={filters.dateRange?.start || ''}
-                      onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, start: e.target.value }, years: [], months: [] })}
-                      className="w-full text-base px-2.5 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-base text-gray-500 mb-0.5 block">結束日期</label>
-                    <input type="date" value={filters.dateRange?.end || ''}
-                      onChange={e => onChange({ ...filters, dateRange: { ...filters.dateRange, end: e.target.value }, years: [], months: [] })}
-                      className="w-full text-base px-2.5 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
-                    />
-                  </div>
+                  {['開始日期', '結束日期'].map((label, idx) => (
+                    <div key={label}>
+                      <label className="text-base text-gray-500 dark:text-gray-400 mb-0.5 block">{label}</label>
+                      <input type="date"
+                        value={idx === 0 ? (filters.dateRange?.start || '') : (filters.dateRange?.end || '')}
+                        onChange={e => onChange({
+                          ...filters,
+                          dateRange: { ...filters.dateRange, [idx === 0 ? 'start' : 'end']: e.target.value },
+                          years: [], months: []
+                        })}
+                        className="w-full text-base px-2.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
               {filters.dateRange && (
-                <p className="text-base text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                <p className="text-base text-blue-600 dark:text-blue-400 mt-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
                   {filters.dateRange.start} ~ {filters.dateRange.end}
                 </p>
               )}
@@ -281,7 +280,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
 
             <button
               onClick={() => onChange({ years: [], months: [], channels: [], channelTypes: [], brands: [], customers: [], products: [], dateRange: null, metric: filters.metric })}
-              className="w-full text-base py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 mt-2 transition-colors"
+              className="w-full text-base py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 mt-2 transition-colors"
             >重置所有篩選</button>
           </div>
         </>

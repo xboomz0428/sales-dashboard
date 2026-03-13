@@ -53,75 +53,61 @@ export default function DataTable({ rows }) {
   }
 
   const SortIcon = ({ k }) => {
-    if (sortKey !== k) return <span className="text-gray-300 ml-1">↕</span>
+    if (sortKey !== k) return <span className="text-gray-300 dark:text-gray-600 ml-1">↕</span>
     return <span className="text-blue-500 ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>
   }
 
+  const btnCls = "px-2 py-1 rounded border border-gray-200 dark:border-gray-600 disabled:opacity-30 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <span className="text-sm font-semibold text-gray-700">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
           資料明細
-          <span className="ml-2 text-base font-normal text-gray-400">
+          <span className="ml-2 text-base font-normal text-gray-400 dark:text-gray-500">
             共 {rows.length.toLocaleString()} 筆，每頁 {PAGE_SIZE} 筆
           </span>
         </span>
-        <div className="flex items-center gap-2 text-base text-gray-500">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setPage(1)}
-            className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-          >«</button>
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setPage(p => p - 1)}
-            className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-          >‹</button>
-          <span>{currentPage} / {totalPages}</span>
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setPage(p => p + 1)}
-            className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-          >›</button>
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setPage(totalPages)}
-            className="px-2 py-1 rounded border border-gray-200 disabled:opacity-30 hover:bg-gray-50"
-          >»</button>
+        <div className="flex items-center gap-2 text-base text-gray-500 dark:text-gray-400">
+          <button disabled={currentPage === 1} onClick={() => setPage(1)} className={btnCls}>«</button>
+          <button disabled={currentPage === 1} onClick={() => setPage(p => p - 1)} className={btnCls}>‹</button>
+          <span className="text-gray-600 dark:text-gray-300">{currentPage} / {totalPages}</span>
+          <button disabled={currentPage === totalPages} onClick={() => setPage(p => p + 1)} className={btnCls}>›</button>
+          <button disabled={currentPage === totalPages} onClick={() => setPage(totalPages)} className={btnCls}>»</button>
         </div>
       </div>
 
       {/* Table */}
       <div className="overflow-x-auto">
         {rows.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-gray-400 text-sm">無資料</div>
+          <div className="flex items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm">無資料</div>
         ) : (
           <table className="w-full text-base">
-            <thead className="bg-gray-50 text-gray-600">
+            <thead className="bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
               <tr>
-                <th className="text-right px-3 py-2 font-medium text-gray-400 w-10">#</th>
+                <th className="text-right px-3 py-2 font-medium text-gray-400 dark:text-gray-600 w-10">#</th>
                 {COLS.map(col => (
                   <th
                     key={col.key}
                     onClick={() => handleSort(col.key)}
-                    className={`px-3 py-2 font-medium cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'}`}
+                    className={`px-3 py-2 font-medium cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap transition-colors ${col.align === 'right' ? 'text-right' : 'text-left'}`}
                   >
                     {col.label}<SortIcon k={col.key} />
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {pageRows.map((row, i) => (
-                <tr key={row._key} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-3 py-2 text-right text-gray-300">
+                <tr key={row._key} className="hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                  <td className="px-3 py-2 text-right text-gray-300 dark:text-gray-600">
                     {(currentPage - 1) * PAGE_SIZE + i + 1}
                   </td>
                   {COLS.map(col => (
                     <td
                       key={col.key}
-                      className={`px-3 py-2 ${col.align === 'right' ? 'text-right font-mono' : 'text-left'} text-gray-700 whitespace-nowrap`}
+                      className={`px-3 py-2 ${col.align === 'right' ? 'text-right font-mono' : 'text-left'} text-gray-700 dark:text-gray-200 whitespace-nowrap`}
                     >
                       {col.fmt ? col.fmt(row[col.key] ?? 0) : (row[col.key] || '—')}
                     </td>
