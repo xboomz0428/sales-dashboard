@@ -22,6 +22,7 @@ import AnomalyPanel, { AnomalyBadge } from './components/AnomalyPanel'
 import CustomerHealthPanel from './components/CustomerHealthPanel'
 import SalesForecast from './components/SalesForecast'
 import ExecutiveSummary from './components/ExecutiveSummary'
+import ProductCostManager from './components/ProductCostManager'
 
 const TABS = [
   { id: 'summary',     label: '執行摘要', icon: '📊' },
@@ -34,6 +35,7 @@ const TABS = [
   { id: 'brand',       label: '品牌分析', icon: '✨' },
   { id: 'heatmap',     label: '熱力圖',   icon: '🗓️' },
   { id: 'table',       label: '資料表格', icon: '📋' },
+  { id: 'costs',       label: '商品成本', icon: '💲' },
   { id: 'goals',       label: '目標管理', icon: '🏆' },
   { id: 'alerts',      label: '預警中心', icon: '🔔' },
   { id: 'health',      label: '客戶健康', icon: '💊' },
@@ -70,6 +72,9 @@ export default function App() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [activeTab, setActiveTab] = useState('performance')
   const [panelOpen, setPanelOpen] = useState(true)
+  const [productCosts, setProductCosts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('product_costs')) || {} } catch { return {} }
+  })
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfProgress, setPdfProgress] = useState('')
@@ -168,6 +173,24 @@ export default function App() {
     setAllRows([]); setMeta(null); setUploadHistory([])
     setError(null); setNotice(null)
     setFilters(DEFAULT_FILTERS); setActiveTab('performance')
+  }, [])
+
+  const updateProductCost = useCallback((product, cost) => {
+    setProductCosts(prev => {
+      const next = { ...prev }
+      if (cost == null) delete next[product]
+      else next[product] = cost
+      localStorage.setItem('product_costs', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const updateManyProductCosts = useCallback((updates) => {
+    setProductCosts(prev => {
+      const next = { ...prev, ...updates }
+      localStorage.setItem('product_costs', JSON.stringify(next))
+      return next
+    })
   }, [])
 
   const salesData = useSalesData(allRows, filters)
@@ -367,7 +390,7 @@ export default function App() {
         </div>
         {/* KPI Cards */}
         {dashboardOpen && (
-          <SummaryCards summary={summary} metric={filters.metric} trendData={trendData} productData={productData} customerData={customerData} customerByChannelTop={customerByChannelTop} />
+          <SummaryCards summary={summary} metric={filters.metric} trendData={trendData} productData={productData} customerData={customerData} customerByChannelTop={customerByChannelTop} costs={productCosts} />
         )}
 
         {/* Tabs */}
@@ -436,6 +459,14 @@ export default function App() {
           )}
           {activeTab === 'table' && (
             <DataTable rows={filtered} />
+          )}
+          {activeTab === 'costs' && (
+            <ProductCostManager
+              products={meta?.products || []}
+              costs={productCosts}
+              onUpdateCost={updateProductCost}
+              onUpdateMany={updateManyProductCosts}
+            />
           )}
           {activeTab === 'goals' && (
             <div data-pdf-section data-pdf-title="目標管理">
