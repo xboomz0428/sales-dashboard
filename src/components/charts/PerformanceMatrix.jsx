@@ -138,7 +138,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
         <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
           {DIMENSIONS.map(t => (
             <button key={t.v} onClick={() => setDimension(t.v)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-base font-medium transition-all ${dimension === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+              className={`flex items-center gap-1.5 px-2 sm:px-4 py-2 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${dimension === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
               <span>{t.icon}</span>{t.l}
             </button>
           ))}
@@ -146,7 +146,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
       </div>
 
       {/* Quadrant summary cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {QUADRANTS.map(q => (
           <div key={q.key} className={`p-4 rounded-2xl border ${q.bg} ${q.border}`}>
             <div className="flex items-center justify-between mb-2">
