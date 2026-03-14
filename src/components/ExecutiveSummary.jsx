@@ -12,11 +12,11 @@ const fmtPct = v => (v >= 0 ? '+' : '') + Math.round(v) + '%'
 
 function KPICard({ label, value, sub, color = 'blue', icon }) {
   const colors = {
-    blue: 'bg-blue-50 border-blue-100 text-blue-700',
-    green: 'bg-emerald-50 border-emerald-100 text-emerald-700',
-    amber: 'bg-amber-50 border-amber-100 text-amber-700',
-    red: 'bg-red-50 border-red-100 text-red-700',
-    purple: 'bg-purple-50 border-purple-100 text-purple-700',
+    blue: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-700/50 text-blue-700 dark:text-blue-400',
+    green: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400',
+    amber: 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-700/50 text-amber-700 dark:text-amber-400',
+    red: 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-700/50 text-red-700 dark:text-red-400',
+    purple: 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-700/50 text-purple-700 dark:text-purple-400',
   }
   return (
     <div className={`rounded-2xl border p-4 ${colors[color]}`}>
@@ -32,9 +32,9 @@ function KPICard({ label, value, sub, color = 'blue', icon }) {
 
 function Section({ title, children }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-50 bg-gray-50">
-        <span className="text-base font-bold text-gray-700">{title}</span>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-50 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <span className="text-base font-bold text-gray-700 dark:text-gray-200">{title}</span>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -126,7 +126,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
   }
 
   if (!summary) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-base bg-white rounded-2xl border border-gray-100">
+    <div className="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500 text-base bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
       無資料，請先上傳銷售資料
     </div>
   )
@@ -135,8 +135,8 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">📊 執行摘要</h2>
-          <p className="text-base text-gray-400 mt-0.5">一頁式老闆視角關鍵指標總覽</p>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">📊 執行摘要</h2>
+          <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">一頁式老闆視角關鍵指標總覽</p>
         </div>
         <button onClick={handleAI} disabled={aiLoading}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold shadow hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-60">
@@ -165,7 +165,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
           ) : (
             <div className="prose prose-base max-w-none">
               {aiText.split('\n').filter(l => l.trim()).map((line, i) => (
-                <p key={i} className="text-base text-gray-700 leading-relaxed mb-3 last:mb-0">{line}</p>
+                <p key={i} className="text-base text-gray-700 dark:text-gray-200 leading-relaxed mb-3 last:mb-0">{line}</p>
               ))}
             </div>
           )}
@@ -182,10 +182,10 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
               { label: '最佳品牌', value: topBrand?.name, sub: fmtM(topBrand?.[metric]) },
               { label: '最佳月份', value: bestMonth?.yearMonth, sub: fmtM(bestMonth?.[metric]) },
             ].map(({ label, value, sub }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <span className="text-base text-gray-500">{label}</span>
+              <div key={label} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                <span className="text-base text-gray-500 dark:text-gray-400">{label}</span>
                 <div className="text-right">
-                  <span className="text-base font-bold text-gray-800">{value || '—'}</span>
+                  <span className="text-base font-bold text-gray-800 dark:text-gray-100">{value || '—'}</span>
                   {sub && <span className="ml-2 text-base text-emerald-600 font-mono font-semibold">{sub}</span>}
                 </div>
               </div>
@@ -204,10 +204,10 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                   return (
                     <div key={ch.name}>
                       <div className="flex justify-between text-base mb-1">
-                        <span className="text-gray-700 font-semibold">{ch.name}</span>
-                        <span className="font-mono text-gray-600">{fmtM(ch[metric])} <span className="text-gray-400">({pct.toFixed(0)}%)</span></span>
+                        <span className="text-gray-700 dark:text-gray-200 font-semibold">{ch.name}</span>
+                        <span className="font-mono text-gray-600 dark:text-gray-300">{fmtM(ch[metric])} <span className="text-gray-400 dark:text-gray-500">({pct.toFixed(0)}%)</span></span>
                       </div>
-                      <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                         <div className="h-2 rounded-full bg-blue-500 transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
@@ -215,7 +215,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                 })
               })()}
             </div>
-          ) : <p className="text-gray-400 text-base">無通路資料</p>}
+          ) : <p className="text-gray-400 dark:text-gray-500 text-base">無通路資料</p>}
         </Section>
 
         {/* Recent trend snapshot */}
@@ -229,11 +229,11 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                 const pct = max > 0 ? (d[metric] / max * 100) : 0
                 return (
                   <div key={d.yearMonth} className="flex items-center gap-3">
-                    <span className="text-base text-gray-500 w-20 flex-shrink-0">{d.yearMonth}</span>
-                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                    <span className="text-base text-gray-500 dark:text-gray-400 w-20 flex-shrink-0">{d.yearMonth}</span>
+                    <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                       <div className="h-2 rounded-full bg-indigo-400" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="text-base font-mono font-semibold text-gray-700 w-16 text-right">{fmtM(d[metric])}</span>
+                    <span className="text-base font-mono font-semibold text-gray-700 dark:text-gray-200 w-16 text-right">{fmtM(d[metric])}</span>
                     {chg != null && (
                       <span className={`text-sm font-semibold w-14 text-right ${chg >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                         {fmtPct(chg)}
@@ -243,7 +243,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                 )
               })}
             </div>
-          ) : <p className="text-gray-400 text-base">無趨勢資料</p>}
+          ) : <p className="text-gray-400 dark:text-gray-500 text-base">無趨勢資料</p>}
         </Section>
 
         {/* Risk signals */}
@@ -256,7 +256,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
               const top3 = customerData.slice(0, 3).reduce((s, d) => s + (d[metric] || 0), 0)
               const pct = total > 0 ? top3 / total * 100 : 0
               const level = pct > 70 ? 'high' : pct > 50 ? 'medium' : 'low'
-              const colors = { high: 'bg-red-50 border-red-200 text-red-700', medium: 'bg-amber-50 border-amber-200 text-amber-700', low: 'bg-emerald-50 border-emerald-200 text-emerald-700' }
+              const colors = { high: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-400', medium: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700/50 text-amber-700 dark:text-amber-400', low: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400' }
               return (
                 <div className={`rounded-xl border p-3 ${colors[level]}`}>
                   <p className="text-base font-bold">客戶集中度</p>
@@ -269,7 +269,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
 
             {/* MoM trend */}
             {momStats && momStats.chg < -10 && (
-              <div className="rounded-xl border bg-red-50 border-red-200 text-red-700 p-3">
+              <div className="rounded-xl border bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-400 p-3">
                 <p className="text-base font-bold">月度下滑警告</p>
                 <p className="text-sm opacity-80">最新月份較上月下降 {Math.abs(momStats.chg).toFixed(0)}%，需關注原因</p>
               </div>
@@ -277,7 +277,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
 
             {/* YoY trend */}
             {yoyStats && yoyStats.chg < -15 && (
-              <div className="rounded-xl border bg-red-50 border-red-200 text-red-700 p-3">
+              <div className="rounded-xl border bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-400 p-3">
                 <p className="text-base font-bold">年度同期下滑</p>
                 <p className="text-sm opacity-80">{yoyStats.yearMonth} 年增率 {fmtPct(yoyStats.chg)}，低於去年同期</p>
               </div>
@@ -290,7 +290,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
               const top3 = customerData.slice(0, 3).reduce((s, d) => s + (d[metric] || 0), 0)
               return total > 0 && top3 / total <= 0.7
             })() && (
-              <div className="rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 p-3">
+              <div className="rounded-xl border bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 p-3">
                 <p className="text-base font-bold">✅ 整體運營健康</p>
                 <p className="text-sm opacity-80">各項指標正常，無明顯風險訊號</p>
               </div>
@@ -299,7 +299,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
         </Section>
       </div>
 
-      <div className="text-sm text-gray-400 bg-gray-50 rounded-xl p-3 text-center">
+      <div className="text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 text-center">
         本摘要根據當前篩選條件下的資料自動生成 · 如需詳細分析請使用各專項分析頁籤
       </div>
     </div>

@@ -44,14 +44,14 @@ export default function ChartDataTable({ title = '數據明細', columns, data, 
   const rows = maxRows ? sortedData.slice(0, maxRows) : sortedData
 
   return (
-    <div className="mt-5 border-t border-gray-100 pt-4">
+    <div className="mt-5 border-t border-gray-100 dark:border-gray-700 pt-4">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 text-base font-bold text-gray-600 hover:text-blue-600 mb-3 transition-colors"
+        className="flex items-center gap-2 text-base font-bold text-gray-600 dark:text-gray-300 hover:text-blue-600 mb-3 transition-colors"
       >
         <span className={`transition-transform duration-200 text-sm ${open ? 'rotate-90' : ''}`}>▶</span>
         {title}
-        <span className="text-sm text-gray-400 font-normal bg-gray-100 px-2 py-0.5 rounded-full">{data.length} 筆</span>
+        <span className="text-sm text-gray-400 dark:text-gray-500 font-normal bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{data.length} 筆</span>
         {sortKey && (
           <span className="text-sm text-blue-500 font-normal">
             依「{columns.find(c => c.key === sortKey)?.label ?? sortKey}」{sortDir === 'asc' ? '升冪' : '降冪'}
@@ -59,16 +59,16 @@ export default function ChartDataTable({ title = '數據明細', columns, data, 
         )}
       </button>
       {open && (
-        <div className="overflow-x-auto rounded-xl border border-gray-100 shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
           <table className="w-full text-base">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
                 {columns.map(col => (
                   <th key={col.key}
                     onClick={col.sortable ? () => handleSort(col.key) : undefined}
-                    className={`px-3 py-3.5 font-semibold text-gray-500 whitespace-nowrap select-none
+                    className={`px-3 py-3.5 font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap select-none
                       ${col.align === 'right' ? 'text-right' : 'text-left'}
-                      ${col.sortable ? 'cursor-pointer hover:text-blue-600 hover:bg-blue-50/40 transition-colors' : ''}`}>
+                      ${col.sortable ? 'cursor-pointer hover:text-blue-600 hover:bg-blue-50/40 dark:hover:bg-blue-900/20 transition-colors' : ''}`}>
                     <span className="inline-flex items-center gap-1">
                       {col.label}
                       {col.sortable && (
@@ -83,10 +83,10 @@ export default function ChartDataTable({ title = '數據明細', columns, data, 
             </thead>
             <tbody>
               {rows.map((row, i) => (
-                <tr key={i} className={`border-t border-gray-50 hover:bg-blue-50/30 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                <tr key={i} className={`border-t border-gray-50 dark:border-gray-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40 dark:bg-gray-800/40' : ''}`}>
                   {columns.map(col => (
                     <td key={col.key}
-                      className={`px-3 py-3 text-base whitespace-nowrap ${col.align === 'right' ? 'text-right font-mono' : 'text-left'} ${col.cls?.(row[col.key], row) || 'text-gray-700'}`}>
+                      className={`px-3 py-3 text-base whitespace-nowrap ${col.align === 'right' ? 'text-right font-mono' : 'text-left'} ${col.cls?.(row[col.key], row) || 'text-gray-700 dark:text-gray-200'}`}>
                       {col.fmt ? col.fmt(row[col.key], row) : fmtNum(row[col.key])}
                     </td>
                   ))}
@@ -95,7 +95,7 @@ export default function ChartDataTable({ title = '數據明細', columns, data, 
             </tbody>
           </table>
           {maxRows && data.length > maxRows && (
-            <div className="px-3 py-2 bg-gray-50 text-sm text-gray-400 border-t border-gray-100">
+            <div className="px-3 py-2 bg-gray-50 dark:bg-gray-900 text-sm text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700">
               顯示前 {maxRows} 筆，共 {data.length} 筆
             </div>
           )}

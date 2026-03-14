@@ -20,16 +20,16 @@ export default function ChartCard({ title, subtitle, children, className = '' })
 
   return (
     <>
-      <div className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 relative group ${className}`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-3 sm:p-5 relative group ${className}`}>
         {(title || subtitle) && (
-          <div className="flex items-start justify-between mb-4 gap-2">
+          <div className="flex items-start justify-between mb-3 sm:mb-4 gap-2">
             <div className="min-w-0">
-              {title && <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 leading-snug">{title}</h3>}
-              {subtitle && <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>}
+              {title && <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 leading-snug">{title}</h3>}
+              {subtitle && <p className="text-sm sm:text-base text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
             <button
               onClick={() => setExpanded(true)}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-base text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+              className="flex-shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-600 text-sm sm:text-base text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-all sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
               title="全螢幕顯示 (ESC 關閉)"
             >
               <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -68,7 +68,7 @@ export default function ChartCard({ title, subtitle, children, className = '' })
               </div>
               <button
                 onClick={() => setExpanded(false)}
-                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm sm:text-base text-gray-600 dark:text-gray-300 font-semibold transition-colors flex-shrink-0 ml-4"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2.5 min-h-[44px] rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 active:bg-gray-300 text-sm sm:text-base text-gray-600 dark:text-gray-300 font-semibold transition-colors flex-shrink-0 ml-4"
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M1 1l12 12M13 1L1 13" />

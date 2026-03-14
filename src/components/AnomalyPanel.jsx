@@ -73,9 +73,9 @@ function useAnomalies(allRows, metric, threshold = 20) {
 }
 
 const SEVERITY = {
-  high:   { bg: 'bg-red-50',    border: 'border-red-200',   text: 'text-red-700',   badge: 'bg-red-100 text-red-700',   icon: '🔴', label: '高風險' },
-  medium: { bg: 'bg-amber-50',  border: 'border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-700', icon: '🟡', label: '中風險' },
-  low:    { bg: 'bg-blue-50',   border: 'border-blue-100',  text: 'text-blue-700',  badge: 'bg-blue-100 text-blue-700',  icon: '🔵', label: '低風險' },
+  high:   { bg: 'bg-red-50 dark:bg-red-900/20',    border: 'border-red-200 dark:border-red-700/50',   text: 'text-red-700 dark:text-red-400',   badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',   icon: '🔴', label: '高風險' },
+  medium: { bg: 'bg-amber-50 dark:bg-amber-900/20',  border: 'border-amber-200 dark:border-amber-700/50', text: 'text-amber-700 dark:text-amber-400', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', icon: '🟡', label: '中風險' },
+  low:    { bg: 'bg-blue-50 dark:bg-blue-900/20',   border: 'border-blue-100 dark:border-blue-700/50',  text: 'text-blue-700 dark:text-blue-400',  badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400',  icon: '🔵', label: '低風險' },
 }
 
 export default function AnomalyPanel({ allRows, metric }) {
@@ -93,13 +93,13 @@ export default function AnomalyPanel({ allRows, metric }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">🔔 異常預警中心</h2>
-          <p className="text-base text-gray-400 mt-0.5">與去年同月比較，自動標記異常下滑與失聯客戶</p>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">🔔 異常預警中心</h2>
+          <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">與去年同月比較，自動標記異常下滑與失聯客戶</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-base text-gray-500">警示閾值</span>
+          <span className="text-base text-gray-500 dark:text-gray-400">警示閾值</span>
           <select value={threshold} onChange={e => setThreshold(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-blue-400">
+            className="px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl text-base focus:outline-none focus:border-blue-400">
             {[10, 15, 20, 30, 50].map(v => <option key={v} value={v}>下降 {v}%</option>)}
           </select>
         </div>
@@ -108,10 +108,10 @@ export default function AnomalyPanel({ allRows, metric }) {
       {/* 摘要卡 */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { key: 'all', label: '全部', count: alerts.length, cls: 'bg-gray-50 border-gray-200 text-gray-700' },
-          { key: 'high', label: '高風險', count: counts.high, cls: 'bg-red-50 border-red-200 text-red-700' },
-          { key: 'medium', label: '中風險', count: counts.medium, cls: 'bg-amber-50 border-amber-200 text-amber-700' },
-          { key: 'low', label: '低風險', count: counts.low, cls: 'bg-blue-50 border-blue-100 text-blue-700' },
+          { key: 'all', label: '全部', count: alerts.length, cls: 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200' },
+          { key: 'high', label: '高風險', count: counts.high, cls: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-400' },
+          { key: 'medium', label: '中風險', count: counts.medium, cls: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700/50 text-amber-700 dark:text-amber-400' },
+          { key: 'low', label: '低風險', count: counts.low, cls: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-700/50 text-blue-700 dark:text-blue-400' },
         ].map(c => (
           <button key={c.key} onClick={() => setFilter(c.key)}
             className={`p-4 rounded-2xl border text-left transition-all ${c.cls} ${filter === c.key ? 'ring-2 ring-blue-400' : ''}`}>
@@ -122,9 +122,9 @@ export default function AnomalyPanel({ allRows, metric }) {
       </div>
 
       {alerts.length === 0 ? (
-        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-10 text-center">
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-700/50 rounded-2xl p-10 text-center">
           <p className="text-4xl mb-3">✅</p>
-          <p className="text-lg font-bold text-emerald-700">無異常項目</p>
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">無異常項目</p>
           <p className="text-base text-emerald-400">與去年同月相比，各維度表現正常</p>
         </div>
       ) : (
@@ -139,16 +139,16 @@ export default function AnomalyPanel({ allRows, metric }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sv.badge}`}>{sv.label}</span>
-                        <span className="text-xs bg-white/60 text-gray-600 px-2 py-0.5 rounded-full">{a.dim}</span>
-                        {a.type === 'missing' && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">失聯客戶</span>}
+                        <span className="text-xs bg-white/60 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{a.dim}</span>
+                        {a.type === 'missing' && <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full">失聯客戶</span>}
                       </div>
                       <p className={`text-base font-bold ${sv.text} truncate`}>{a.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5">{a.msg}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{a.msg}</p>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className={`text-lg font-black ${sv.text}`}>{a.chg.toFixed(0)}%</div>
-                    <div className="text-sm text-gray-400">去年 {fmtM(a.prev)} → 本月 {fmtM(a.cur)}</div>
+                    <div className="text-sm text-gray-400 dark:text-gray-500">去年 {fmtM(a.prev)} → 本月 {fmtM(a.cur)}</div>
                   </div>
                 </div>
               </div>

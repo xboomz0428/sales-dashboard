@@ -40,15 +40,15 @@ function renderLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 function LinesTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-4 min-w-[200px]">
-      <p className="text-base font-bold text-gray-700 border-b border-gray-100 pb-2 mb-2">{label}</p>
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-4 min-w-[200px]">
+      <p className="text-base font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 mb-2">{label}</p>
       {[...payload].filter(e => e.value != null).sort((a, b) => b.value - a.value).map((e, i) => (
         <div key={i} className="flex justify-between gap-4 py-0.5">
-          <span className="flex items-center gap-2 text-base text-gray-600">
+          <span className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300">
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.stroke }} />
             <span className="truncate max-w-[140px]">{e.name}</span>
           </span>
-          <span className="font-mono font-bold text-base text-gray-800">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -124,16 +124,16 @@ function BrandTrendChart({ trendByBrand, metric }) {
   return (
     <div className="space-y-4">
       {/* Brand selector */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div>
-            <h4 className="text-base font-bold text-gray-700">選擇品牌（最多 5 個）</h4>
-            <p className="text-base text-gray-400 mt-0.5">已選 {selectedBrands.length} / {series.length} 個品牌</p>
+            <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">選擇品牌（最多 5 個）</h4>
+            <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">已選 {selectedBrands.length} / {series.length} 個品牌</p>
           </div>
           <div className="flex gap-2">
             {multiYear && (
               <button onClick={() => setShowYoY(v => !v)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${showYoY ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${showYoY ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                 📅 年度比較
               </button>
             )}
@@ -145,7 +145,7 @@ function BrandTrendChart({ trendByBrand, metric }) {
             const color = COLORS[i % COLORS.length]
             return (
               <button key={brand} onClick={() => toggleBrand(brand)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${active ? 'text-white border-transparent shadow-sm' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-300'} ${!active && selectedBrands.length >= 5 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${active ? 'text-white border-transparent shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'} ${!active && selectedBrands.length >= 5 ? 'opacity-40 cursor-not-allowed' : ''}`}
                 style={active ? { background: color, borderColor: color } : {}}>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: active ? 'rgba(255,255,255,0.7)' : color }} />
@@ -158,15 +158,15 @@ function BrandTrendChart({ trendByBrand, metric }) {
       </div>
 
       {selectedBrands.length === 0 && (
-        <div className="flex items-center justify-center h-40 text-gray-400 bg-white rounded-2xl border border-gray-100">
+        <div className="flex items-center justify-center h-40 text-gray-400 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
           請至少選擇一個品牌
         </div>
       )}
 
       {/* Monthly trend */}
       {!showYoY && selectedBrands.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h4 className="text-base font-bold text-gray-700 mb-4">品牌月趨勢 — {label}</h4>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4">品牌月趨勢 — {label}</h4>
           {(() => {
             const xtp = getXAxisTickProps(trendData.length, { maxFlat: 18, maxAngle30: 36 })
             const yW = calcValueAxisWidth(getMaxValue(trendData, selectedBrands), fmtY)
@@ -192,10 +192,10 @@ function BrandTrendChart({ trendByBrand, metric }) {
 
       {/* YoY comparison */}
       {showYoY && multiYear && selectedBrands.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
           <div className="mb-4">
-            <h4 className="text-base font-bold text-gray-700">年度對比 — {selectedBrands[0]}</h4>
-            <p className="text-base text-gray-400 mt-0.5">同月份跨年比較（以首選品牌為準）</p>
+            <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">年度對比 — {selectedBrands[0]}</h4>
+            <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">同月份跨年比較（以首選品牌為準）</p>
           </div>
           {(() => {
             const yW2 = calcValueAxisWidth(getMaxValue(yoyData, years), fmtY)
@@ -222,9 +222,9 @@ function BrandTrendChart({ trendByBrand, metric }) {
       {/* Peak / off-peak season */}
       {seasonData.rows.length >= 4 && selectedBrands.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h4 className="text-base font-bold text-gray-700 mb-1">淡旺季分析 — 月均{label}</h4>
-            <p className="text-base text-gray-400 mb-4">
+          <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+            <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">淡旺季分析 — 月均{label}</h4>
+            <p className="text-base text-gray-400 dark:text-gray-500 mb-4">
               <span className="inline-flex items-center gap-1 mr-3"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> 旺季</span>
               <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-300 inline-block" /> 淡季</span>
             </p>
@@ -245,7 +245,7 @@ function BrandTrendChart({ trendByBrand, metric }) {
           </div>
 
           <div className="space-y-3">
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">🌟</span>
                 <span className="text-base font-bold text-emerald-700">旺季 Top 3</span>
@@ -255,14 +255,14 @@ function BrandTrendChart({ trendByBrand, metric }) {
                   <div key={d.month} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                      <span className="text-base font-semibold text-gray-700">{d.name}</span>
+                      <span className="text-base font-semibold text-gray-700 dark:text-gray-200">{d.name}</span>
                     </div>
                     <span className="text-base font-bold font-mono text-emerald-700">{fmtY(d.avg)}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">❄️</span>
                 <span className="text-base font-bold text-blue-700">淡季 Bottom 3</span>
@@ -272,7 +272,7 @@ function BrandTrendChart({ trendByBrand, metric }) {
                   <div key={d.month} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-5 h-5 rounded-full bg-blue-400 text-white text-xs font-black flex items-center justify-center flex-shrink-0">{i + 1}</span>
-                      <span className="text-base font-semibold text-gray-700">{d.name}</span>
+                      <span className="text-base font-semibold text-gray-700 dark:text-gray-200">{d.name}</span>
                     </div>
                     <span className="text-base font-bold font-mono text-blue-700">{fmtY(d.avg)}</span>
                   </div>
@@ -305,10 +305,10 @@ export default function BrandChart({ brandData, trendByBrand, metric }) {
         return (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
               {tabs.map(t => (
                 <button key={t.v} onClick={() => setTab(t.v)}
-                  className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${tab === t.v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
                   {t.l}
                 </button>
               ))}
@@ -321,8 +321,8 @@ export default function BrandChart({ brandData, trendByBrand, metric }) {
             <div className="flex items-center justify-center h-64 text-base text-gray-400">無資料</div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="text-base font-bold text-gray-700 mb-3">品牌排行（前20名）</h4>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">品牌排行（前20名）</h4>
                 <div style={{ height: chartH, minHeight: 300 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={top20} layout="vertical" margin={{ top: 5, right: 80, left: 80, bottom: 5 }}>
@@ -340,8 +340,8 @@ export default function BrandChart({ brandData, trendByBrand, metric }) {
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="text-base font-bold text-gray-700 mb-3">前8大品牌佔比</h4>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">前8大品牌佔比</h4>
                 <div style={{ height: chartH, minHeight: 300 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -351,7 +351,7 @@ export default function BrandChart({ brandData, trendByBrand, metric }) {
                       <Tooltip formatter={(v, name) => [v.toLocaleString(), name]} />
                       <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 14 }}
                         formatter={(value, entry) => (
-                          <span style={{ color: '#374151' }}>{value} ({fmtY(entry.payload[metric])})</span>
+                          <span className="text-gray-700 dark:text-gray-300">{value} ({fmtY(entry.payload[metric])})</span>
                         )} />
                     </PieChart>
                   </ResponsiveContainer>

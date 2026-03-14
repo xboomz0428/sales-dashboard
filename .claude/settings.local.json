@@ -7,7 +7,9 @@
       "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2, ensure_ascii=False\\)\\)\")",
       "Bash(ls -la /c/Users/User/sales-dashboard/src/components/ | grep -E \"\\\\.jsx$\")",
       "Bash(cd \"C:\\\\Users\\\\User\\\\sales-dashboard\" && npm run build 2>&1 | tail -30)",
-      "Bash(cd \"C:\\\\Users\\\\User\\\\sales-dashboard\" && npm run build 2>&1 | tail -20)"
+      "Bash(cd \"C:\\\\Users\\\\User\\\\sales-dashboard\" && npm run build 2>&1 | tail -20)",
+      "Bash(grep:*)",
+      "Bash(git:*)"
     ]
   }
 }

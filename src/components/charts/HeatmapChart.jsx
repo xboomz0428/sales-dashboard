@@ -2,7 +2,16 @@ import { useMemo } from 'react'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
 
-function getColor(value, max) {
+function getColor(value, max, isDark) {
+  if (isDark) {
+    if (max === 0) return '#1f2937'
+    const ratio = value / max
+    if (ratio === 0) return '#1f2937'
+    const r = Math.round(30 + ratio * (96 - 30))
+    const g = Math.round(58 + ratio * (165 - 58))
+    const b = Math.round(138 + ratio * (250 - 138))
+    return `rgb(${r},${g},${b})`
+  }
   if (max === 0) return '#f3f4f6'
   const ratio = value / max
   if (ratio === 0) return '#f9fafb'
@@ -25,6 +34,7 @@ function fmtVal(v, metric) {
 
 export default function HeatmapChart({ heatmapData, metric }) {
   const { data, months, channelTypes } = heatmapData
+  const isDark = document.documentElement.classList.contains('dark')
 
   const maxVal = useMemo(() => {
     let max = 0
@@ -44,11 +54,11 @@ export default function HeatmapChart({ heatmapData, metric }) {
 
   return (
     <ChartCard title={title}>
-      <div className="flex items-center gap-3 text-base text-gray-500 mb-4">
+      <div className="flex items-center gap-3 text-base text-gray-500 dark:text-gray-400 mb-4">
         <span>低</span>
         <div className="flex rounded overflow-hidden">
           {[0.1, 0.3, 0.5, 0.7, 0.9].map(r => (
-            <div key={r} className="w-8 h-5" style={{ background: getColor(r * maxVal, maxVal) }} />
+            <div key={r} className="w-8 h-5" style={{ background: getColor(r * maxVal, maxVal, isDark) }} />
           ))}
         </div>
         <span>高</span>
@@ -58,7 +68,7 @@ export default function HeatmapChart({ heatmapData, metric }) {
         <table className="border-collapse" style={{ minWidth: `${months.length * 64 + 140}px` }}>
           <thead>
             <tr>
-              <th className="text-left p-2 text-base text-gray-500 font-bold w-32 sticky left-0 bg-white z-10">通路類型</th>
+              <th className="text-left p-2 text-base text-gray-500 font-bold w-32 sticky left-0 bg-white dark:bg-gray-800 z-10">通路類型</th>
               {months.map(m => (
                 <th key={m} className="p-1 text-center text-sm text-gray-500 font-medium" style={{ minWidth: 60 }}>
                   {m.slice(5)}
@@ -69,17 +79,20 @@ export default function HeatmapChart({ heatmapData, metric }) {
           <tbody>
             {data.map(row => (
               <tr key={row.channelType}>
-                <td className="p-2 text-base text-gray-700 font-bold sticky left-0 bg-white z-10 border-r border-gray-100 whitespace-nowrap">
+                <td className="p-2 text-base text-gray-700 dark:text-gray-200 font-bold sticky left-0 bg-white dark:bg-gray-800 z-10 border-r border-gray-100 dark:border-gray-700 whitespace-nowrap">
                   {row.channelType}
                 </td>
                 {months.map(m => {
                   const v = row[m] || 0
-                  const bg = getColor(v, maxVal)
-                  const dark = v / maxVal > 0.5
+                  const bg = getColor(v, maxVal, isDark)
+                  const isHighValue = v / maxVal > 0.5
+                  const cellColor = isDark
+                    ? (isHighValue ? '#ffffff' : '#93c5fd')
+                    : (isHighValue ? '#1e3a5f' : '#6b7280')
                   return (
                     <td key={m} title={`${row.channelType} / ${m}\n${v.toLocaleString()}`}
                       className="text-center p-1.5 border border-white text-sm font-medium"
-                      style={{ background: bg, color: dark ? '#1e3a5f' : '#6b7280' }}>
+                      style={{ background: bg, color: cellColor }}>
                       {fmtVal(v, metric)}
                     </td>
                   )

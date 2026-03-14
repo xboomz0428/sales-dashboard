@@ -30,14 +30,14 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-4 min-w-[180px]">
-      <p className="text-base font-bold text-gray-700 border-b pb-2 mb-2">{label}</p>
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-4 min-w-[180px]">
+      <p className="text-base font-bold text-gray-700 dark:text-gray-200 border-b dark:border-gray-700 pb-2 mb-2">{label}</p>
       {payload.map((e, i) => (
         <div key={i} className="flex justify-between gap-4 py-0.5">
           <span className="flex items-center gap-2 text-base">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: e.fill || e.color }} />{e.name}
           </span>
-          <span className="font-mono font-bold text-base text-gray-800">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -58,10 +58,10 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
   ]
 
   const viewSelector = (
-    <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+    <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
       {VIEWS.map(({ v, l }) => (
         <button key={v} onClick={() => setView(v)}
-          className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${view === v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${view === v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
           {l}
         </button>
       ))}
@@ -79,12 +79,12 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
             </div>
 
             {data.length === 0 ? (
-              <div className="flex items-center justify-center h-64 text-base text-gray-400">無資料</div>
+              <div className="flex items-center justify-center h-64 text-base text-gray-400 dark:text-gray-500">無資料</div>
             ) : (
               <div className={`grid gap-4 ${expanded ? 'grid-cols-2' : 'grid-cols-1 lg:grid-cols-2'}`}>
                 {/* Bar chart */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h4 className="text-base font-bold text-gray-700 mb-3">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                  <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">
                     {view === 'customerCount' ? '各通路類型客戶數' : '銷售比較'}
                   </h4>
                   <div style={{ height: chartH, minHeight: 250 }}>
@@ -117,29 +117,29 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
 
                 {/* Pie chart or customer detail */}
                 {view === 'customerCount' ? (
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="text-base font-bold text-gray-700 mb-3">通路客群詳情</h4>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">通路客群詳情</h4>
                     <div className="space-y-3 overflow-y-auto" style={{ maxHeight: expanded ? 'calc(50vh - 80px)' : 280 }}>
                       {data.map((d, i) => (
-                        <div key={d.name} className="p-3 rounded-lg bg-white border border-gray-100">
+                        <div key={d.name} className="p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600">
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-base font-bold text-gray-700 flex items-center gap-2">
+                            <span className="text-base font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />{d.name}
                             </span>
                             <span className="text-base font-bold" style={{ color: COLORS[i % COLORS.length] }}>{d.customerCount} 位</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1 text-center">
-                            <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
-                              <div className="text-base font-bold text-gray-700">{d.brandCount || 0}</div>
-                              <div className="text-sm text-gray-400">品牌</div>
+                            <div className="bg-gray-50 dark:bg-gray-700/60 rounded-md p-2 border border-gray-100 dark:border-gray-600">
+                              <div className="text-base font-bold text-gray-700 dark:text-gray-200">{d.brandCount || 0}</div>
+                              <div className="text-sm text-gray-400 dark:text-gray-500">品牌</div>
                             </div>
-                            <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
-                              <div className="text-base font-bold text-gray-700">{d.productCount || 0}</div>
-                              <div className="text-sm text-gray-400">品項</div>
+                            <div className="bg-gray-50 dark:bg-gray-700/60 rounded-md p-2 border border-gray-100 dark:border-gray-600">
+                              <div className="text-base font-bold text-gray-700 dark:text-gray-200">{d.productCount || 0}</div>
+                              <div className="text-sm text-gray-400 dark:text-gray-500">品項</div>
                             </div>
-                            <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
-                              <div className="text-base font-bold text-gray-700">{fmtY(d.subtotal)}</div>
-                              <div className="text-sm text-gray-400">金額</div>
+                            <div className="bg-gray-50 dark:bg-gray-700/60 rounded-md p-2 border border-gray-100 dark:border-gray-600">
+                              <div className="text-base font-bold text-gray-700 dark:text-gray-200">{fmtY(d.subtotal)}</div>
+                              <div className="text-sm text-gray-400 dark:text-gray-500">金額</div>
                             </div>
                           </div>
                         </div>
@@ -147,8 +147,8 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="text-base font-bold text-gray-700 mb-3">佔比分析</h4>
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">佔比分析</h4>
                     <div style={{ height: chartH, minHeight: 250 }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -157,7 +157,7 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
                           </Pie>
                           <Tooltip formatter={(v) => v.toLocaleString()} />
                           <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 14 }}
-                            formatter={(v, e) => <span style={{ color: '#374151' }}>{v} ({fmtY(e.payload[dataKey])})</span>} />
+                            formatter={(v, e) => <span className="text-gray-700 dark:text-gray-300">{v} ({fmtY(e.payload[dataKey])})</span>} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>

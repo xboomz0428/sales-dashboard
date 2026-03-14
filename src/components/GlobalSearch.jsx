@@ -9,9 +9,9 @@ function fmtY(v) {
 }
 
 const TYPE_META = {
-  product:  { icon: '🏷️', label: '產品', tab: 'product',  color: 'text-violet-600 bg-violet-50' },
-  customer: { icon: '👥', label: '客戶', tab: 'customer', color: 'text-amber-600 bg-amber-50' },
-  brand:    { icon: '✨', label: '品牌', tab: 'brand',    color: 'text-blue-600 bg-blue-50' },
+  product:  { icon: '🏷️', label: '產品', tab: 'product',  color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/30' },
+  customer: { icon: '👥', label: '客戶', tab: 'customer', color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30' },
+  brand:    { icon: '✨', label: '品牌', tab: 'brand',    color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' },
 }
 
 export default function GlobalSearch({ open, onClose, onNavigate, productData, customerData, brandData }) {
@@ -90,9 +90,9 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden" onMouseDown={e => e.stopPropagation()}>
+      <div className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden" onMouseDown={e => e.stopPropagation()}>
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 dark:border-gray-700">
           <span className="text-xl flex-shrink-0">🔍</span>
           <input
             ref={inputRef}
@@ -100,24 +100,24 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="搜尋產品、客戶、品牌..."
-            className="flex-1 text-base text-gray-800 placeholder-gray-400 outline-none bg-transparent"
+            className="flex-1 text-base text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 outline-none bg-transparent"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500 text-lg">✕</button>
+            <button onClick={() => setQuery('')} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-300 text-lg">✕</button>
           )}
         </div>
 
         {/* Results */}
         <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 360 }}>
           {query.trim() === '' && (
-            <div className="px-5 py-8 text-center text-gray-400 text-sm">
+            <div className="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
               <div className="text-3xl mb-2">🔍</div>
               輸入關鍵字搜尋產品、客戶或品牌
             </div>
           )}
 
           {query.trim() !== '' && results.length === 0 && (
-            <div className="px-5 py-8 text-center text-gray-400 text-sm">
+            <div className="px-5 py-8 text-center text-gray-400 dark:text-gray-500 text-sm">
               <div className="text-3xl mb-2">😕</div>
               找不到「{query}」相關資料
             </div>
@@ -125,7 +125,7 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
 
           {grouped.map(({ type, meta, items: groupItems }) => (
             <div key={type}>
-              <div className="px-4 py-1.5 text-sm font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+              <div className="px-4 py-1.5 text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
                 {meta.icon} {meta.label}
               </div>
               {groupItems.map((item) => {
@@ -137,18 +137,18 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
                     data-active={isActive}
                     onClick={() => handleSelect(item)}
                     onMouseEnter={() => setActiveIdx(globalIdx)}
-                    className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors ${isActive ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className={`text-sm font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${meta.color}`}>
                         {meta.label}
                       </span>
-                      <span className={`text-sm font-medium truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                      <span className={`text-sm font-medium truncate ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
                         {item.name}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                      <span className="text-sm font-mono text-gray-500">
+                      <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
                         NT$ {fmtY(item.subtotal)}
                       </span>
                       {isActive && (
@@ -164,10 +164,10 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
 
         {/* Footer hint */}
         {results.length > 0 && (
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-sm text-gray-400">
-            <span><kbd className="bg-white border border-gray-200 rounded px-1">↑</kbd> <kbd className="bg-white border border-gray-200 rounded px-1">↓</kbd> 移動</span>
-            <span><kbd className="bg-white border border-gray-200 rounded px-1">Enter</kbd> 跳轉</span>
-            <span><kbd className="bg-white border border-gray-200 rounded px-1">Esc</kbd> 關閉</span>
+          <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex items-center gap-4 text-sm text-gray-400 dark:text-gray-500">
+            <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 dark:text-gray-300 rounded px-1">↑</kbd> <kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 dark:text-gray-300 rounded px-1">↓</kbd> 移動</span>
+            <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 dark:text-gray-300 rounded px-1">Enter</kbd> 跳轉</span>
+            <span><kbd className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 dark:text-gray-300 rounded px-1">Esc</kbd> 關閉</span>
             <span className="ml-auto">{results.length} 筆結果</span>
           </div>
         )}

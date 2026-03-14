@@ -50,7 +50,7 @@ function ProgressBar({ value, target, height = 'h-3' }) {
   const pct = target > 0 ? Math.min(100, value / target * 100) : 0
   const color = pct >= 100 ? '#10B981' : pct >= 80 ? '#3B82F6' : pct >= 50 ? '#F59E0B' : '#EF4444'
   return (
-    <div className={`w-full bg-gray-100 rounded-full overflow-hidden ${height}`}>
+    <div className={`w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden ${height}`}>
       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
     </div>
   )
@@ -64,7 +64,7 @@ function ProgressRing({ pct, size = 120, stroke = 10 }) {
   const color = pct >= 100 ? '#10B981' : pct >= 80 ? '#3B82F6' : pct >= 50 ? '#F59E0B' : '#EF4444'
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" className="text-gray-200 dark:text-gray-700" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
         style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
@@ -96,7 +96,7 @@ function MonthlyTracker({ year, annualTarget, trendData }) {
     <div className="overflow-x-auto">
       <table className="w-full text-base">
         <thead>
-          <tr className="bg-gray-50 text-gray-500 border-b border-gray-100">
+          <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
             <th className="text-left px-3 py-2.5 font-semibold">月份</th>
             <th className="text-right px-3 py-2.5 font-semibold">月目標</th>
             <th className="text-right px-3 py-2.5 font-semibold">實績</th>
@@ -117,23 +117,23 @@ function MonthlyTracker({ year, annualTarget, trendData }) {
             const isCurrent = isCurrentYear && m === currentMonth
 
             return (
-              <tr key={m} className={`border-t border-gray-50 ${isCurrent ? 'bg-blue-50/40' : ''} ${isFuture ? 'opacity-40' : ''} hover:bg-gray-50/60`}>
-                <td className="px-3 py-2.5 font-semibold text-gray-700">
+              <tr key={m} className={`border-t border-gray-50 dark:border-gray-700 ${isCurrent ? 'bg-blue-50/40 dark:bg-blue-900/20' : ''} ${isFuture ? 'opacity-40' : ''} hover:bg-gray-50/60 dark:hover:bg-gray-700/40`}>
+                <td className="px-3 py-2.5 font-semibold text-gray-700 dark:text-gray-200">
                   {m} 月 {isCurrent && <span className="text-xs text-blue-500">本月</span>}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-500">{fmtM(mTarget)}</td>
-                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-800">
-                  {mActual != null ? fmtM(mActual) : <span className="text-gray-300">—</span>}
+                <td className="px-3 py-2.5 text-right font-mono text-gray-500 dark:text-gray-400">{fmtM(mTarget)}</td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold text-gray-800 dark:text-gray-100">
+                  {mActual != null ? fmtM(mActual) : <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-right">
                   {pct != null ? (
                     <span className={`font-bold ${pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-blue-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                       {pct}%
                     </span>
-                  ) : <span className="text-gray-200">—</span>}
+                  ) : <span className="text-gray-200 dark:text-gray-600">—</span>}
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-400">{fmtM(cumTarget)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-gray-600">{cumActual > 0 ? fmtM(cumActual) : '—'}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-400 dark:text-gray-500">{fmtM(cumTarget)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-gray-600 dark:text-gray-300">{cumActual > 0 ? fmtM(cumActual) : '—'}</td>
                 <td className="px-3 py-2.5">
                   {!isFuture && mTarget > 0 && (
                     <ProgressBar value={mActual ?? 0} target={mTarget} height="h-2" />
@@ -151,13 +151,13 @@ function MonthlyTracker({ year, annualTarget, trendData }) {
 /* ─────── 維度目標卡（品牌/通路）─────── */
 function DimGoalSection({ title, icon, dimKey, items, dimGoals, onEdit }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold text-gray-700">{icon} {title}目標</h3>
+        <h3 className="text-base font-bold text-gray-700 dark:text-gray-200">{icon} {title}目標</h3>
         <button onClick={onEdit} className="text-sm text-blue-600 hover:underline">編輯目標</button>
       </div>
       {items.length === 0 ? (
-        <p className="text-gray-300 text-base">無資料</p>
+        <p className="text-gray-300 dark:text-gray-600 text-base">無資料</p>
       ) : (
         <div className="space-y-3">
           {items.slice(0, 8).map(item => {
@@ -166,15 +166,15 @@ function DimGoalSection({ title, icon, dimKey, items, dimGoals, onEdit }) {
             return (
               <div key={item.name}>
                 <div className="flex justify-between text-base mb-1">
-                  <span className="font-semibold text-gray-700 truncate max-w-[40%]">{item.name}</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[40%]">{item.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-gray-600">{fmtM(item.subtotal)}</span>
+                    <span className="font-mono text-gray-600 dark:text-gray-300">{fmtM(item.subtotal)}</span>
                     {target > 0 ? (
                       <span className={`font-bold w-12 text-right ${pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-blue-600' : 'text-amber-600'}`}>
                         {pct}%
                       </span>
                     ) : (
-                      <span className="text-gray-300 text-sm w-12 text-right">未設目標</span>
+                      <span className="text-gray-300 dark:text-gray-600 text-sm w-12 text-right">未設目標</span>
                     )}
                   </div>
                 </div>
@@ -298,18 +298,18 @@ ${growthRates || '資料不足'}
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-lg font-bold text-gray-800">🏆 編輯目標</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">🏆 編輯目標</h2>
+          <button onClick={onClose} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 text-xl">✕</button>
         </div>
 
         {/* AI 按鈕 */}
-        <div className="px-6 pt-4 pb-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex-shrink-0">
+        <div className="px-6 pt-4 pb-3 bg-gradient-to-r from-blue-50 dark:from-blue-900/20 to-indigo-50 dark:to-indigo-900/20 border-b border-blue-100 dark:border-blue-700/50 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-base font-bold text-blue-800">🤖 AI 智能建議</p>
-              <p className="text-sm text-blue-400">{aiNote || '根據歷史數據自動計算合理成長目標'}</p>
+              <p className="text-base font-bold text-blue-800 dark:text-blue-300">🤖 AI 智能建議</p>
+              <p className="text-sm text-blue-400 dark:text-blue-500">{aiNote || '根據歷史數據自動計算合理成長目標'}</p>
             </div>
             <button onClick={generateWithAI} disabled={loading}
               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">
@@ -319,10 +319,10 @@ ${growthRates || '資料不足'}
         </div>
 
         {/* 子頁籤 */}
-        <div className="flex border-b border-gray-100 px-4 flex-shrink-0 overflow-x-auto">
+        <div className="flex border-b border-gray-100 dark:border-gray-700 px-4 flex-shrink-0 overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex-shrink-0 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+              className={`flex-shrink-0 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${tab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
               {t.label}
             </button>
           ))}
@@ -332,10 +332,10 @@ ${growthRates || '資料不足'}
           {/* 年度目標 */}
           {tab === 'annual' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-400">設定每年度總銷售目標，系統會依歷史季節性自動拆解至各月份。</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">設定每年度總銷售目標，系統會依歷史季節性自動拆解至各月份。</p>
               <table className="w-full text-base">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-100">
+                  <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
                     <th className="text-left py-2 pr-4">年份</th>
                     <th className="text-right py-2 pr-4">銷售金額目標（元）</th>
                     <th className="text-right py-2">銷售數量目標（件）</th>
@@ -343,15 +343,15 @@ ${growthRates || '資料不足'}
                 </thead>
                 <tbody>
                   {nextYears.map(y => (
-                    <tr key={y} className="border-b border-gray-50">
-                      <td className="py-3 pr-4 font-bold text-gray-700">{y} 年</td>
+                    <tr key={y} className="border-b border-gray-50 dark:border-gray-700">
+                      <td className="py-3 pr-4 font-bold text-gray-700 dark:text-gray-200">{y} 年</td>
                       <td className="py-3 pr-4 text-right">
                         <input type="number" value={draft.annual[y]?.subtotal || ''} onChange={e => setA(y, 'subtotal', e.target.value)}
-                          className="w-40 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
+                          className="w-40 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
                       </td>
                       <td className="py-3 text-right">
                         <input type="number" value={draft.annual[y]?.quantity || ''} onChange={e => setA(y, 'quantity', e.target.value)}
-                          className="w-32 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
+                          className="w-32 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
                       </td>
                     </tr>
                   ))}
@@ -363,10 +363,10 @@ ${growthRates || '資料不足'}
           {/* 月份說明 */}
           {tab === 'monthly' && (
             <div className="space-y-3">
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-base text-blue-700">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl p-4 text-base text-blue-700 dark:text-blue-400">
                 月份目標由系統根據歷史各月份銷售比例自動拆解，無需手動設定。設定好年度目標後，「月份追蹤」頁面會自動顯示各月份應達成數字。
               </div>
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700/50 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-400">
                 <p className="font-bold mb-1">季節性調整說明</p>
                 <p>若過去 12 個月資料中，7 月平均佔全年 12%，則年度目標的 12% 會分配到 7 月。資料越多，分配越準確。</p>
               </div>
@@ -377,29 +377,29 @@ ${growthRates || '資料不足'}
           {tab === 'dims' && (
             <div className="space-y-6">
               <div>
-                <p className="text-base font-bold text-gray-700 mb-1">品牌目標</p>
-                <p className="text-sm text-gray-400 mb-3">設定各品牌年度銷售金額目標（當年度）</p>
+                <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">品牌目標</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">設定各品牌年度銷售金額目標（當年度）</p>
                 <div className="space-y-2">
                   {(brandData || []).slice(0, 10).map(b => (
                     <div key={b.name} className="flex items-center gap-3">
-                      <span className="text-base text-gray-700 w-32 flex-shrink-0 truncate">{b.name}</span>
-                      <span className="text-sm text-gray-400 w-20 text-right flex-shrink-0">實績 {fmtM(b.subtotal)}</span>
+                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 truncate">{b.name}</span>
+                      <span className="text-sm text-gray-400 dark:text-gray-500 w-20 text-right flex-shrink-0">實績 {fmtM(b.subtotal)}</span>
                       <input type="number" value={draft.brands[b.name]?.subtotal || ''} onChange={e => setDim('brands', b.name, e.target.value)}
-                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />
+                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />
                     </div>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="text-base font-bold text-gray-700 mb-1">通路目標</p>
-                <p className="text-sm text-gray-400 mb-3">設定各通路年度銷售金額目標（當年度）</p>
+                <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">通路目標</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">設定各通路年度銷售金額目標（當年度）</p>
                 <div className="space-y-2">
                   {(channelData || []).slice(0, 8).map(ch => (
                     <div key={ch.name} className="flex items-center gap-3">
-                      <span className="text-base text-gray-700 w-32 flex-shrink-0 truncate">{ch.name}</span>
-                      <span className="text-sm text-gray-400 w-20 text-right flex-shrink-0">實績 {fmtM(ch.subtotal)}</span>
+                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 truncate">{ch.name}</span>
+                      <span className="text-sm text-gray-400 dark:text-gray-500 w-20 text-right flex-shrink-0">實績 {fmtM(ch.subtotal)}</span>
                       <input type="number" value={draft.channels[ch.name]?.subtotal || ''} onChange={e => setDim('channels', ch.name, e.target.value)}
-                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />
+                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />
                     </div>
                   ))}
                 </div>
@@ -410,22 +410,22 @@ ${growthRates || '資料不足'}
           {/* 策略 KPI */}
           {tab === 'kpis' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-400">設定非財務面的策略性 KPI 目標，幫助品牌長期健康成長。</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">設定非財務面的策略性 KPI 目標，幫助品牌長期健康成長。</p>
               {[
                 { key: 'customerCountGrowth', label: '客戶數成長率目標', unit: '%', desc: '今年客戶數較去年成長多少 %' },
                 { key: 'newCustomerRate', label: '新客戶佔比目標', unit: '%', desc: '新客戶佔總客戶數的比例上限/下限' },
                 { key: 'topChannelMaxPct', label: '單一通路佔比上限', unit: '%', desc: '避免過度集中在單一通路，建議 ≤ 60%' },
                 { key: 'avgOrderValue', label: '客單價成長目標', unit: '%', desc: '平均每筆訂單金額較去年成長 %' },
               ].map(({ key, label, unit, desc }) => (
-                <div key={key} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+                <div key={key} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="flex-1">
-                    <p className="text-base font-semibold text-gray-700">{label}</p>
-                    <p className="text-sm text-gray-400">{desc}</p>
+                    <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{label}</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">{desc}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <input type="number" value={draft.kpis[key] || ''} onChange={e => setKpi(key, e.target.value)}
-                      className="w-24 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
-                    <span className="text-base text-gray-500">{unit}</span>
+                      className="w-24 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
+                    <span className="text-base text-gray-500 dark:text-gray-400">{unit}</span>
                   </div>
                 </div>
               ))}
@@ -435,20 +435,20 @@ ${growthRates || '資料不足'}
           {/* 長期里程碑 */}
           {tab === 'longterm' && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-400">設定 3、5、10 年長期業績里程碑，對齊公司願景。</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">設定 3、5、10 年長期業績里程碑，對齊公司願景。</p>
               {Object.entries(draft.longTerm).map(([key, lt]) => (
-                <div key={key} className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-base font-bold text-gray-700 mb-3">{lt.label}目標（{lt.targetYear} 年達成）</p>
+                <div key={key} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">{lt.label}目標（{lt.targetYear} 年達成）</p>
                   <div className="flex gap-4">
                     <div className="flex items-center gap-2 flex-1">
-                      <span className="text-sm text-gray-500 flex-shrink-0">金額</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">金額</span>
                       <input type="number" value={lt.subtotal || ''} onChange={e => setL(key, 'subtotal', e.target.value)}
-                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
+                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
                     </div>
                     <div className="flex items-center gap-2 flex-1">
-                      <span className="text-sm text-gray-500 flex-shrink-0">數量</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">數量</span>
                       <input type="number" value={lt.quantity || ''} onChange={e => setL(key, 'quantity', e.target.value)}
-                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
+                        className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="0" />
                     </div>
                   </div>
                 </div>
@@ -457,8 +457,8 @@ ${growthRates || '資料不足'}
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
-          <button onClick={onClose} className="px-5 py-2 rounded-xl border border-gray-200 text-gray-600 text-base hover:bg-gray-50">取消</button>
+        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 flex-shrink-0">
+          <button onClick={onClose} className="px-5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-base hover:bg-gray-50 dark:hover:bg-gray-700">取消</button>
           <button onClick={() => { onSave(draft); onClose() }}
             className="px-5 py-2 rounded-xl bg-blue-600 text-white text-base font-bold hover:bg-blue-700">儲存目標</button>
         </div>
@@ -547,8 +547,8 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">🏆 目標管理</h2>
-          <p className="text-base text-gray-400 mt-0.5">年度目標追蹤、月份節奏、品牌通路分目標、策略 KPI</p>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">🏆 目標管理</h2>
+          <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">年度目標追蹤、月份節奏、品牌通路分目標、策略 KPI</p>
         </div>
         <button onClick={() => openEdit('annual')}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-base font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-all">
@@ -558,17 +558,17 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
 
       {noTarget ? (
         /* 引導設定 */
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-10 text-center">
+        <div className="bg-gradient-to-br from-blue-50 dark:from-blue-900/20 to-indigo-50 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-700/50 rounded-2xl p-10 text-center">
           <p className="text-5xl mb-4">🎯</p>
-          <p className="text-xl font-bold text-blue-700 mb-2">尚未設定目標</p>
-          <p className="text-base text-blue-400 mb-6">設定年度業績目標，系統自動追蹤節奏、拆解月份、分析差距</p>
+          <p className="text-xl font-bold text-blue-700 dark:text-blue-400 mb-2">尚未設定目標</p>
+          <p className="text-base text-blue-400 dark:text-blue-500 mb-6">設定年度業績目標，系統自動追蹤節奏、拆解月份、分析差距</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <button onClick={() => openEdit('annual')}
               className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-base hover:bg-blue-700">
               ✨ 手動設定目標
             </button>
             <button onClick={() => { setEditing(true); setEditSection('annual') }}
-              className="px-6 py-2.5 bg-white border border-blue-200 text-blue-700 rounded-xl font-bold text-base hover:bg-blue-50">
+              className="px-6 py-2.5 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-400 rounded-xl font-bold text-base hover:bg-blue-50 dark:hover:bg-blue-900/20">
               🤖 讓 AI 建議目標
             </button>
           </div>
@@ -578,17 +578,17 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
           {/* 當年進度概覽 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 進度環 */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 flex items-center gap-5">
               <div className="relative flex-shrink-0">
                 <ProgressRing pct={salesPct} size={100} stroke={9} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-black text-gray-800">{Math.round(salesPct)}%</span>
+                  <span className="text-lg font-black text-gray-800 dark:text-gray-100">{Math.round(salesPct)}%</span>
                 </div>
               </div>
               <div>
-                <p className="text-base font-bold text-gray-700">{currentYear} 年銷售達成</p>
-                <p className="text-2xl font-black text-gray-800 mt-0.5">{fmtM(summary?.totalSales)}</p>
-                <p className="text-sm text-gray-400">目標 {fmtM(target.subtotal)}</p>
+                <p className="text-base font-bold text-gray-700 dark:text-gray-200">{currentYear} 年銷售達成</p>
+                <p className="text-2xl font-black text-gray-800 dark:text-gray-100 mt-0.5">{fmtM(summary?.totalSales)}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">目標 {fmtM(target.subtotal)}</p>
                 {pace && (
                   <span className={`inline-flex items-center gap-1 text-sm font-semibold mt-2 px-2 py-0.5 rounded-full border ${pace.color} ${pace.bg} ${pace.border}`}>
                     {pace.icon} {pace.text}
@@ -598,26 +598,26 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
             </div>
 
             {/* 節奏分析 */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-base font-bold text-gray-700 mb-3">📊 節奏分析</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">📊 節奏分析</p>
               <div className="space-y-2.5">
                 <div className="flex justify-between text-base">
-                  <span className="text-gray-500">已過年度</span>
-                  <span className="font-bold text-gray-800">{Math.round(elapsedRatio * 100)}%（{currentMonth} 月）</span>
+                  <span className="text-gray-500 dark:text-gray-400">已過年度</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-100">{Math.round(elapsedRatio * 100)}%（{currentMonth} 月）</span>
                 </div>
                 <div className="flex justify-between text-base">
-                  <span className="text-gray-500">目前達成</span>
-                  <span className="font-bold text-gray-800">{Math.round(salesPct)}%</span>
+                  <span className="text-gray-500 dark:text-gray-400">目前達成</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-100">{Math.round(salesPct)}%</span>
                 </div>
                 <div className="flex justify-between text-base">
-                  <span className="text-gray-500">預估年底達成</span>
+                  <span className="text-gray-500 dark:text-gray-400">預估年底達成</span>
                   <span className={`font-bold ${estimatedYearEnd >= target.subtotal ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {fmtM(estimatedYearEnd)}
                   </span>
                 </div>
                 {gap > 0 && (
-                  <div className="flex justify-between text-base border-t border-gray-50 pt-2 mt-2">
-                    <span className="text-gray-500">尚差目標</span>
+                  <div className="flex justify-between text-base border-t border-gray-50 dark:border-gray-700 pt-2 mt-2">
+                    <span className="text-gray-500 dark:text-gray-400">尚差目標</span>
                     <span className="font-bold text-red-500">{fmtM(gap)}</span>
                   </div>
                 )}
@@ -625,13 +625,13 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
             </div>
 
             {/* 行動建議 */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-base font-bold text-gray-700 mb-3">🎬 需要的行動</p>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">🎬 需要的行動</p>
               {gap > 0 && remainingMonths > 0 ? (
                 <div className="space-y-2.5">
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
-                    <p className="text-sm font-bold text-amber-700">每月需達成</p>
-                    <p className="text-2xl font-black text-amber-700">{fmtM(monthlyNeeded)}</p>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700/50 rounded-xl p-3">
+                    <p className="text-sm font-bold text-amber-700 dark:text-amber-400">每月需達成</p>
+                    <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{fmtM(monthlyNeeded)}</p>
                     <p className="text-xs text-amber-500">剩餘 {remainingMonths} 個月平均需求</p>
                   </div>
                   {monthlyNeeded > 0 && trendData.length > 0 && (() => {
@@ -645,23 +645,23 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                   })()}
                 </div>
               ) : salesPct >= 100 ? (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-700/50 rounded-xl p-4 text-center">
                   <p className="text-3xl mb-1">🎉</p>
-                  <p className="text-base font-bold text-emerald-700">已達成年度目標！</p>
+                  <p className="text-base font-bold text-emerald-700 dark:text-emerald-400">已達成年度目標！</p>
                 </div>
               ) : (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                  <p className="text-sm text-blue-600 font-semibold">按目前節奏預計年底達成 {fmtM(estimatedYearEnd)}</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl p-4">
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-semibold">按目前節奏預計年底達成 {fmtM(estimatedYearEnd)}</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* 子頁籤 */}
-          <div className="flex border-b border-gray-200 overflow-x-auto">
+          <div className="flex border-b border-gray-200 dark:border-gray-600 overflow-x-auto">
             {VIEW_TABS.map(t => (
               <button key={t.id} onClick={() => setViewTab(t.id)}
-                className={`flex-shrink-0 px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${viewTab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                className={`flex-shrink-0 px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${viewTab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
                 {t.label}
               </button>
             ))}
@@ -669,20 +669,20 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
 
           {/* 年度追蹤 */}
           {viewTab === 'annual' && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-gray-700">📅 各年度目標對照</h3>
+                <h3 className="text-base font-bold text-gray-700 dark:text-gray-200">📅 各年度目標對照</h3>
                 <button onClick={() => openEdit('annual')} className="text-sm text-blue-600 hover:underline">編輯目標</button>
               </div>
               {cagr != null && (
-                <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+                <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl text-sm text-blue-700 dark:text-blue-400">
                   <span className="font-bold">歷史 CAGR</span> {cagr.toFixed(1)}% / 年
                 </div>
               )}
               <div className="overflow-x-auto">
                 <table className="w-full text-base">
                   <thead>
-                    <tr className="bg-gray-50 text-gray-500 border-b border-gray-100">
+                    <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                       <th className="text-left px-3 py-2.5 font-semibold">年份</th>
                       <th className="text-right px-3 py-2.5 font-semibold">金額目標</th>
                       <th className="text-right px-3 py-2.5 font-semibold">數量目標</th>
@@ -706,19 +706,19 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                         const prevActual = byYear.find(r => r.year === String(parseInt(year) - 1))?.subtotal
                         const yoy = prevActual > 0 && actualVal != null ? (actualVal - prevActual) / prevActual * 100 : null
                         return (
-                          <tr key={year} className={`border-t border-gray-50 hover:bg-gray-50/60 ${isCurrentYear ? 'bg-blue-50/30' : ''}`}>
-                            <td className="px-3 py-3 font-bold text-gray-800">
+                          <tr key={year} className={`border-t border-gray-50 dark:border-gray-700 hover:bg-gray-50/60 dark:hover:bg-gray-700/40 ${isCurrentYear ? 'bg-blue-50/30 dark:bg-blue-900/20' : ''}`}>
+                            <td className="px-3 py-3 font-bold text-gray-800 dark:text-gray-100">
                               {year} {isCurrentYear && <span className="text-xs text-blue-500 font-normal ml-1">本年</span>}
                             </td>
-                            <td className="px-3 py-3 text-right font-mono">{tgt.subtotal ? fmtM(tgt.subtotal) : <span className="text-gray-200">未設定</span>}</td>
-                            <td className="px-3 py-3 text-right font-mono">{tgt.quantity ? tgt.quantity.toLocaleString() : <span className="text-gray-200">—</span>}</td>
-                            <td className="px-3 py-3 text-right font-mono font-semibold text-gray-700">{actualVal != null ? fmtM(actualVal) : '—'}</td>
+                            <td className="px-3 py-3 text-right font-mono">{tgt.subtotal ? fmtM(tgt.subtotal) : <span className="text-gray-200 dark:text-gray-600">未設定</span>}</td>
+                            <td className="px-3 py-3 text-right font-mono">{tgt.quantity ? tgt.quantity.toLocaleString() : <span className="text-gray-200 dark:text-gray-600">—</span>}</td>
+                            <td className="px-3 py-3 text-right font-mono font-semibold text-gray-700 dark:text-gray-200">{actualVal != null ? fmtM(actualVal) : '—'}</td>
                             <td className="px-3 py-3 text-right">
                               {pct != null ? (
                                 <span className={`font-bold ${pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-blue-600' : pct >= 50 ? 'text-amber-600' : 'text-red-500'}`}>
                                   {pct}%
                                 </span>
-                              ) : <span className="text-gray-200">—</span>}
+                              ) : <span className="text-gray-200 dark:text-gray-600">—</span>}
                             </td>
                             <td className="px-3 py-3 text-right">
                               {yoy != null ? (
@@ -742,9 +742,9 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
             <div className="space-y-4">
               {target.subtotal > 0 && (
                 <>
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-base font-bold text-gray-700">📊 {currentYear} 年月份目標 vs 實績</h3>
+                      <h3 className="text-base font-bold text-gray-700 dark:text-gray-200">📊 {currentYear} 年月份目標 vs 實績</h3>
                     </div>
                     <ResponsiveContainer width="100%" height={240}>
                       <BarChart data={monthChartData} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
@@ -761,7 +761,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                     <MonthlyTracker year={currentYear} annualTarget={target.subtotal} trendData={trendData} />
                   </div>
                 </>
@@ -805,22 +805,22 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                 const tgt = goals.kpis?.[key] || 0
                 const pct = tgt > 0 && actual != null ? actual / tgt * 100 : null
                 return (
-                  <div key={key} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div key={key} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">{icon}</span>
-                        <span className="text-base font-bold text-gray-700">{label}</span>
+                        <span className="text-base font-bold text-gray-700 dark:text-gray-200">{label}</span>
                       </div>
                       {tgt > 0 && (
-                        <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">目標 {tgt}{unit}</span>
+                        <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full">目標 {tgt}{unit}</span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 mb-3">{desc}</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{desc}</p>
                     {actual != null ? (
                       <div>
                         <div className="flex justify-between text-base mb-1.5">
-                          <span className="text-gray-500">目前</span>
-                          <span className="font-bold text-gray-800">{actual.toFixed(1)}{unit}</span>
+                          <span className="text-gray-500 dark:text-gray-400">目前</span>
+                          <span className="font-bold text-gray-800 dark:text-gray-100">{actual.toFixed(1)}{unit}</span>
                         </div>
                         {tgt > 0 && <ProgressBar value={actual} target={key === 'topChannelMaxPct' ? tgt : actual > tgt ? actual : tgt} />}
                         {tgt > 0 && key === 'topChannelMaxPct' && actual > tgt && (
@@ -831,7 +831,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                         )}
                       </div>
                     ) : (
-                      <div className="text-gray-300 text-base">
+                      <div className="text-gray-300 dark:text-gray-600 text-base">
                         {tgt ? `目標 ${tgt}${unit}，實績資料不足` : (
                           <button onClick={() => openEdit('kpis')} className="text-blue-500 hover:underline text-sm">+ 設定目標</button>
                         )}
@@ -863,42 +863,42 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                   const impliedCAGR = lt?.subtotal > 0 && curSales > 0 && yearsLeft > 0
                     ? (Math.pow(lt.subtotal / curSales, 1 / yearsLeft) - 1) * 100 : null
                   const colors = {
-                    blue: 'border-blue-100 bg-blue-50/50',
-                    purple: 'border-purple-100 bg-purple-50/50',
-                    amber: 'border-amber-100 bg-amber-50/50',
+                    blue: 'border-blue-100 dark:border-blue-700/50 bg-blue-50/50 dark:bg-blue-900/20',
+                    purple: 'border-purple-100 dark:border-purple-700/50 bg-purple-50/50 dark:bg-purple-900/20',
+                    amber: 'border-amber-100 dark:border-amber-700/50 bg-amber-50/50 dark:bg-amber-900/20',
                   }
-                  const textColors = { blue: 'text-blue-700', purple: 'text-purple-700', amber: 'text-amber-700' }
+                  const textColors = { blue: 'text-blue-700 dark:text-blue-400', purple: 'text-purple-700 dark:text-purple-400', amber: 'text-amber-700 dark:text-amber-400' }
                   return (
                     <div key={key} className={`rounded-2xl border p-5 ${colors[color]}`}>
                       <div className="flex items-center gap-2 mb-4">
                         <span className="text-2xl">{icon}</span>
                         <div>
-                          <p className="text-base font-bold text-gray-800">{label}</p>
-                          <p className="text-sm text-gray-400">{yr} 年達成</p>
+                          <p className="text-base font-bold text-gray-800 dark:text-gray-100">{label}</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500">{yr} 年達成</p>
                         </div>
                       </div>
                       {lt?.subtotal ? (
                         <div className="space-y-2">
                           <div>
-                            <p className="text-sm text-gray-500">銷售額目標</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">銷售額目標</p>
                             <p className={`text-2xl font-black ${textColors[color]}`}>{fmtM(lt.subtotal)}</p>
                           </div>
                           {lt.quantity > 0 && (
                             <div>
-                              <p className="text-sm text-gray-500">數量目標</p>
-                              <p className="text-base font-bold text-gray-700">{lt.quantity.toLocaleString()} 件</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">數量目標</p>
+                              <p className="text-base font-bold text-gray-700 dark:text-gray-200">{lt.quantity.toLocaleString()} 件</p>
                             </div>
                           )}
                           <div className="border-t border-white/60 pt-2 space-y-1">
                             {growth != null && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">較目前需成長</span>
+                                <span className="text-gray-500 dark:text-gray-400">較目前需成長</span>
                                 <span className={`font-bold ${textColors[color]}`}>+{Math.round(growth)}%</span>
                               </div>
                             )}
                             {impliedCAGR != null && (
                               <div className="flex justify-between text-sm">
-                                <span className="text-gray-500">隱含年複成長</span>
+                                <span className="text-gray-500 dark:text-gray-400">隱含年複成長</span>
                                 <span className={`font-bold ${textColors[color]}`}>{impliedCAGR.toFixed(1)}% CAGR</span>
                               </div>
                             )}
@@ -924,8 +924,8 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                   }).filter(Boolean),
                 ].sort((a, b) => a.year.localeCompare(b.year))
                 return (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <h3 className="text-base font-bold text-gray-700 mb-4">📈 歷史實績 + 長期里程碑</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+                    <h3 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4">📈 歷史實績 + 長期里程碑</h3>
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={chartPoints} margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

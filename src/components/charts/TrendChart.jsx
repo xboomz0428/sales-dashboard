@@ -21,28 +21,28 @@ function CustomTooltip({ active, payload, label }) {
   const mainEntries = sorted.filter(e => !e.name?.includes('▸'))
   const compEntries = sorted.filter(e => e.name?.includes('▸'))
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-4 min-w-[200px]">
-      <p className="text-base font-bold text-gray-700 border-b border-gray-100 pb-2 mb-2">{label}</p>
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-4 min-w-[200px]">
+      <p className="text-base font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 mb-2">{label}</p>
       {mainEntries.map((e, i) => (
         <div key={i} className="flex items-center justify-between gap-4 py-1">
-          <span className="flex items-center gap-2 text-base text-gray-600">
+          <span className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300">
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.stroke || e.fill }} />
             <span className="truncate max-w-[140px]">{e.name}</span>
           </span>
-          <span className="font-mono font-bold text-base text-gray-800">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
         </div>
       ))}
       {compEntries.length > 0 && (
         <>
-          <div className="border-t border-dashed border-gray-200 my-2" />
-          <p className="text-sm text-gray-400 mb-1">對比期</p>
+          <div className="border-t border-dashed border-gray-200 dark:border-gray-600 my-2" />
+          <p className="text-sm text-gray-400 dark:text-gray-500 mb-1">對比期</p>
           {compEntries.map((e, i) => (
             <div key={i} className="flex items-center justify-between gap-4 py-0.5">
-              <span className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
                 <span className="w-3 h-0.5 inline-block" style={{ background: e.stroke }} />
                 <span className="truncate max-w-[140px]">{e.name?.replace('▸', '').trim()}</span>
               </span>
-              <span className="font-mono text-sm text-gray-500">{e.value?.toLocaleString()}</span>
+              <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{e.value?.toLocaleString()}</span>
             </div>
           ))}
         </>
@@ -173,42 +173,42 @@ export default function TrendChart({ trendData, trendDataYoY, trendDataMoM, tren
   }
 
   const controls = (
-    <div className="flex flex-wrap gap-2 mb-5">
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-        {[{ v: 'none', l: '整體' }, { v: 'channel', l: '依通路' }, { v: 'brand', l: '依品牌' }, { v: 'product', l: '依產品' }].map(({ v, l }) => (
+    <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-4 sm:mb-5">
+      <div className="flex gap-0.5 sm:gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
+        {[{ v: 'none', l: '整體' }, { v: 'channel', l: '通路' }, { v: 'brand', l: '品牌' }, { v: 'product', l: '產品' }].map(({ v, l }) => (
           <button key={v} onClick={() => { setGroupBy(v); if (v !== 'none') setComparison('none') }}
-            className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${groupBy === v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${groupBy === v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
             {l}
           </button>
         ))}
       </div>
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+      <div className="flex gap-0.5 sm:gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
         {[{ v: 'line', l: '折線' }, { v: 'area', l: '面積' }, { v: 'bar', l: '長條' }].map(({ v, l }) => (
           <button key={v} onClick={() => setChartType(v)}
-            className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${chartType === v ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${chartType === v ? 'bg-white dark:bg-gray-800 text-indigo-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
             {l}
           </button>
         ))}
       </div>
       {groupBy === 'none' && (
-        <div className="flex gap-1 bg-amber-50 p-1 rounded-xl border border-amber-100">
-          {[{ v: 'none', l: '無對比' }, { v: 'yoy', l: '同比去年' }, { v: 'mom', l: '環比上月' }].map(({ v, l }) => (
+        <div className="flex gap-0.5 sm:gap-1 bg-amber-50 dark:bg-amber-900/20 p-1 rounded-xl border border-amber-100 dark:border-amber-700/50">
+          {[{ v: 'none', l: '全期' }, { v: 'yoy', l: '同比' }, { v: 'mom', l: '環比' }].map(({ v, l }) => (
             <button key={v} onClick={() => setComparison(v)}
-              className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${comparison === v ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 hover:bg-amber-100'}`}>
+              className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${comparison === v ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/40'}`}>
               {l}
             </button>
           ))}
         </div>
       )}
       {groupBy === 'none' && (
-        <div className="flex gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
+        <div className="flex gap-0.5 sm:gap-1 bg-gray-50 dark:bg-gray-800/60 p-1 rounded-xl border border-gray-200 dark:border-gray-600">
           <button onClick={() => setShowTrend(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${showTrend ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            趨勢線
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${showTrend ? 'bg-red-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
+            趨勢
           </button>
           <button onClick={() => setShowAvg(v => !v)}
-            className={`px-3 py-1.5 rounded-lg text-base font-medium transition-all ${showAvg ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            平均線
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${showAvg ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}>
+            均線
           </button>
         </div>
       )}

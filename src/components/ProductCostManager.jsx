@@ -123,26 +123,26 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">商品成本管理</h2>
-          <p className="text-sm text-gray-400 mt-1">
-            共 <span className="font-semibold text-gray-600">{products.length}</span> 項商品 ·
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">商品成本管理</h2>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            共 <span className="font-semibold text-gray-600 dark:text-gray-300">{products.length}</span> 項商品 ·
             已設定 <span className="font-semibold text-emerald-600">{coveredCount}</span> 項 ·
             未設定 <span className="font-semibold text-orange-500">{products.length - coveredCount}</span> 項
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <div className="h-2 bg-gray-100 rounded-full w-48">
+            <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full w-48">
               <div
                 className="h-2 bg-emerald-500 rounded-full transition-all duration-500"
                 style={{ width: `${coverPct}%` }}
               />
             </div>
-            <span className="text-xs text-gray-400">{Math.round(coverPct)}% 已設定</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{Math.round(coverPct)}% 已設定</span>
           </div>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-700/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-sm font-medium transition-colors"
           >
             📥 匯入 CSV
           </button>
@@ -152,7 +152,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
           />
           <button
             onClick={exportCSV}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 bg-white hover:bg-gray-50 text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40 text-sm font-medium transition-colors"
           >
             📤 匯出 CSV
           </button>
@@ -161,7 +161,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
 
       {/* Import result */}
       {importResult && (
-        <div className="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-sm flex items-center gap-2">
+        <div className="mb-4 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-xl text-sm flex items-center gap-2">
           <span>✓</span>
           <span>
             已更新 <strong>{importResult.updated}</strong> 項成本
@@ -171,7 +171,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
       )}
 
       {/* CSV format hint */}
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
+      <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700/50 rounded-xl text-sm text-amber-700 dark:text-amber-400">
         <span className="font-semibold">💡 CSV 格式說明：</span>
         第一列為標題（品名, 成本），第二列起輸入資料。
         建議先「匯出 CSV」下載模板，填寫成本後再「匯入 CSV」批次更新。
@@ -183,9 +183,9 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="搜尋商品名稱..."
-          className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 bg-white"
+          className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none focus:border-blue-400 bg-white dark:bg-gray-700 dark:text-gray-200"
         />
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
           {[
             { v: 'name', l: '名稱' },
             { v: 'cost', l: '成本高→低' },
@@ -193,7 +193,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
           ].map(({ v, l }) => (
             <button key={v} onClick={() => setSortBy(v)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                sortBy === v ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                sortBy === v ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}>
               {l}
             </button>
@@ -202,19 +202,19 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">品名</th>
-              <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-56">成本（元）</th>
-              <th className="text-center px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider w-28">操作</th>
+            <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
+              <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">品名</th>
+              <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-56">成本（元）</th>
+              <th className="text-center px-4 py-3.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-5 py-10 text-center text-gray-400">
+                <td colSpan={3} className="px-5 py-10 text-center text-gray-400 dark:text-gray-500">
                   {search ? `找不到「${search}」相關商品` : '無商品資料'}
                 </td>
               </tr>
@@ -222,12 +222,12 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
               const cost = costs[product]
               const isEditing = editingProduct === product
               return (
-                <tr key={product} className={`hover:bg-gray-50 transition-colors ${isEditing ? 'bg-blue-50/60' : ''}`}>
-                  <td className="px-5 py-3.5 text-gray-700 font-medium">{product}</td>
+                <tr key={product} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isEditing ? 'bg-blue-50/60 dark:bg-blue-900/20' : ''}`}>
+                  <td className="px-5 py-3.5 text-gray-700 dark:text-gray-200 font-medium">{product}</td>
                   <td className="px-5 py-3.5 text-right">
                     {isEditing ? (
                       <div className="flex items-center justify-end gap-2">
-                        <span className="text-gray-400 text-xs">NT$</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs">NT$</span>
                         <input
                           type="number"
                           value={editValue}
@@ -238,7 +238,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
                             if (e.key === 'Enter') commitEdit(product)
                             if (e.key === 'Escape') cancelEdit()
                           }}
-                          className="w-36 px-3 py-1.5 border-2 border-blue-400 rounded-lg text-right text-sm focus:outline-none bg-white"
+                          className="w-36 px-3 py-1.5 border-2 border-blue-400 dark:border-blue-500 rounded-lg text-right text-sm focus:outline-none bg-white dark:bg-gray-700 dark:text-gray-200"
                           min="0" step="0.01" placeholder="輸入成本"
                         />
                       </div>
@@ -247,8 +247,8 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
                         onClick={() => startEdit(product)}
                         className={`text-right w-full transition-colors ${
                           cost != null
-                            ? 'font-mono font-semibold text-gray-800 hover:text-blue-600'
-                            : 'text-gray-300 text-xs italic hover:text-blue-400'
+                            ? 'font-mono font-semibold text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400'
+                            : 'text-gray-300 dark:text-gray-600 text-xs italic hover:text-blue-400'
                         }`}
                       >
                         {cost != null ? `NT$ ${Number(cost).toLocaleString()}` : '點擊設定成本'}
@@ -258,13 +258,13 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
                   <td className="px-4 py-3.5 text-center">
                     {isEditing ? (
                       <button onClick={cancelEdit}
-                        className="px-2.5 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                        className="px-2.5 py-1 rounded-md text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                         取消
                       </button>
                     ) : (
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => startEdit(product)}
-                          className="px-2.5 py-1 rounded-md text-xs text-blue-600 hover:bg-blue-50 transition-colors font-medium">
+                          className="px-2.5 py-1 rounded-md text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-medium">
                           編輯
                         </button>
                         {cost != null && (
@@ -281,7 +281,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
             })}
           </tbody>
         </table>
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-400">
+        <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
           顯示 {filtered.length} / {products.length} 項商品
         </div>
       </div>

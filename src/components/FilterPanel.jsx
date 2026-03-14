@@ -21,8 +21,8 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
           const lbl = typeof opt === 'object' ? opt.label : opt
           return (
             <button key={val} onClick={() => toggle(val)}
-              className={`rounded-md border transition-all ${
-                expanded ? 'px-4 py-2 text-sm font-medium' : 'px-2.5 py-1 text-base'
+              className={`rounded-md border transition-all min-h-[36px] ${
+                expanded ? 'px-4 py-2 text-sm font-medium' : 'px-2.5 py-1.5 text-base'
               } ${
                 selected.includes(val)
                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
@@ -67,12 +67,12 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
         {shown.length === 0 ? (
           <p className={`text-gray-400 dark:text-gray-500 px-2 py-1 ${expanded ? 'text-sm' : 'text-base'}`}>無結果</p>
         ) : shown.map(opt => (
-          <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors ${
-            expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-2 py-1.5'
+          <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors min-h-[40px] ${
+            expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-2 py-2'
           } ${selSet.has(opt) ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-white dark:hover:bg-gray-600'}`}>
             <input
               type="checkbox" checked={selSet.has(opt)} onChange={() => toggle(opt)}
-              className={`accent-blue-600 flex-shrink-0 ${expanded ? 'w-5 h-5' : 'w-3.5 h-3.5'}`}
+              className={`accent-blue-600 flex-shrink-0 ${expanded ? 'w-5 h-5' : 'w-4 h-4'}`}
             />
             <span className={`truncate ${expanded ? 'text-sm' : 'text-base'} ${
               selSet.has(opt) ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'
@@ -208,7 +208,17 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3.5">
+          {/* Mobile close button (sticky at top) */}
+          <div className="md:hidden px-4 py-2 flex justify-end bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+            <button
+              onClick={onToggle}
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-base font-semibold rounded-xl shadow-sm active:bg-blue-700 transition-colors"
+            >
+              ✓ 套用篩選
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
             {/* Metric */}
             <div className="mb-4">
               <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">分析指標</label>

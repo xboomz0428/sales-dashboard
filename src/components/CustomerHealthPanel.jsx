@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 
 const SEGMENTS = {
-  champion: { label: '🏆 冠軍客戶', desc: '高頻 × 高消費 × 近期活躍', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', color: '#10B981' },
-  loyal:    { label: '💎 忠實客戶', desc: '穩定購買，長期合作',         bg: 'bg-blue-50',    border: 'border-blue-200',    text: 'text-blue-700',    color: '#3B82F6' },
-  atrisk:   { label: '⚠️ 流失風險', desc: '曾經活躍，近期少見',         bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-700',   color: '#F59E0B' },
-  lost:     { label: '❌ 已流失',   desc: '長期未購買',                 bg: 'bg-red-50',     border: 'border-red-200',     text: 'text-red-700',     color: '#EF4444' },
-  new:      { label: '🌱 新客戶',   desc: '近期首次購買',               bg: 'bg-purple-50',  border: 'border-purple-200',  text: 'text-purple-700',  color: '#8B5CF6' },
+  champion: { label: '🏆 冠軍客戶', desc: '高頻 × 高消費 × 近期活躍', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-700/50', text: 'text-emerald-700 dark:text-emerald-400', color: '#10B981' },
+  loyal:    { label: '💎 忠實客戶', desc: '穩定購買，長期合作',         bg: 'bg-blue-50 dark:bg-blue-900/20',    border: 'border-blue-200 dark:border-blue-700/50',    text: 'text-blue-700 dark:text-blue-400',    color: '#3B82F6' },
+  atrisk:   { label: '⚠️ 流失風險', desc: '曾經活躍，近期少見',         bg: 'bg-amber-50 dark:bg-amber-900/20',   border: 'border-amber-200 dark:border-amber-700/50',   text: 'text-amber-700 dark:text-amber-400',   color: '#F59E0B' },
+  lost:     { label: '❌ 已流失',   desc: '長期未購買',                 bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-200 dark:border-red-700/50',     text: 'text-red-700 dark:text-red-400',     color: '#EF4444' },
+  new:      { label: '🌱 新客戶',   desc: '近期首次購買',               bg: 'bg-purple-50 dark:bg-purple-900/20',  border: 'border-purple-200 dark:border-purple-700/50',  text: 'text-purple-700 dark:text-purple-400',  color: '#8B5CF6' },
 }
 
 function scoreQuintile(values, ascending = false) {
@@ -80,7 +80,7 @@ export default function CustomerHealthPanel({ allRows }) {
   const shown = activeSegment === 'all' ? rfm : bySegment[activeSegment] || []
 
   if (!rfm.length) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-base bg-white rounded-2xl border border-gray-100">
+    <div className="flex items-center justify-center h-64 text-gray-400 dark:text-gray-500 text-base bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
       無客戶資料，請先上傳含客戶欄位的資料
     </div>
   )
@@ -88,13 +88,13 @@ export default function CustomerHealthPanel({ allRows }) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-bold text-gray-800">💊 客戶健康度分析</h2>
-        <p className="text-base text-gray-400 mt-0.5">RFM 模型（最近購買、購買頻率、消費金額）自動評分分群</p>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">💊 客戶健康度分析</h2>
+        <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">RFM 模型（最近購買、購買頻率、消費金額）自動評分分群</p>
       </div>
 
       {/* 分群卡 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[{ key: 'all', label: '全部客戶', count: rfm.length, bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700' },
+        {[{ key: 'all', label: '全部客戶', count: rfm.length, bg: 'bg-gray-50 dark:bg-gray-900', border: 'border-gray-200 dark:border-gray-600', text: 'text-gray-700 dark:text-gray-200' },
           ...Object.entries(SEGMENTS).map(([k, s]) => ({ key: k, label: s.label, count: bySegment[k]?.length || 0, bg: s.bg, border: s.border, text: s.text }))
         ].map(c => (
           <button key={c.key} onClick={() => setActiveSegment(c.key)}
@@ -114,28 +114,28 @@ export default function CustomerHealthPanel({ allRows }) {
       )}
 
       {/* 客戶清單 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-base">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left px-4 py-3 font-semibold text-gray-500">#</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-500">客戶名稱</th>
-                <th className="text-center px-3 py-3 font-semibold text-gray-500">分群</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-500">R 近期</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-500">F 頻率</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-500">M 金額</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-500">總消費</th>
-                <th className="text-right px-3 py-3 font-semibold text-gray-500">最後購買</th>
+              <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
+                <th className="text-left px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">#</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">客戶名稱</th>
+                <th className="text-center px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">分群</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">R 近期</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">F 頻率</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">M 金額</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">總消費</th>
+                <th className="text-right px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">最後購買</th>
               </tr>
             </thead>
             <tbody>
               {shown.slice(0, 50).map((c, i) => {
                 const seg = SEGMENTS[c.segment]
                 return (
-                  <tr key={c.name} className="border-t border-gray-50 hover:bg-gray-50/60">
-                    <td className="px-4 py-3 text-gray-400 font-mono">{i + 1}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-800">{c.name}</td>
+                  <tr key={c.name} className="border-t border-gray-50 dark:border-gray-700 hover:bg-gray-50/60 dark:hover:bg-gray-700/40">
+                    <td className="px-4 py-3 text-gray-400 dark:text-gray-500 font-mono">{i + 1}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">{c.name}</td>
                     <td className="px-3 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${seg?.bg} ${seg?.text}`}>
                         {seg?.label?.replace(/^\S+ /, '') || c.segment}
@@ -143,20 +143,20 @@ export default function CustomerHealthPanel({ allRows }) {
                     </td>
                     {[c.r, c.f, c.m].map((score, si) => (
                       <td key={si} className="px-3 py-3 text-right">
-                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold ${score >= 4 ? 'bg-emerald-100 text-emerald-700' : score >= 3 ? 'bg-blue-100 text-blue-700' : score >= 2 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold ${score >= 4 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : score >= 3 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' : score >= 2 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
                           {score}
                         </span>
                       </td>
                     ))}
-                    <td className="px-3 py-3 text-right font-mono font-semibold text-gray-700">{fmtM(c.monetary)}</td>
-                    <td className="px-3 py-3 text-right text-gray-400 text-sm">{c.lastDate}</td>
+                    <td className="px-3 py-3 text-right font-mono font-semibold text-gray-700 dark:text-gray-200">{fmtM(c.monetary)}</td>
+                    <td className="px-3 py-3 text-right text-gray-400 dark:text-gray-500 text-sm">{c.lastDate}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
           {shown.length > 50 && (
-            <div className="px-4 py-2 bg-gray-50 text-sm text-gray-400 border-t">顯示前 50 筆，共 {shown.length} 位客戶</div>
+            <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 text-sm text-gray-400 dark:text-gray-500 border-t dark:border-gray-700">顯示前 50 筆，共 {shown.length} 位客戶</div>
           )}
         </div>
       </div>

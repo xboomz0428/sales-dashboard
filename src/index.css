@@ -5,12 +5,18 @@
 @layer base {
   html {
     font-size: 16px;
+    /* Safe area for iPhone notch / Dynamic Island / Home Bar */
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   body {
     font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
     color: #1f2937;
     background: #f9fafb;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
   }
   .dark body {
     color: #f3f4f6;
@@ -36,6 +42,21 @@
   .dark ::-webkit-scrollbar-track { background: #1f2937; }
   .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
   .dark ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+  /* ── 觸控優化（消除 300ms 延遲，移除 tap highlight）── */
+  button, a, label, input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── 水平捲動區域（標籤列、圖表控制列）── */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none; /* 水平捲動區隱藏捲軸，用手指滑動 */
+  }
 }
 
 @layer components {
@@ -51,6 +72,16 @@
   .btn-tab-inactive {
     @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
   }
+}
+
+/* ── 垂直捲動區（圖表內容區）── */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 防止 iOS 雙擊縮放（不影響文字縮放）── */
+* {
+  -webkit-text-size-adjust: 100%;
 }
 
 /* ── Recharts Dark Mode overrides ───────────────────── */

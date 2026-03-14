@@ -65,10 +65,10 @@ function AIChartDashboard({ salesData }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl flex-wrap">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setChartTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-base font-medium transition-all flex-1 min-w-fit ${chartTab === t.id ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`px-4 py-2 rounded-lg text-base font-medium transition-all flex-1 min-w-fit ${chartTab === t.id ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
             {t.label}
           </button>
         ))}
@@ -87,18 +87,18 @@ function AIChartDashboard({ salesData }) {
             ))}
           </div>
           {top8Brands.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-base font-bold text-gray-700 mb-3">品牌銷售排行</p>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">品牌銷售排行</p>
               <div className="space-y-2">
                 {top8Brands.map((b, i) => {
                   const pct = top8Brands[0].subtotal > 0 ? b.subtotal / top8Brands[0].subtotal * 100 : 0
                   return (
                     <div key={b.name}>
                       <div className="flex justify-between text-base mb-1">
-                        <span className="text-gray-700 font-medium truncate max-w-[60%]">{b.name}</span>
-                        <span className="font-mono font-bold text-gray-800">{fmtAI(b.subtotal)}</span>
+                        <span className="text-gray-700 dark:text-gray-200 font-medium truncate max-w-[60%]">{b.name}</span>
+                        <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtAI(b.subtotal)}</span>
                       </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: CHART_COLORS[i % CHART_COLORS.length] }} />
                       </div>
                     </div>
@@ -115,7 +115,7 @@ function AIChartDashboard({ salesData }) {
         <div className="space-y-4">
           {top10Products.length > 0 && (
             <div>
-              <p className="text-base font-bold text-gray-700 mb-3">產品銷售 Top 10</p>
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">產品銷售 Top 10</p>
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={top10Products} layout="vertical" margin={{ top: 4, right: 60, left: 10, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
@@ -131,7 +131,7 @@ function AIChartDashboard({ salesData }) {
           )}
           {top8Brands.length > 0 && (
             <div>
-              <p className="text-base font-bold text-gray-700 mb-3">品牌銷售 Top 8</p>
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">品牌銷售 Top 8</p>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={top8Brands} margin={{ top: 4, right: 20, left: 10, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -153,7 +153,7 @@ function AIChartDashboard({ salesData }) {
         <div className="space-y-4">
           {top8Brands.length > 0 && (
             <div>
-              <p className="text-base font-bold text-gray-700 mb-3">品牌銷售佔比</p>
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">品牌銷售佔比</p>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie data={top8Brands} dataKey="subtotal" nameKey="name" cx="50%" cy="50%" outerRadius="70%" labelLine={false} label={PiePct}>
@@ -167,7 +167,7 @@ function AIChartDashboard({ salesData }) {
           )}
           {channelData.length > 0 && (
             <div>
-              <p className="text-base font-bold text-gray-700 mb-3">通路銷售佔比</p>
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">通路銷售佔比</p>
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
                   <Pie data={channelData} dataKey="subtotal" nameKey="name" cx="50%" cy="50%" outerRadius="65%" labelLine={false} label={PiePct}>
@@ -186,11 +186,11 @@ function AIChartDashboard({ salesData }) {
       {chartTab === 'radar' && (
         <div>
           {radarBrands.length < 2 ? (
-            <div className="flex items-center justify-center h-48 text-base text-gray-400">需要至少 2 個品牌才能顯示雷達圖</div>
+            <div className="flex items-center justify-center h-48 text-base text-gray-400 dark:text-gray-500">需要至少 2 個品牌才能顯示雷達圖</div>
           ) : (
             <>
-              <p className="text-base font-bold text-gray-700 mb-1">品牌多維績效雷達（正規化 0-100）</p>
-              <p className="text-sm text-gray-400 mb-3">各指標以最高值為 100 分比例計算</p>
+              <p className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">品牌多維績效雷達（正規化 0-100）</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">各指標以最高值為 100 分比例計算</p>
               <ResponsiveContainer width="100%" height={340}>
                 <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
                   <PolarGrid />
@@ -222,13 +222,13 @@ const ANALYSIS_TYPES = [
 ]
 
 const SECTION_THEMES = [
-  { grad: 'from-blue-500 to-blue-700',       bg: 'bg-blue-50',    border: 'border-blue-100',    text: 'text-blue-800',    dot: 'bg-blue-500',    num: 'bg-blue-600' },
-  { grad: 'from-emerald-500 to-teal-600',    bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-800', dot: 'bg-emerald-500', num: 'bg-emerald-600' },
-  { grad: 'from-violet-500 to-purple-600',   bg: 'bg-violet-50',  border: 'border-violet-100',  text: 'text-violet-800',  dot: 'bg-violet-500',  num: 'bg-violet-600' },
-  { grad: 'from-amber-500 to-orange-600',    bg: 'bg-amber-50',   border: 'border-amber-100',   text: 'text-amber-800',   dot: 'bg-amber-500',   num: 'bg-amber-600' },
-  { grad: 'from-rose-500 to-pink-600',       bg: 'bg-rose-50',    border: 'border-rose-100',    text: 'text-rose-800',    dot: 'bg-rose-500',    num: 'bg-rose-600' },
-  { grad: 'from-cyan-500 to-sky-600',        bg: 'bg-cyan-50',    border: 'border-cyan-100',    text: 'text-cyan-800',    dot: 'bg-cyan-500',    num: 'bg-cyan-600' },
-  { grad: 'from-indigo-500 to-blue-600',     bg: 'bg-indigo-50',  border: 'border-indigo-100',  text: 'text-indigo-800',  dot: 'bg-indigo-500',  num: 'bg-indigo-600' },
+  { grad: 'from-blue-500 to-blue-700',       bg: 'bg-blue-50 dark:bg-blue-900/20',    border: 'border-blue-100 dark:border-blue-700/50',    text: 'text-blue-800 dark:text-blue-300',    dot: 'bg-blue-500',    num: 'bg-blue-600' },
+  { grad: 'from-emerald-500 to-teal-600',    bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-100 dark:border-emerald-700/50', text: 'text-emerald-800 dark:text-emerald-300', dot: 'bg-emerald-500', num: 'bg-emerald-600' },
+  { grad: 'from-violet-500 to-purple-600',   bg: 'bg-violet-50 dark:bg-violet-900/20',  border: 'border-violet-100 dark:border-violet-700/50',  text: 'text-violet-800 dark:text-violet-300',  dot: 'bg-violet-500',  num: 'bg-violet-600' },
+  { grad: 'from-amber-500 to-orange-600',    bg: 'bg-amber-50 dark:bg-amber-900/20',   border: 'border-amber-100 dark:border-amber-700/50',   text: 'text-amber-800 dark:text-amber-300',   dot: 'bg-amber-500',   num: 'bg-amber-600' },
+  { grad: 'from-rose-500 to-pink-600',       bg: 'bg-rose-50 dark:bg-rose-900/20',    border: 'border-rose-100 dark:border-rose-700/50',    text: 'text-rose-800 dark:text-rose-300',    dot: 'bg-rose-500',    num: 'bg-rose-600' },
+  { grad: 'from-cyan-500 to-sky-600',        bg: 'bg-cyan-50 dark:bg-cyan-900/20',    border: 'border-cyan-100 dark:border-cyan-700/50',    text: 'text-cyan-800 dark:text-cyan-300',    dot: 'bg-cyan-500',    num: 'bg-cyan-600' },
+  { grad: 'from-indigo-500 to-blue-600',     bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-100 dark:border-indigo-700/50',  text: 'text-indigo-800 dark:text-indigo-300',  dot: 'bg-indigo-500',  num: 'bg-indigo-600' },
 ]
 
 const TYPE_LABELS = { comprehensive: '完整分析', channel: '通路分析', product: '產品開發', growth: '成長策略' }
@@ -266,11 +266,11 @@ function renderInline(text) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g)
   return parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**'))
-      return <strong key={i} className="font-bold text-gray-900">{p.slice(2, -2)}</strong>
+      return <strong key={i} className="font-bold text-gray-900 dark:text-gray-100">{p.slice(2, -2)}</strong>
     if (p.startsWith('`') && p.endsWith('`'))
-      return <code key={i} className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono border border-blue-100">{p.slice(1, -1)}</code>
+      return <code key={i} className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded text-xs font-mono border border-blue-100 dark:border-blue-700/50">{p.slice(1, -1)}</code>
     if (p.startsWith('*') && p.endsWith('*') && p.length > 2)
-      return <em key={i} className="italic text-gray-600">{p.slice(1, -1)}</em>
+      return <em key={i} className="italic text-gray-600 dark:text-gray-300">{p.slice(1, -1)}</em>
     return p
   })
 }
@@ -288,7 +288,7 @@ function SectionContent({ lines, theme }) {
           {listItems.map((item, j) => (
             <li key={j} className="flex items-start gap-2.5 leading-relaxed">
               <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${theme?.dot || 'bg-blue-400'}`} />
-              <span className="text-base text-gray-700">{renderInline(item)}</span>
+              <span className="text-base text-gray-700 dark:text-gray-200">{renderInline(item)}</span>
             </li>
           ))}
         </ul>
@@ -299,7 +299,7 @@ function SectionContent({ lines, theme }) {
           {listItems.map((item, j) => (
             <li key={j} className="flex items-start gap-2.5 leading-relaxed">
               <span className={`flex-shrink-0 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center ${theme?.num || 'bg-blue-600'}`}>{j + 1}</span>
-              <span className="text-sm text-gray-700 mt-0.5">{renderInline(item)}</span>
+              <span className="text-sm text-gray-700 dark:text-gray-200 mt-0.5">{renderInline(item)}</span>
             </li>
           ))}
         </ol>
@@ -318,7 +318,7 @@ function SectionContent({ lines, theme }) {
     const numCols = Math.max(headers.length, ...body.map(r => parseRow(r).length))
     const thBg = theme?.num ? '' : 'bg-blue-600'
     elements.push(
-      <div key={`tbl-${key}`} className="my-3 overflow-x-auto rounded-xl border border-gray-200">
+      <div key={`tbl-${key}`} className="my-3 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-600">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className={`${theme ? '' : thBg}`} style={theme ? { background: theme.num?.replace('bg-', '') } : {}}>
@@ -335,9 +335,9 @@ function SectionContent({ lines, theme }) {
             {body.map((row, ri) => {
               const cells = parseRow(row)
               return (
-                <tr key={ri} className={ri % 2 === 0 ? 'bg-gray-50' : 'bg-white'} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <tr key={ri} className={ri % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800/40' : 'bg-white dark:bg-gray-800'} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   {cells.map((c, ci) => (
-                    <td key={ci} className="px-3 py-1.5 text-gray-700">{renderInline(c)}</td>
+                    <td key={ci} className="px-3 py-1.5 text-gray-700 dark:text-gray-200">{renderInline(c)}</td>
                   ))}
                   {Array.from({ length: Math.max(0, numCols - cells.length) }).map((_, j) => <td key={`pc-${j}`} />)}
                 </tr>
@@ -375,7 +375,7 @@ function SectionContent({ lines, theme }) {
     if (line.startsWith('### ')) {
       flushList(i)
       elements.push(
-        <h3 key={`h3-${i}`} className={`text-base font-bold mt-4 mb-2 flex items-center gap-2 ${theme?.text || 'text-gray-800'}`}>
+        <h3 key={`h3-${i}`} className={`text-base font-bold mt-4 mb-2 flex items-center gap-2 ${theme?.text || 'text-gray-800 dark:text-gray-100'}`}>
           <span className={`w-1 h-3.5 rounded-full flex-shrink-0 ${theme?.num || 'bg-blue-600'}`} />
           {renderInline(line.slice(4))}
         </h3>
@@ -383,7 +383,7 @@ function SectionContent({ lines, theme }) {
     } else if (line.startsWith('#### ')) {
       flushList(i)
       elements.push(
-        <h4 key={`h4-${i}`} className="text-sm font-semibold text-gray-500 mt-3 mb-1 uppercase tracking-wider">
+        <h4 key={`h4-${i}`} className="text-sm font-semibold text-gray-500 dark:text-gray-400 mt-3 mb-1 uppercase tracking-wider">
           {renderInline(line.slice(5))}
         </h4>
       )
@@ -392,13 +392,13 @@ function SectionContent({ lines, theme }) {
     } else if (/^\d+\. /.test(line)) {
       if (listType !== 'ol') flushList(i); listType = 'ol'; listItems.push(line.replace(/^\d+\. /, ''))
     } else if (line.startsWith('---')) {
-      flushList(i); elements.push(<hr key={`hr-${i}`} className="border-gray-200 my-3" />)
+      flushList(i); elements.push(<hr key={`hr-${i}`} className="border-gray-200 dark:border-gray-600 my-3" />)
     } else if (line.trim() === '') {
       flushList(i)
     } else {
       flushList(i)
       elements.push(
-        <p key={`p-${i}`} className="text-base text-gray-700 leading-relaxed mb-1">
+        <p key={`p-${i}`} className="text-base text-gray-700 dark:text-gray-200 leading-relaxed mb-1">
           {renderInline(line)}
         </p>
       )
@@ -460,7 +460,7 @@ function MarkdownReport({ text, analysisType }) {
 
       {/* Pre-section content (before first ##) */}
       {preLines.some(l => l.trim()) && (
-        <div className="bg-gray-50 rounded-xl px-5 py-4 border border-gray-100">
+        <div className="bg-gray-50 dark:bg-gray-800/40 rounded-xl px-5 py-4 border border-gray-100 dark:border-gray-700">
           <SectionContent lines={preLines} theme={null} />
         </div>
       )}
@@ -491,29 +491,29 @@ function MarkdownReport({ text, analysisType }) {
 function HistoryPanel({ history, onLoad, onClear }) {
   if (!history.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-3">
+      <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 gap-3">
         <span className="text-4xl">📂</span>
         <p className="text-sm">尚無分析記錄</p>
-        <p className="text-xs text-gray-300">每次分析完成後自動儲存</p>
+        <p className="text-xs text-gray-300 dark:text-gray-600">每次分析完成後自動儲存</p>
       </div>
     )
   }
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-bold text-gray-500">{history.length} 筆歷史記錄</span>
+        <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{history.length} 筆歷史記錄</span>
         <button onClick={onClear} className="text-xs text-red-400 hover:text-red-600 transition-colors">清除全部</button>
       </div>
       {history.map((item, i) => {
         const typeInfo = ANALYSIS_TYPES.find(t => t.value === item.type)
         return (
-          <div key={item.id || i} className="bg-white border border-gray-100 rounded-xl p-3.5 hover:border-blue-200 hover:shadow-sm transition-all">
+          <div key={item.id || i} className="bg-white dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 rounded-xl p-3.5 hover:border-blue-200 dark:hover:border-blue-600 hover:shadow-sm transition-all">
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-lg flex-shrink-0">{typeInfo?.label.split(' ')[0] || '🤖'}</span>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-gray-700 truncate">{typeInfo?.label || item.type}</div>
-                  <div className="text-sm text-gray-400">{item.date} · {item.filename}</div>
+                  <div className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{typeInfo?.label || item.type}</div>
+                  <div className="text-sm text-gray-400 dark:text-gray-500">{item.date} · {item.filename}</div>
                 </div>
               </div>
               <button
@@ -523,10 +523,10 @@ function HistoryPanel({ history, onLoad, onClear }) {
                 載入
               </button>
             </div>
-            <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{item.preview}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{item.preview}</p>
             {item.savedPath && (
               <div className="flex items-center gap-1 mt-1.5">
-                <span className="text-sm text-emerald-600">✓ {item.savedPath}</span>
+                <span className="text-sm text-emerald-600 dark:text-emerald-400">✓ {item.savedPath}</span>
               </div>
             )}
           </div>
@@ -736,17 +736,17 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
 
   const SaveStatusBadge = () => {
     if (saveStatus === 'saving') return (
-      <span className="text-sm text-amber-600 flex items-center gap-1">
-        <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />儲存中...
+      <span className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+        <span className="w-3 h-3 border-2 border-amber-500 dark:border-amber-400 border-t-transparent rounded-full animate-spin" />儲存中...
       </span>
     )
     if (saveStatus.startsWith('saved:')) return (
-      <span className="text-sm text-emerald-600 flex items-center gap-1">
+      <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
         <span>✓</span><span className="truncate max-w-[200px]">{saveStatus.slice(6)}</span>
       </span>
     )
     if (saveStatus === 'error') return (
-      <span className="text-sm text-orange-500">⚠ 伺服器不可用（請用 npm run dev）</span>
+      <span className="text-sm text-orange-500 dark:text-orange-400">⚠ 伺服器不可用（請用 npm run dev）</span>
     )
     return null
   }
@@ -757,10 +757,12 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-3xl bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-full max-w-3xl bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
         {/* ── Header ── */}
-        <div className={`bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} px-6 py-4 flex items-center justify-between flex-shrink-0`}>
+        <div className={`bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0`}
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">🤖</div>
             <div>
@@ -784,21 +786,21 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
                 <span className="bg-white/30 rounded-full px-1.5 text-sm font-bold">{history.length}</span>
               )}
             </button>
-            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center font-bold transition-colors">✕</button>
+            <button onClick={onClose} className="w-10 h-10 rounded-lg bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center font-bold transition-colors text-lg">✕</button>
           </div>
         </div>
 
         {/* ── Chart tab ── */}
         {activeTab === 'chart' ? (
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
             <div className="mb-4">
-              <h3 className="text-lg font-bold text-gray-800">資料圖表總覽</h3>
-              <p className="text-base text-gray-400 mt-0.5">依當前篩選條件即時生成，可切換圖表類型</p>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">資料圖表總覽</h3>
+              <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">依當前篩選條件即時生成，可切換圖表類型</p>
             </div>
             <AIChartDashboard salesData={salesData} />
           </div>
         ) : activeTab === 'history' ? (
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
             <HistoryPanel
               history={history}
               onLoad={(item) => {
@@ -813,20 +815,20 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
         ) : activeTab === 'analysis' ? (
           <>
             {/* ── Config section ── */}
-            <div className="px-6 py-4 border-b border-gray-100 flex-shrink-0 space-y-3 bg-gradient-to-b from-gray-50/80 to-white">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 space-y-3 bg-gradient-to-b from-gray-50/80 dark:from-gray-800/80 to-white dark:to-gray-900">
               {/* API Key */}
               <div>
-                <label className="block text-sm font-bold text-gray-400 mb-1 uppercase tracking-wider">Google AI Studio API Key</label>
+                <label className="block text-sm font-bold text-gray-400 dark:text-gray-500 mb-1 uppercase tracking-wider">Google AI Studio API Key</label>
                 <div className="relative">
                   <input
                     type={showKey ? 'text' : 'password'}
                     value={apiKey}
                     onChange={e => saveKey(e.target.value)}
                     placeholder="AIza..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono bg-white pr-14"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono bg-white pr-14"
                   />
                   <button onClick={() => setShowKey(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-700 transition-colors">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
                     {showKey ? '隱藏' : '顯示'}
                   </button>
                 </div>
@@ -834,17 +836,17 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
 
               {/* Analysis type */}
               <div>
-                <label className="block text-sm font-bold text-gray-400 mb-1.5 uppercase tracking-wider">分析類型</label>
+                <label className="block text-sm font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">分析類型</label>
                 <div className="grid grid-cols-4 gap-1.5">
                   {ANALYSIS_TYPES.map(t => (
                     <button key={t.value} onClick={() => setAnalysisType(t.value)}
                       className={`text-left px-2.5 py-2 rounded-xl border text-sm transition-all ${
                         analysisType === t.value
                           ? `bg-gradient-to-br ${t.color} text-white border-transparent shadow-sm`
-                          : 'bg-white text-gray-600 border-gray-200 hover:border-blue-200 hover:bg-blue-50/30'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-blue-200 dark:hover:border-blue-600 hover:bg-blue-50/30 dark:hover:bg-blue-900/20'
                       }`}>
                       <div className="font-bold">{t.label}</div>
-                      <div className={`text-sm mt-0.5 leading-tight ${analysisType === t.value ? 'text-white/70' : 'text-gray-400'}`}>{t.desc}</div>
+                      <div className={`text-sm mt-0.5 leading-tight ${analysisType === t.value ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'}`}>{t.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -865,14 +867,14 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
                 )}
                 {output && !streaming && (
                   <button onClick={() => { setOutput(''); setSaveStatus('') }}
-                    className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-xl transition-colors">
+                    className="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl transition-colors">
                     清除
                   </button>
                 )}
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700 flex items-start gap-2">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
                   <span className="flex-shrink-0">⚠️</span><span>{error}</span>
                 </div>
               )}
@@ -886,13 +888,13 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
                     🤖
                   </div>
                   <div>
-                    <p className="text-base font-bold text-gray-700">AI 分析就緒</p>
-                    <p className="text-sm text-gray-400 mt-1">選擇分析類型後點擊「開始 AI 分析」</p>
-                    <p className="text-xs text-gray-300 mt-1">分析結果將自動儲存至 <code className="bg-gray-100 px-1 rounded text-gray-400">AI_data/</code> 資料夾</p>
+                    <p className="text-base font-bold text-gray-700 dark:text-gray-200">AI 分析就緒</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">選擇分析類型後點擊「開始 AI 分析」</p>
+                    <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">分析結果將自動儲存至 <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-400 dark:text-gray-500">AI_data/</code> 資料夾</p>
                   </div>
                   <div className="flex flex-wrap justify-center gap-1.5 pt-2">
                     {['🏢 企業管理專家', '📊 市場分析專家', '🎯 產品PM', '🔬 研發評估'].map(e => (
-                      <span key={e} className="text-xs px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 font-medium">{e}</span>
+                      <span key={e} className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">{e}</span>
                     ))}
                   </div>
                 </div>
@@ -901,7 +903,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
               {streaming && !output && (
                 <div className="flex flex-col items-center justify-center h-32 gap-3 mt-8">
                   <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin ${currentTypeInfo ? 'border-blue-500' : 'border-blue-500'}`} />
-                  <p className="text-sm text-blue-600 font-medium">AI 正在分析中，請稍候...</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">AI 正在分析中，請稍候...</p>
                 </div>
               )}
 
@@ -924,7 +926,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
 
             {/* ── Footer actions ── */}
             {output && !streaming && (
-              <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50/80 flex-shrink-0">
+              <div className="px-6 py-3.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 flex-shrink-0">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <SaveStatusBadge />
                   <div className="flex gap-2 ml-auto flex-wrap">
@@ -940,7 +942,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
                     )}
                     <button
                       onClick={() => downloadMD(output, makeFilename(currentType))}
-                      className="text-xs px-3 py-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
+                      className="text-xs px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
                     >
                       ⬇️ 下載 .md
                     </button>

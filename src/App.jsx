@@ -88,6 +88,14 @@ export default function App() {
   const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const tabBarRef = useRef(null)
+
+  // Scroll active tab into view on mobile
+  useEffect(() => {
+    if (!tabBarRef.current) return
+    const activeEl = tabBarRef.current.querySelector('[data-tab-active="true"]')
+    activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  }, [activeTab])
 
   // Open search on "/" key
   useEffect(() => {
@@ -448,24 +456,29 @@ export default function App() {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 sm:px-3 flex-shrink-0 overflow-x-auto">
+        <div ref={tabBarRef} className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth">
           {TABS.map(tab => (
-            <button key={tab.id} onClick={() => handleTabChange(tab.id)}
-              className={`flex-shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2.5 sm:py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+            <button key={tab.id}
+              data-tab-active={activeTab === tab.id}
+              onClick={() => handleTabChange(tab.id)}
+              className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5
+                px-2.5 sm:px-4 py-2 sm:py-3 min-h-[52px] sm:min-h-0 min-w-[48px] sm:min-w-0
+                text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
               }`}>
-              <span className="text-sm sm:text-base">{tab.icon}</span>
+              <span className="text-lg sm:text-base leading-none">{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-xs">{tab.label.length > 4 ? tab.label.slice(0, 4) : tab.label}</span>
+              <span className="sm:hidden text-[10px] leading-tight max-w-[44px] text-center break-keep">{tab.label}</span>
               {tab.id === 'alerts' && <AnomalyBadge allRows={allRows} metric={filters.metric} />}
             </button>
           ))}
         </div>
 
         {/* Chart area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4" ref={chartAreaRef}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe" ref={chartAreaRef}
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {activeTab === 'summary' && (
             <div data-pdf-section data-pdf-title="執行摘要">
               <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} />
