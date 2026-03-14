@@ -481,7 +481,7 @@ export default function App() {
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {activeTab === 'summary' && (
             <div data-pdf-section data-pdf-title="執行摘要">
-              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} />
+              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} filters={filters} />
             </div>
           )}
           {activeTab === 'comparison' && (

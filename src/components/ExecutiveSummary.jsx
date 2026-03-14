@@ -41,12 +41,33 @@ function Section({ title, children }) {
   )
 }
 
-export default function ExecutiveSummary({ summary, trendData, productData, customerData, brandData, channelData, metric, allRows }) {
+export default function ExecutiveSummary({ summary, trendData, productData, customerData, brandData, channelData, metric, allRows, filters }) {
   const [aiText, setAiText] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
 
   const metricLabel = metric === 'subtotal' ? '銷售額' : '數量'
+
+  // 計算篩選時間區間描述
+  const dateRangeLabel = useMemo(() => {
+    // 優先用明確的日期區間
+    if (filters?.dateRange?.start && filters?.dateRange?.end) {
+      return `${filters.dateRange.start} ～ ${filters.dateRange.end}`
+    }
+    // 再用年/月篩選
+    if (filters?.years?.length || filters?.months?.length) {
+      const y = filters.years?.length ? filters.years.join('、') + ' 年' : ''
+      const m = filters.months?.length ? filters.months.map(m => parseInt(m) + '月').join('、') : ''
+      return [y, m].filter(Boolean).join(' ')
+    }
+    // Fallback：從 trendData 推算
+    if (trendData.length) {
+      const first = trendData[0].yearMonth
+      const last = trendData[trendData.length - 1].yearMonth
+      return first === last ? first : `${first} ～ ${last}`
+    }
+    return '全部期間'
+  }, [filters, trendData])
 
   // Compute YoY for latest complete month
   const yoyStats = useMemo(() => {
@@ -98,13 +119,19 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
     setAiLoading(true)
     setAiError('')
     try {
-      const prompt = `你是一位專業的銷售數據分析師，請根據以下數據撰寫一份給老闆看的執行摘要，語言使用繁體中文，重點突出，分段清晰，每段 2-3 句，共 4-5 段：
+      const prompt = `你是一位專業的銷售數據分析師，請根據以下數據撰寫一份給老闆看的執行摘要，語言使用繁體中文，重點突出，分段清晰，每段 2-3 句，共 4-5 段。
+
+【分析時間區間】
+- 篩選期間：${dateRangeLabel}
+- 涵蓋月份數：${trendData.length} 個月（${trendData[0]?.yearMonth || '—'} ～ ${trendData[trendData.length - 1]?.yearMonth || '—'}）
+- 分析指標：${metricLabel}
+請在摘要中明確點明此時間區間，使老闆能清楚知道這份報告的時間範圍。
 
 【整體績效】
 - 總${metricLabel}：${fmtM(summary?.totalSales)}
 - 客戶數：${summary?.customerCount}，訂單數：${summary?.orderCount}
-- 月增率：${momStats ? fmtPct(momStats.chg) : '無資料'}
-- 年增率：${yoyStats ? fmtPct(yoyStats.chg) : '無資料'}（${yoyStats?.yearMonth || ''}）
+- 月增率（最新月 vs 上月）：${momStats ? fmtPct(momStats.chg) : '無資料'}
+- 年增率（最新月 vs 去年同月）：${yoyStats ? fmtPct(yoyStats.chg) : '無資料'}（${yoyStats?.yearMonth || ''}）
 
 【最佳表現】
 - 最佳月份：${bestMonth?.yearMonth}（${fmtM(bestMonth?.[metric])}）
@@ -116,7 +143,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
 【通路集中度】
 - 主要通路「${channelConc?.name || '未知'}」佔比 ${channelConc ? channelConc.pct.toFixed(0) : '—'}%
 
-請給出：1. 整體現況總結，2. 亮點表現，3. 潛在風險，4. 行動建議。`
+請給出：1. 整體現況總結（點明時間區間），2. 亮點表現，3. 潛在風險，4. 行動建議。`
       const text = await callClaude(prompt, 800)
       setAiText(text)
     } catch (e) {
@@ -136,7 +163,12 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">📊 執行摘要</h2>
-          <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">一頁式老闆視角關鍵指標總覽</p>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <p className="text-base text-gray-400 dark:text-gray-500">一頁式老闆視角關鍵指標總覽</p>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-700/50 text-sm font-medium text-blue-600 dark:text-blue-400">
+              🗓️ {dateRangeLabel}
+            </span>
+          </div>
         </div>
         <button onClick={handleAI} disabled={aiLoading}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold shadow hover:from-violet-700 hover:to-indigo-700 transition-all disabled:opacity-60">
@@ -300,7 +332,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
       </div>
 
       <div className="text-sm text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900 rounded-xl p-3 text-center">
-        本摘要根據當前篩選條件下的資料自動生成 · 如需詳細分析請使用各專項分析頁籤
+        本摘要依篩選期間「{dateRangeLabel}」自動生成 · 如需詳細分析請使用各專項分析頁籤
       </div>
     </div>
   )
