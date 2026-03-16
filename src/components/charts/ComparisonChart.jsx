@@ -8,6 +8,7 @@ import { calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16']
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+const DASH_STYLES = ['', '5 3', '10 3 3 3', '2 2']
 
 function fmtVal(v, metric) {
   if (v == null || v === 0) return '—'
@@ -43,7 +44,6 @@ function RankBadge({ rank }) {
   )
 }
 
-// 計算說明提示
 function CalcHint({ type }) {
   const hints = {
     yoy: '同比成長 = (本期 − 同期去年) ÷ 同期去年 × 100%',
@@ -88,10 +88,239 @@ function CustomTooltip({ active, payload, label, metric }) {
   )
 }
 
+// ─── Chart Style Selector ─────────────────────────────────────────────────────
+function ChartStyleSelector({ value, onChange }) {
+  const styles = [
+    { id: 'grouped', label: '分組柱狀', emoji: '📊' },
+    { id: 'stacked', label: '堆疊柱狀', emoji: '📚' },
+    { id: 'line',    label: '折線趨勢', emoji: '📈' },
+  ]
+  return (
+    <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 rounded-xl p-1">
+      {styles.map(s => (
+        <button
+          key={s.id}
+          onClick={() => onChange(s.id)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            value === s.id
+              ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-gray-100 shadow-sm font-bold'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+          }`}
+        >
+          <span>{s.emoji}</span>
+          <span>{s.label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Brand Selector ───────────────────────────────────────────────────────────
+function BrandSelector({ brands, selectedBrands, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const filteredBrands = query
+    ? brands.filter(b => b.toLowerCase().includes(query.toLowerCase()))
+    : brands
+  const toggle = b =>
+    onChange(selectedBrands.includes(b) ? selectedBrands.filter(x => x !== b) : [...selectedBrands, b])
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-sm font-bold text-gray-700 dark:text-gray-200 shrink-0">品牌篩選</span>
+      {selectedBrands.length === 0 ? (
+        <span className="text-sm text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1">
+          全部（彙總）
+        </span>
+      ) : (
+        selectedBrands.map((b, i) => (
+          <span
+            key={b}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-white shadow-sm"
+            style={{ background: COLORS[i % COLORS.length] }}
+          >
+            {b}
+            <button
+              onClick={() => toggle(b)}
+              className="w-3.5 h-3.5 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center text-xs leading-none ml-0.5"
+            >✕</button>
+          </span>
+        ))
+      )}
+      <div className="relative">
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+        >
+          🏷️ 選擇品牌 <span className="text-xs text-gray-400">({brands.length})</span>
+        </button>
+        {open && (
+          <div className="absolute top-10 left-0 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-72 overflow-hidden">
+            <div className="p-3 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+              <input
+                type="text" value={query} onChange={e => setQuery(e.target.value)}
+                placeholder="搜尋品牌名稱..."
+                className="flex-1 px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:border-purple-400 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500"
+                autoFocus
+              />
+              {selectedBrands.length > 0 && (
+                <button onClick={() => onChange([])} className="text-xs text-gray-400 hover:text-red-500 whitespace-nowrap">清除</button>
+              )}
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {filteredBrands.map(b => {
+                const colorIdx = brands.indexOf(b)
+                const checked = selectedBrands.includes(b)
+                return (
+                  <button
+                    key={b} onClick={() => toggle(b)}
+                    className={`w-full flex items-center gap-3 text-left px-4 py-2.5 text-sm hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors ${checked ? 'bg-purple-50 dark:bg-purple-900/20' : ''}`}
+                  >
+                    <span
+                      className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                      style={{ borderColor: COLORS[colorIdx % COLORS.length], background: checked ? COLORS[colorIdx % COLORS.length] : 'transparent' }}
+                    >
+                      {checked && <span className="text-white text-xs font-bold">✓</span>}
+                    </span>
+                    <span className={`flex-1 ${checked ? 'font-bold text-gray-800 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>{b}</span>
+                    {checked && (
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[colorIdx % COLORS.length] }} />
+                    )}
+                  </button>
+                )
+              })}
+              {filteredBrands.length === 0 && (
+                <p className="text-center text-gray-400 dark:text-gray-500 text-sm py-6">找不到品牌</p>
+              )}
+            </div>
+            <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+              <button onClick={() => setOpen(false)} className="w-full text-center text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 py-1">關閉</button>
+            </div>
+          </div>
+        )}
+      </div>
+      {selectedBrands.length > 0 && (
+        <button onClick={() => onChange([])} className="text-xs text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors">清除全部</button>
+      )}
+    </div>
+  )
+}
+
+// ─── Brand Chart Block ────────────────────────────────────────────────────────
+function BrandChartBlock({ data, xKey, brands, metric, chartStyle, title, subtitle }) {
+  if (!data?.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
+
+  const maxStacked = Math.max(...data.map(d => brands.reduce((s, b) => s + (d[b] || 0), 0)), 0)
+  const maxGrouped = Math.max(...data.flatMap(d => brands.map(b => d[b] || 0)), 0)
+  const maxVal = chartStyle === 'stacked' ? maxStacked : maxGrouped
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+      <SectionHeader title={title} subtitle={subtitle} />
+      <ResponsiveContainer width="100%" height={300}>
+        {chartStyle === 'line' ? (
+          <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 13, fontWeight: 600 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
+            <Tooltip content={<CustomTooltip metric={metric} />} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            {brands.map((brand, i) => (
+              <Line
+                key={brand} type="monotone" dataKey={brand}
+                stroke={COLORS[i % COLORS.length]} strokeWidth={2.5}
+                strokeDasharray={DASH_STYLES[i % DASH_STYLES.length]}
+                dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls
+              />
+            ))}
+          </LineChart>
+        ) : chartStyle === 'stacked' ? (
+          <BarChart data={data} barCategoryGap="30%" margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 13, fontWeight: 600 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
+            <Tooltip content={<CustomTooltip metric={metric} />} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            {brands.map((brand, i) => (
+              <Bar
+                key={brand} dataKey={brand} stackId="stack"
+                fill={COLORS[i % COLORS.length]}
+                radius={i === brands.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                maxBarSize={100}
+              />
+            ))}
+          </BarChart>
+        ) : (
+          <BarChart data={data} barCategoryGap="25%" barGap={3} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <XAxis dataKey={xKey} tick={{ fontSize: 13, fontWeight: 600 }} />
+            <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
+            <Tooltip content={<CustomTooltip metric={metric} />} />
+            <Legend wrapperStyle={{ fontSize: 13 }} />
+            {brands.map((brand, i) => (
+              <Bar key={brand} dataKey={brand} fill={COLORS[i % COLORS.length]} radius={[6, 6, 0, 0]} maxBarSize={60} />
+            ))}
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Brand Detail Table ───────────────────────────────────────────────────────
+function BrandDetailTable({ data, xKey, brands, metric, showGrowth }) {
+  if (!data?.length || !brands?.length) return null
+  const cols = data.map(d => d[xKey])
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">
+      <SectionHeader title="品牌明細" />
+      <table className="w-full">
+        <thead>
+          <tr className="text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
+            <th className="text-left py-2 pr-4 font-medium sticky left-0 bg-white dark:bg-gray-800">品牌</th>
+            {cols.map(c => <th key={c} className="text-right py-2 px-3 font-medium whitespace-nowrap">{c}</th>)}
+            {showGrowth && <th className="text-right py-2 pl-4 font-medium border-l border-gray-100 dark:border-gray-700 whitespace-nowrap">最新YoY</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {brands.map((brand, i) => {
+            const values = data.map(d => d[brand] || 0)
+            const maxVal = Math.max(...values)
+            const lastVal = values[values.length - 1]
+            const prevVal = values[values.length - 2]
+            const yoyRate = showGrowth && prevVal > 0 ? ((lastVal - prevVal) / prevVal * 100) : null
+            return (
+              <tr key={brand} className="border-b border-gray-50 dark:border-gray-700 hover:bg-purple-50/30 dark:hover:bg-purple-900/10 transition-colors">
+                <td className="py-2.5 pr-4 sticky left-0 bg-white dark:bg-gray-800">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200">{brand}</span>
+                  </span>
+                </td>
+                {values.map((v, vi) => (
+                  <td key={vi} className={`py-2.5 px-3 text-right text-sm font-mono ${v === maxVal && v > 0 ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                    {fmtVal(v, metric)}
+                  </td>
+                ))}
+                {showGrowth && (
+                  <td className="py-2.5 pl-4 text-right border-l border-gray-100 dark:border-gray-700">
+                    <GrowthBadge rate={yoyRate} />
+                  </td>
+                )}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 // ─── YoY Section ─────────────────────────────────────────────────────────────
-function YoYSection({ comparisonData, metric }) {
+function YoYSection({ comparisonData, metric, brandYoyData, activeBrands, chartStyle }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
+  const brandMode = activeBrands.length > 0 && brandYoyData
 
   const yoyRows = useMemo(() => {
     const rows = byYear.map((d, i) => {
@@ -104,6 +333,22 @@ function YoYSection({ comparisonData, metric }) {
     sorted.forEach((r, i) => { rankMap[r.year] = i + 1 })
     return rows.map(r => ({ ...r, rank: rankMap[r.year] }))
   }, [byYear, metric])
+
+  if (brandMode) {
+    return (
+      <div className="space-y-4">
+        <BrandChartBlock
+          data={brandYoyData} xKey="year" brands={activeBrands}
+          metric={metric} chartStyle={chartStyle}
+          title="品牌年度對比" subtitle="各品牌跨年度銷售表現"
+        />
+        <BrandDetailTable
+          data={brandYoyData} xKey="year" brands={activeBrands}
+          metric={metric} showGrowth
+        />
+      </div>
+    )
+  }
 
   if (!yoyRows.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
 
@@ -121,7 +366,6 @@ function YoYSection({ comparisonData, metric }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <SectionHeader title="年度明細" />
         <table className="w-full">
@@ -132,9 +376,7 @@ function YoYSection({ comparisonData, metric }) {
               <th className="text-right py-2 pr-6">{metricLabel}</th>
               <th className="text-right py-2 pr-6">較上年差異</th>
               <th className="text-right py-2">
-                <span className="flex items-center justify-end gap-1.5">
-                  同比成長 <CalcHint type="yoy" />
-                </span>
+                <span className="flex items-center justify-end gap-1.5">同比成長 <CalcHint type="yoy" /></span>
               </th>
             </tr>
           </thead>
@@ -146,9 +388,7 @@ function YoYSection({ comparisonData, metric }) {
                 <tr key={row.year} className="border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors">
                   <td className="py-2.5 pr-4 text-center"><RankBadge rank={row.rank} /></td>
                   <td className="py-2.5 pr-6 font-bold text-gray-800 dark:text-gray-200 text-base">{row.year}</td>
-                  <td className="py-2.5 pr-6 text-right font-mono font-semibold text-base text-gray-800 dark:text-gray-200">
-                    {fmtVal(row[metric], metric)}
-                  </td>
+                  <td className="py-2.5 pr-6 text-right font-mono font-semibold text-base text-gray-800 dark:text-gray-200">{fmtVal(row[metric], metric)}</td>
                   <td className="py-2.5 pr-6 text-right font-mono text-base">
                     {diff != null ? (
                       <span className={diff >= 0 ? 'text-emerald-600' : 'text-red-500'}>
@@ -156,9 +396,7 @@ function YoYSection({ comparisonData, metric }) {
                       </span>
                     ) : '—'}
                   </td>
-                  <td className="py-2.5 text-right">
-                    <GrowthBadge rate={row.growth} />
-                  </td>
+                  <td className="py-2.5 text-right"><GrowthBadge rate={row.growth} /></td>
                 </tr>
               )
             })}
@@ -170,10 +408,11 @@ function YoYSection({ comparisonData, metric }) {
 }
 
 // ─── QoQ Section ─────────────────────────────────────────────────────────────
-function QoQSection({ comparisonData, metric }) {
+function QoQSection({ comparisonData, metric, brandQoQData, activeBrands, chartStyle }) {
   const { byYear, byQuarter } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
   const years = useMemo(() => byYear.map(d => d.year), [byYear])
+  const brandMode = activeBrands.length > 0 && brandQoQData
 
   const chartData = useMemo(() => ['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
     const entry = { quarter: q }
@@ -192,6 +431,22 @@ function QoQSection({ comparisonData, metric }) {
     sorted.forEach((r, i) => { map[r.year] = i + 1 })
     return map
   }, [years, byYear, metric])
+
+  if (brandMode) {
+    return (
+      <div className="space-y-4">
+        <BrandChartBlock
+          data={brandQoQData} xKey="quarter" brands={activeBrands}
+          metric={metric} chartStyle={chartStyle}
+          title="品牌季度對比" subtitle="各品牌 Q1–Q4 銷售分布"
+        />
+        <BrandDetailTable
+          data={brandQoQData} xKey="quarter" brands={activeBrands}
+          metric={metric}
+        />
+      </div>
+    )
+  }
 
   if (!byQuarter.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
 
@@ -212,7 +467,6 @@ function QoQSection({ comparisonData, metric }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">
         <SectionHeader title="季度明細" />
         <p className="text-base text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
@@ -252,17 +506,13 @@ function QoQSection({ comparisonData, metric }) {
                         <div className="font-mono text-base text-gray-800 dark:text-gray-200 font-semibold">
                           {found ? fmtVal(found[metric], metric) : '—'}
                         </div>
-                        {qGrowth != null && (
-                          <div className="mt-0.5"><GrowthBadge rate={qGrowth} /></div>
-                        )}
+                        {qGrowth != null && <div className="mt-0.5"><GrowthBadge rate={qGrowth} /></div>}
                       </td>
                     )
                   })}
                   <td className="py-2.5 pl-4 text-right border-l border-gray-100 dark:border-gray-700">
                     <div className="font-mono font-bold text-base text-blue-700 dark:text-blue-400">{fmtVal(yearTotal, metric)}</div>
-                    {yGrowth != null && (
-                      <div className="mt-0.5"><GrowthBadge rate={yGrowth} /></div>
-                    )}
+                    {yGrowth != null && <div className="mt-0.5"><GrowthBadge rate={yGrowth} /></div>}
                   </td>
                 </tr>
               )
@@ -275,10 +525,11 @@ function QoQSection({ comparisonData, metric }) {
 }
 
 // ─── MoM Section ─────────────────────────────────────────────────────────────
-function MoMSection({ trendData, comparisonData, metric }) {
+function MoMSection({ trendData, comparisonData, metric, brandMoMData, activeBrands, chartStyle }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
   const years = useMemo(() => byYear.map(d => d.year), [byYear])
+  const brandMode = activeBrands.length > 0 && brandMoMData
 
   const chartData = useMemo(() => {
     const monthMap = {}
@@ -303,7 +554,6 @@ function MoMSection({ trendData, comparisonData, metric }) {
     return map
   }, [years, chartData])
 
-  // For each month, rank which year had the highest value
   const monthRankMap = useMemo(() => {
     const map = {}
     chartData.forEach(md => {
@@ -313,6 +563,22 @@ function MoMSection({ trendData, comparisonData, metric }) {
     })
     return map
   }, [chartData, years])
+
+  if (brandMode) {
+    return (
+      <div className="space-y-4">
+        <BrandChartBlock
+          data={brandMoMData} xKey="month" brands={activeBrands}
+          metric={metric} chartStyle={chartStyle}
+          title="品牌月度對比" subtitle="各品牌月份銷售走勢（所有年份彙總）"
+        />
+        <BrandDetailTable
+          data={brandMoMData} xKey="month" brands={activeBrands}
+          metric={metric}
+        />
+      </div>
+    )
+  }
 
   if (!trendData.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
 
@@ -338,7 +604,6 @@ function MoMSection({ trendData, comparisonData, metric }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
-
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">
         <SectionHeader title="月度明細" />
         <p className="text-base text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
@@ -369,16 +634,12 @@ function MoMSection({ trendData, comparisonData, metric }) {
                     return (
                       <td key={md.month} className="py-2.5 px-2 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {mRank === 1 && val > 0 && (
-                            <span className="text-yellow-500 text-xs">★</span>
-                          )}
+                          {mRank === 1 && val > 0 && <span className="text-yellow-500 text-xs">★</span>}
                           <span className="font-mono text-base text-gray-800 dark:text-gray-200 font-semibold whitespace-nowrap">
                             {val != null ? fmtVal(val, metric) : '—'}
                           </span>
                         </div>
-                        {growth != null && (
-                          <div className="mt-0.5"><GrowthBadge rate={growth} /></div>
-                        )}
+                        {growth != null && <div className="mt-0.5"><GrowthBadge rate={growth} /></div>}
                       </td>
                     )
                   })}
@@ -398,6 +659,8 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
   const [selectedProduct, setSelectedProduct] = useState('')
   const [productQuery, setProductQuery] = useState('')
   const [showProductList, setShowProductList] = useState(false)
+  const [selectedBrands, setSelectedBrands] = useState([])
+  const [chartStyle, setChartStyle] = useState('grouped')
 
   const SECTIONS = [
     { id: 'yoy', label: '年 對 年', icon: '📅', desc: 'YoY' },
@@ -405,9 +668,13 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
     { id: 'mom', label: '月 對 月', icon: '📈', desc: 'MoM' },
   ]
 
-  // All products from filtered rows
+  // Products and brands from filtered rows
   const products = useMemo(() =>
     [...new Set((filtered || []).map(r => r.product).filter(Boolean))].sort(),
+    [filtered]
+  )
+  const brands = useMemo(() =>
+    [...new Set((filtered || []).map(r => r.brand).filter(Boolean))].sort(),
     [filtered]
   )
 
@@ -416,13 +683,17 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
     [products, productQuery]
   )
 
-  // Compute data for selected product (or use pre-computed comparisonData/trendData for all)
+  // Base rows: apply ComparisonChart-level product filter on top of global filtered
+  const baseRows = useMemo(() => {
+    if (!selectedProduct || !filtered) return filtered || []
+    return filtered.filter(r => r.product === selectedProduct)
+  }, [filtered, selectedProduct])
+
+  // Compute year/quarter/trend data for non-brand mode
   const { activeCompData, activeTrendData } = useMemo(() => {
     if (!selectedProduct || !filtered) return { activeCompData: comparisonData, activeTrendData: trendData }
+    const rows = baseRows
 
-    const rows = filtered.filter(r => r.product === selectedProduct)
-
-    // byYear
     const yearMap = {}
     rows.forEach(r => {
       if (!yearMap[r.year]) yearMap[r.year] = { year: r.year, subtotal: 0, quantity: 0 }
@@ -431,7 +702,6 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
     })
     const byYear = Object.values(yearMap).sort((a, b) => a.year.localeCompare(b.year))
 
-    // byQuarter
     const qMap = {}
     rows.forEach(r => {
       const q = Math.ceil(parseInt(r.month) / 3)
@@ -442,7 +712,6 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
     })
     const byQuarter = Object.values(qMap).sort((a, b) => a.label.localeCompare(b.label))
 
-    // trendData (byYearMonth)
     const tmMap = {}
     rows.forEach(r => {
       const key = `${r.year}-${String(r.month).padStart(2, '0')}`
@@ -453,71 +722,128 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
     const newTrendData = Object.values(tmMap).sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
 
     return { activeCompData: { byYear, byQuarter }, activeTrendData: newTrendData }
-  }, [filtered, selectedProduct, comparisonData, trendData])
+  }, [baseRows, filtered, selectedProduct, comparisonData, trendData])
+
+  // Compute brand-split data
+  const { brandYoyData, brandQoQData, brandMoMData } = useMemo(() => {
+    if (!selectedBrands.length || !baseRows.length) {
+      return { brandYoyData: null, brandQoQData: null, brandMoMData: null }
+    }
+    // YoY: { year, [brand]: value }
+    const yearMap = {}
+    baseRows.forEach(r => {
+      if (!selectedBrands.includes(r.brand)) return
+      if (!yearMap[r.year]) yearMap[r.year] = { year: r.year }
+      yearMap[r.year][r.brand] = (yearMap[r.year][r.brand] || 0) + (r[metric] || 0)
+    })
+    const brandYoyData = Object.values(yearMap).sort((a, b) => a.year.localeCompare(b.year))
+
+    // QoQ: { quarter: 'Q1', [brand]: value }
+    const qMap = {}
+    baseRows.forEach(r => {
+      if (!selectedBrands.includes(r.brand)) return
+      const q = `Q${Math.ceil(parseInt(r.month) / 3)}`
+      if (!qMap[q]) qMap[q] = { quarter: q }
+      qMap[q][r.brand] = (qMap[q][r.brand] || 0) + (r[metric] || 0)
+    })
+    const brandQoQData = ['Q1','Q2','Q3','Q4'].map(q => qMap[q] || { quarter: q })
+
+    // MoM: { month: '1月', mIdx, [brand]: value }
+    const monthMap = {}
+    baseRows.forEach(r => {
+      if (!selectedBrands.includes(r.brand)) return
+      const mIdx = parseInt(r.month) - 1
+      const mLabel = MONTH_LABELS[mIdx]
+      if (!monthMap[mLabel]) monthMap[mLabel] = { month: mLabel, mIdx }
+      monthMap[mLabel][r.brand] = (monthMap[mLabel][r.brand] || 0) + (r[metric] || 0)
+    })
+    const brandMoMData = Object.values(monthMap).sort((a, b) => a.mIdx - b.mIdx)
+
+    return { brandYoyData, brandQoQData, brandMoMData }
+  }, [baseRows, selectedBrands, metric])
+
+  const brandMode = selectedBrands.length > 0
 
   return (
     <ChartCard title="對比分析" subtitle="Year / Quarter / Month 同比對比">
       <div className="space-y-4">
-        {/* Product selector */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-base font-bold text-gray-700 dark:text-gray-200">單一產品篩選</span>
-            {selectedProduct ? (
-              <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-sm font-bold">
-                <span>{selectedProduct}</span>
-                <button
-                  onClick={() => { setSelectedProduct(''); setProductQuery(''); }}
-                  className="w-5 h-5 rounded-full bg-blue-500 hover:bg-blue-400 flex items-center justify-center text-xs font-bold"
-                >✕</button>
-              </div>
-            ) : (
-              <span className="text-sm text-gray-400 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
-                全部（彙總）
-              </span>
-            )}
-            <div className="relative">
-              <button
-                onClick={() => setShowProductList(v => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border border-blue-200 bg-white text-blue-600 hover:bg-blue-50 transition-all"
-              >
-                🔍 選擇產品
-                <span className="text-xs text-gray-400">({products.length})</span>
-              </button>
-              {showProductList && (
-                <div className="absolute top-10 left-0 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-72 overflow-hidden">
-                  <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-                    <input
-                      type="text"
-                      value={productQuery}
-                      onChange={e => setProductQuery(e.target.value)}
-                      placeholder="搜尋產品名稱..."
-                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:border-blue-400 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-60 overflow-y-auto">
-                    <button
-                      onClick={() => { setSelectedProduct(''); setProductQuery(''); setShowProductList(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-gray-50 dark:border-gray-700 ${!selectedProduct ? 'font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-600 dark:text-gray-300'}`}
-                    >
-                      全部（彙總）
-                    </button>
-                    {filteredProducts.map(p => (
-                      <button
-                        key={p}
-                        onClick={() => { setSelectedProduct(p); setProductQuery(''); setShowProductList(false); }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors ${selectedProduct === p ? 'font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                    {filteredProducts.length === 0 && (
-                      <p className="text-center text-gray-400 dark:text-gray-500 text-sm py-6">找不到產品</p>
-                    )}
-                  </div>
+
+        {/* Filters row */}
+        <div className="space-y-3">
+          {/* Product selector */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 rounded-2xl p-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-200 shrink-0">單一產品篩選</span>
+              {selectedProduct ? (
+                <div className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-sm font-bold">
+                  <span>{selectedProduct}</span>
+                  <button
+                    onClick={() => { setSelectedProduct(''); setProductQuery(''); }}
+                    className="w-5 h-5 rounded-full bg-blue-500 hover:bg-blue-400 flex items-center justify-center text-xs font-bold"
+                  >✕</button>
                 </div>
+              ) : (
+                <span className="text-sm text-gray-400 dark:text-gray-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-3 py-1.5">
+                  全部（彙總）
+                </span>
               )}
+              <div className="relative">
+                <button
+                  onClick={() => setShowProductList(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border border-blue-200 bg-white text-blue-600 hover:bg-blue-50 transition-all"
+                >
+                  🔍 選擇產品
+                  <span className="text-xs text-gray-400">({products.length})</span>
+                </button>
+                {showProductList && (
+                  <div className="absolute top-10 left-0 z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-72 overflow-hidden">
+                    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                      <input
+                        type="text" value={productQuery} onChange={e => setProductQuery(e.target.value)}
+                        placeholder="搜尋產品名稱..."
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:border-blue-400 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      <button
+                        onClick={() => { setSelectedProduct(''); setProductQuery(''); setShowProductList(false); }}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors border-b border-gray-50 dark:border-gray-700 ${!selectedProduct ? 'font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-600 dark:text-gray-300'}`}
+                      >
+                        全部（彙總）
+                      </button>
+                      {filteredProducts.map(p => (
+                        <button
+                          key={p}
+                          onClick={() => { setSelectedProduct(p); setProductQuery(''); setShowProductList(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors ${selectedProduct === p ? 'font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30' : 'text-gray-700 dark:text-gray-300'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                      {filteredProducts.length === 0 && (
+                        <p className="text-center text-gray-400 dark:text-gray-500 text-sm py-6">找不到產品</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
+
+          {/* Brand selector */}
+          <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800/50 rounded-2xl p-4">
+            <BrandSelector
+              brands={brands}
+              selectedBrands={selectedBrands}
+              onChange={setSelectedBrands}
+            />
+            {brandMode && (
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">圖表樣式</span>
+                <ChartStyleSelector value={chartStyle} onChange={setChartStyle} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -543,13 +869,22 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
         </div>
 
         {activeSection === 'yoy' && (
-          <YoYSection comparisonData={activeCompData} metric={metric} />
+          <YoYSection
+            comparisonData={activeCompData} metric={metric}
+            brandYoyData={brandYoyData} activeBrands={selectedBrands} chartStyle={chartStyle}
+          />
         )}
         {activeSection === 'qoq' && (
-          <QoQSection comparisonData={activeCompData} metric={metric} />
+          <QoQSection
+            comparisonData={activeCompData} metric={metric}
+            brandQoQData={brandQoQData} activeBrands={selectedBrands} chartStyle={chartStyle}
+          />
         )}
         {activeSection === 'mom' && (
-          <MoMSection trendData={activeTrendData} comparisonData={activeCompData} metric={metric} />
+          <MoMSection
+            trendData={activeTrendData} comparisonData={activeCompData} metric={metric}
+            brandMoMData={brandMoMData} activeBrands={selectedBrands} chartStyle={chartStyle}
+          />
         )}
       </div>
     </ChartCard>
