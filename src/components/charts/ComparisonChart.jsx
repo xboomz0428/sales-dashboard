@@ -268,27 +268,28 @@ function BrandChartBlock({ data, xKey, brands, metric, chartStyle, title, subtit
 }
 
 // ─── Brand Detail Table ───────────────────────────────────────────────────────
-function BrandDetailTable({ data, xKey, brands, metric, showGrowth }) {
+function BrandDetailTable({ data, xKey, brands, metric }) {
   if (!data?.length || !brands?.length) return null
   const cols = data.map(d => d[xKey])
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">
-      <SectionHeader title="品牌明細" />
+      <SectionHeader title="品牌明細" subtitle="括號成長率為與前一期相比" />
       <table className="w-full">
         <thead>
           <tr className="text-xs text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
             <th className="text-left py-2 pr-4 font-medium sticky left-0 bg-white dark:bg-gray-800">品牌</th>
-            {cols.map(c => <th key={c} className="text-right py-2 px-3 font-medium whitespace-nowrap">{c}</th>)}
-            {showGrowth && <th className="text-right py-2 pl-4 font-medium border-l border-gray-100 dark:border-gray-700 whitespace-nowrap">最新YoY</th>}
+            {cols.map((c, ci) => (
+              <th key={c} className="text-right py-2 px-3 font-medium whitespace-nowrap">
+                {c}
+                {ci > 0 && <span className="ml-1 text-gray-300 dark:text-gray-600 font-normal">成長↑</span>}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {brands.map((brand, i) => {
             const values = data.map(d => d[brand] || 0)
             const maxVal = Math.max(...values)
-            const lastVal = values[values.length - 1]
-            const prevVal = values[values.length - 2]
-            const yoyRate = showGrowth && prevVal > 0 ? ((lastVal - prevVal) / prevVal * 100) : null
             return (
               <tr key={brand} className="border-b border-gray-50 dark:border-gray-700 hover:bg-purple-50/30 dark:hover:bg-purple-900/10 transition-colors">
                 <td className="py-2.5 pr-4 sticky left-0 bg-white dark:bg-gray-800">
@@ -297,16 +298,20 @@ function BrandDetailTable({ data, xKey, brands, metric, showGrowth }) {
                     <span className="font-bold text-sm text-gray-800 dark:text-gray-200">{brand}</span>
                   </span>
                 </td>
-                {values.map((v, vi) => (
-                  <td key={vi} className={`py-2.5 px-3 text-right text-sm font-mono ${v === maxVal && v > 0 ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {fmtVal(v, metric)}
-                  </td>
-                ))}
-                {showGrowth && (
-                  <td className="py-2.5 pl-4 text-right border-l border-gray-100 dark:border-gray-700">
-                    <GrowthBadge rate={yoyRate} />
-                  </td>
-                )}
+                {values.map((v, vi) => {
+                  const prevV = vi > 0 ? values[vi - 1] : null
+                  const growth = prevV != null && prevV > 0 ? ((v - prevV) / prevV * 100) : null
+                  return (
+                    <td key={vi} className="py-2 px-3 text-right">
+                      <div className={`font-mono text-sm ${v === maxVal && v > 0 ? 'text-purple-700 dark:text-purple-300 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {fmtVal(v, metric)}
+                      </div>
+                      {growth != null && (
+                        <div className="mt-0.5"><GrowthBadge rate={growth} /></div>
+                      )}
+                    </td>
+                  )
+                })}
               </tr>
             )
           })}
@@ -344,7 +349,7 @@ function YoYSection({ comparisonData, metric, brandYoyData, activeBrands, chartS
         />
         <BrandDetailTable
           data={brandYoyData} xKey="year" brands={activeBrands}
-          metric={metric} showGrowth
+          metric={metric}
         />
       </div>
     )
