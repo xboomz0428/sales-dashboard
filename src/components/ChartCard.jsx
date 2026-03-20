@@ -6,6 +6,7 @@ export default function ChartCard({ title, subtitle, children, className = '' })
   const [expanded, setExpanded]       = useState(false)
   const [showEditor, setShowEditor]   = useState(false)
   const modalContentRef               = useRef(null)
+  const scrollContainerRef            = useRef(null)
 
   // ESC to close modal (not editor — editor handles its own ESC)
   useEffect(() => {
@@ -116,7 +117,7 @@ export default function ChartCard({ title, subtitle, children, className = '' })
             </div>
 
             {/* Chart content */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-6">
               {typeof children === 'function' ? children(true) : children}
             </div>
           </div>
@@ -128,6 +129,7 @@ export default function ChartCard({ title, subtitle, children, className = '' })
       {showEditor && (
         <ScreenshotEditor
           targetRef={modalContentRef}
+          scrollRef={scrollContainerRef}
           onClose={() => setShowEditor(false)}
           title={title}
         />

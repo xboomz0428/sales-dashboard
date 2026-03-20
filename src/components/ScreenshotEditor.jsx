@@ -20,7 +20,7 @@ const TOOLS = [
 ]
 
 // ── ScreenshotEditor ──────────────────────────────────────────────────────────
-export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
+export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title = '' }) {
   const canvasRef  = useRef(null)
   const [tool, setTool]             = useState('rect')
   const [color, setColor]           = useState('#EF4444')
@@ -54,27 +54,87 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
   useEffect(() => {
     const el = targetRef?.current
     if (!el) { setCapturing(false); return }
+
+    // 1. Hide elements marked as no-capture (e.g. toolbar buttons)
+    const noCaptureEls = [...el.querySelectorAll('[data-no-capture="true"]')]
+    const savedVis = noCaptureEls.map(e => e.style.visibility)
+    noCaptureEls.forEach(e => { e.style.visibility = 'hidden' })
+
+    // 2. Expand inner scrollable container to its full scroll height
+    const scrollEl = scrollRef?.current
+    let savedScroll = null
+    if (scrollEl) {
+      savedScroll = {
+        overflow:   scrollEl.style.overflow,
+        height:     scrollEl.style.height,
+        maxHeight:  scrollEl.style.maxHeight,
+        flexShrink: scrollEl.style.flexShrink,
+        scrollTop:  scrollEl.scrollTop,
+      }
+      scrollEl.scrollTop   = 0
+      scrollEl.style.overflow   = 'visible'
+      scrollEl.style.height     = scrollEl.scrollHeight + 'px'
+      scrollEl.style.maxHeight  = 'none'
+      scrollEl.style.flexShrink = '0'
+    }
+
+    // 3. Remove overflow/maxHeight clipping from the outer container
+    const savedOuter = {
+      overflow:  el.style.overflow,
+      maxHeight: el.style.maxHeight,
+      height:    el.style.height,
+    }
+    el.style.overflow  = 'visible'
+    el.style.maxHeight = 'none'
+    el.style.height    = 'auto'
+
+    // 4. Detect background colour
+    const bgColor = window.getComputedStyle(el).backgroundColor || '#ffffff'
+
     const dpr = window.devicePixelRatio > 1 ? 2 : 1
     scaleRef.current = dpr
-    html2canvas(el, {
-      scale: dpr,
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-      backgroundColor: null,
-    }).then(captured => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      canvas.width  = captured.width
-      canvas.height = captured.height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(captured, 0, 0)
-      setCapturing(false)
-      const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      historyRef.current = [id]
-      histIdx.current    = 0
-      setCanUndo(false)
-    }).catch(() => setCapturing(false))
+
+    const restore = () => {
+      el.style.overflow  = savedOuter.overflow
+      el.style.maxHeight = savedOuter.maxHeight
+      el.style.height    = savedOuter.height
+      if (scrollEl && savedScroll) {
+        scrollEl.style.overflow   = savedScroll.overflow
+        scrollEl.style.height     = savedScroll.height
+        scrollEl.style.maxHeight  = savedScroll.maxHeight
+        scrollEl.style.flexShrink = savedScroll.flexShrink
+        scrollEl.scrollTop        = savedScroll.scrollTop
+      }
+      noCaptureEls.forEach((e, i) => { e.style.visibility = savedVis[i] })
+    }
+
+    // 5. Wait two animation frames for layout to reflow, then capture
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      html2canvas(el, {
+        scale:           dpr,
+        useCORS:         true,
+        allowTaint:      true,
+        logging:         false,
+        backgroundColor: bgColor,
+      }).then(captured => {
+        restore()
+        const canvas = canvasRef.current
+        if (!canvas) return
+        canvas.width  = captured.width
+        canvas.height = captured.height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(captured, 0, 0)
+        setCapturing(false)
+        const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        historyRef.current = [id]
+        histIdx.current    = 0
+        setCanUndo(false)
+      }).catch(err => {
+        console.error('html2canvas error:', err)
+        restore()
+        setCapturing(false)
+      })
+    }))
   }, []) // eslint-disable-line
 
   // ── History ──────────────────────────────────────────────────────────────────
