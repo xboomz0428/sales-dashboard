@@ -12,6 +12,8 @@ const TOOLS = [
   { id: 'mosaic', label: '馬賽克', icon: '▦', hint: '拖曳選取要遮擋的區域' },
   { id: 'rect',   label: '矩形',   icon: '▭', hint: '拖曳繪製矩形框' },
   { id: 'circle', label: '圓形',   icon: '◯', hint: '拖曳繪製橢圓' },
+  { id: 'line',   label: '直線',   icon: '╱', hint: '拖曳繪製直線（按住 Shift 鎖定 45°）' },
+  { id: 'dline',  label: '虛線',   icon: '╌', hint: '拖曳繪製虛線（按住 Shift 鎖定 45°）' },
   { id: 'arrow',  label: '箭頭',   icon: '↗', hint: '拖曳繪製箭頭' },
   { id: 'pen',    label: '畫筆',   icon: '✏', hint: '自由手繪' },
   { id: 'text',   label: '文字',   icon: 'T', hint: '點擊畫面放置文字，Enter 確認' },
@@ -35,6 +37,7 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
   const historyRef   = useRef([])
   const histIdx      = useRef(-1)
   const scaleRef     = useRef(2)       // capture DPR scale
+  const shiftRef     = useRef(false)   // Shift key held
   const toolRef      = useRef(tool)
   const colorRef     = useRef(color)
   const swRef        = useRef(strokeWidth)
@@ -165,6 +168,18 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
     ctx.closePath(); ctx.fill()
   }
 
+  // ── Shift-snap: constrain endpoint to 0°/45°/90°/135° ──────────────────────
+  const snapAngle = (sx, sy, ex, ey) => {
+    if (!shiftRef.current) return { x: ex, y: ey }
+    const dx  = ex - sx
+    const dy  = ey - sy
+    const len = Math.hypot(dx, dy)
+    const ang = Math.atan2(dy, dx)
+    // Round to nearest 45°
+    const snapped = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4)
+    return { x: sx + len * Math.cos(snapped), y: sy + len * Math.sin(snapped) }
+  }
+
   // ── Mouse events ─────────────────────────────────────────────────────────────
   const handleMouseDown = useCallback((e) => {
     if (e.button !== 0) return
@@ -205,6 +220,15 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
         ctx.beginPath()
         ctx.ellipse((sx + pos.x) / 2, (sy + pos.y) / 2, Math.max(rx, 1), Math.max(ry, 1), 0, 0, 2 * Math.PI)
         ctx.stroke()
+      } else if (t === 'line') {
+        const ep = snapAngle(sx, sy, pos.x, pos.y)
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ep.x, ep.y); ctx.stroke()
+      } else if (t === 'dline') {
+        const ep = snapAngle(sx, sy, pos.x, pos.y)
+        ctx.save()
+        ctx.setLineDash([sw * 3.5, sw * 2.5])
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ep.x, ep.y); ctx.stroke()
+        ctx.restore()
       } else if (t === 'arrow') {
         drawArrow(ctx, sx, sy, pos.x, pos.y, sw)
       } else if (t === 'mosaic') {
@@ -281,9 +305,10 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
     }, 'image/jpeg', 0.93)
   }, [])
 
-  // ── Keyboard shortcuts ───────────────────────────────────────────────────────
+  // ── Keyboard shortcuts + Shift tracking ─────────────────────────────────────
   useEffect(() => {
-    const fn = (e) => {
+    const onDown = (e) => {
+      if (e.key === 'Shift') { shiftRef.current = true; return }
       if (textInputRef.current) {
         if (e.key === 'Escape') setTextInput(null)
         return
@@ -292,8 +317,13 @@ export default function ScreenshotEditor({ targetRef, onClose, title = '' }) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo() }
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJpg() }
     }
-    window.addEventListener('keydown', fn)
-    return () => window.removeEventListener('keydown', fn)
+    const onUp = (e) => { if (e.key === 'Shift') shiftRef.current = false }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup',   onUp)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup',   onUp)
+    }
   }, [onClose, undo, saveJpg])
 
   // ── Cursor ───────────────────────────────────────────────────────────────────
