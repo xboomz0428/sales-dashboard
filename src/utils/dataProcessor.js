@@ -29,6 +29,24 @@ function findColumn(headers, candidates) {
   return -1
 }
 
+// Parse numeric values, handling:
+// 1. Accounting format negatives: (1000) → -1000
+// 2. Comma separators: -1,000 → -1000
+// 3. Standard negatives: -1000 → -1000
+function parseNumeric(value) {
+  if (value == null || value === '') return 0
+  if (typeof value === 'number') return value
+  let str = value.toString().trim()
+  // Remove thousand separators (commas)
+  str = str.replace(/,/g, '')
+  // Handle accounting negative format: (1000) → -1000
+  if (str.startsWith('(') && str.endsWith(')')) {
+    str = '-' + str.slice(1, -1)
+  }
+  const parsed = parseFloat(str)
+  return isNaN(parsed) ? 0 : parsed
+}
+
 function parseDate(value) {
   if (!value) return null
   if (typeof value === 'number') {
@@ -71,10 +89,10 @@ export function processExcelFile(file) {
           const parsedDate = parseDate(dateVal)
           if (!parsedDate) continue
 
-          const subtotal = colIdx.subtotal >= 0 ? parseFloat(row[colIdx.subtotal]) || 0 : 0
-          const total = colIdx.total >= 0 ? parseFloat(row[colIdx.total]) || 0 : 0
-          const quantity = colIdx.quantity >= 0 ? parseFloat(row[colIdx.quantity]) || 0 : 0
-          const originalPrice = colIdx.originalPrice >= 0 ? parseFloat(row[colIdx.originalPrice]) || 0 : 0
+          const subtotal = colIdx.subtotal >= 0 ? parseNumeric(row[colIdx.subtotal]) : 0
+          const total = colIdx.total >= 0 ? parseNumeric(row[colIdx.total]) : 0
+          const quantity = colIdx.quantity >= 0 ? parseNumeric(row[colIdx.quantity]) : 0
+          const originalPrice = colIdx.originalPrice >= 0 ? parseNumeric(row[colIdx.originalPrice]) : 0
 
           let discountRate = 0
           if (colIdx.discountRate >= 0 && row[colIdx.discountRate] != null) {
@@ -93,8 +111,11 @@ export function processExcelFile(file) {
           const customer = colIdx.customer >= 0 ? (row[colIdx.customer] || '').toString().trim() : ''
           const dateStr = parsedDate.format('YYYY-MM-DD')
 
+          // Key must be unique per line item:
+          // - Include product so different items in same order with same price/qty get different keys
+          // - Include subtotal & quantity so return rows (negative amounts) differ from original sale
           const _key = orderId
-            ? `id:${orderId}`
+            ? `id:${orderId}|prod:${product}|sub:${subtotal}|qty:${quantity}`
             : `${dateStr}|${channel}|${channelType}|${brand}|${product}|${customer}|${subtotal}|${quantity}`
 
           rows.push({
@@ -108,18 +129,29 @@ export function processExcelFile(file) {
           })
         }
 
+        // Intra-file deduplication: remove rows with identical _key within the same file
+        // (ERP exports sometimes include the same line item multiple times in one file)
+        const seenKeys = new Set()
+        const dedupedRows = []
+        for (const row of rows) {
+          if (!seenKeys.has(row._key)) {
+            seenKeys.add(row._key)
+            dedupedRows.push(row)
+          }
+        }
+
         const unique = (arr) => [...new Set(arr.filter(Boolean))].sort()
         resolve({
-          rows,
+          rows: dedupedRows,
           meta: {
-            years: unique(rows.map(r => r.year)),
-            channels: unique(rows.map(r => r.channel)),
-            channelTypes: unique(rows.map(r => r.channelType)),
-            brands: unique(rows.map(r => r.brand)),
-            agentTypes: unique(rows.map(r => r.agentType)),
-            customers: unique(rows.map(r => r.customer)),
-            products: unique(rows.map(r => r.product)),
-            totalRows: rows.length,
+            years: unique(dedupedRows.map(r => r.year)),
+            channels: unique(dedupedRows.map(r => r.channel)),
+            channelTypes: unique(dedupedRows.map(r => r.channelType)),
+            brands: unique(dedupedRows.map(r => r.brand)),
+            agentTypes: unique(dedupedRows.map(r => r.agentType)),
+            customers: unique(dedupedRows.map(r => r.customer)),
+            products: unique(dedupedRows.map(r => r.product)),
+            totalRows: dedupedRows.length,
           },
         })
       } catch (err) {
