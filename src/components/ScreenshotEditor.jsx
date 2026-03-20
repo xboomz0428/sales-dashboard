@@ -61,9 +61,23 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
 
     const MAX_CAPTURE_H = 2000
 
-    // 1. Expand scroll container: set overflow:hidden (removes scrollbar cleanly)
-    //    and expand its height so all content is visible.
-    const scrollEl = scrollRef?.current
+    // ── Step 1: Measure dimensions BEFORE any changes ──────────────────────
+    // We need these to accurately reconstruct the layout in the clone.
+    const scrollEl      = scrollRef?.current
+    const captureW      = el.offsetWidth
+    const origScrollH   = scrollEl ? scrollEl.offsetHeight : 0
+    const headerH       = el.offsetHeight - origScrollH   // header + padding outside scroll area
+
+    // ── Step 2: Expand scroll container in the LIVE DOM ─────────────────────
+    //    overflow:hidden removes the scrollbar (no content-width side-effect),
+    //    explicit height expands the flex child to full content.
+    //    We do NOT touch `el` (the outer modal) at all — changing its overflow
+    //    or height breaks the flex-col layout and causes visual corruption.
+    const scrollTargetH = scrollEl
+      ? Math.min(scrollEl.scrollHeight, MAX_CAPTURE_H - headerH)
+      : 0
+    const captureH = Math.min(headerH + scrollTargetH, MAX_CAPTURE_H)
+
     let savedScroll = null
     if (scrollEl) {
       savedScroll = {
@@ -75,31 +89,18 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       }
       scrollEl.scrollTop        = 0
       scrollEl.style.overflow   = 'hidden'
-      scrollEl.style.height     = Math.min(scrollEl.scrollHeight, MAX_CAPTURE_H) + 'px'
+      scrollEl.style.height     = scrollTargetH + 'px'
       scrollEl.style.maxHeight  = 'none'
       scrollEl.style.flexShrink = '0'
     }
 
-    // 2. Remove overflow/maxHeight clipping from the outer modal container
-    //    so html2canvas can see content that extends past the viewport height.
-    const savedOuter = {
-      overflow:  el.style.overflow,
-      maxHeight: el.style.maxHeight,
-      height:    el.style.height,
-    }
-    el.style.overflow  = 'visible'
-    el.style.maxHeight = 'none'
-    el.style.height    = 'auto'
-
-    // 3. Detect background colour and set scale
-    const bgColor = window.getComputedStyle(el).backgroundColor || '#ffffff'
-    const dpr = 1   // scale:1 is 4× faster than scale:2 on retina — plenty for editing
+    // ── Step 3: Background colour & scale ──────────────────────────────────
+    // Always use pure white so the screenshot is clean regardless of dark mode.
+    const bgColor = '#ffffff'
+    const dpr = 1   // scale:1 is 4× faster than scale:2 on retina
     scaleRef.current = dpr
 
     const restore = () => {
-      el.style.overflow  = savedOuter.overflow
-      el.style.maxHeight = savedOuter.maxHeight
-      el.style.height    = savedOuter.height
       if (scrollEl && savedScroll) {
         scrollEl.style.overflow   = savedScroll.overflow
         scrollEl.style.height     = savedScroll.height
@@ -109,15 +110,12 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       }
     }
 
-    // 4. Double-rAF: the first frame lets ResizeObserver fire and React queue
-    //    re-renders for any Recharts components whose container width changed.
-    //    The second frame lets those re-renders finish and paint, so html2canvas
-    //    sees the final DOM with correct chart dimensions (no gray areas).
+    // ── Step 4: Double-rAF ──────────────────────────────────────────────────
+    //    First rAF:  ResizeObserver fires, React queues chart re-renders.
+    //    Second rAF: re-renders complete and paint — html2canvas sees correct
+    //    chart dimensions (eliminates gray-area artifact on the right).
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // Measure width/height AFTER layout has settled
-        const captureW = el.offsetWidth
-        const captureH = Math.min(el.offsetHeight, MAX_CAPTURE_H)
 
         html2canvas(el, {
           scale:           dpr,
@@ -129,44 +127,56 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
           width:           captureW,
           height:          captureH,
           ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
-          onclone: (_doc, clonedEl) => {
-            // Lock the clone to the measured width and apply background
+          // onclone: expand the OUTER modal container only inside the clone
+          // (never in the live DOM) so the flex layout is never disrupted.
+          // Also force light-mode so all dark: Tailwind variants are removed,
+          // giving white backgrounds and consistent gray borders everywhere.
+          onclone: (doc, clonedEl) => {
+            // Remove dark mode → all dark:bg-* classes revert to light values
+            doc.documentElement.classList.remove('dark')
+
+            clonedEl.style.overflow        = 'visible'
+            clonedEl.style.maxHeight       = 'none'
+            clonedEl.style.height          = captureH + 'px'
             clonedEl.style.width           = captureW + 'px'
-            clonedEl.style.maxWidth        = captureW + 'px'
-            clonedEl.style.backgroundColor = bgColor
-            // Keep scroll container fully expanded in the clone
+            clonedEl.style.backgroundColor = '#ffffff'
+
             const scrollClone = clonedEl.querySelector('[data-screenshot-scroll]')
             if (scrollClone) {
-              scrollClone.style.overflow = 'visible'
-              scrollClone.style.height   = 'auto'
+              scrollClone.style.overflow        = 'visible'
+              scrollClone.style.height          = scrollTargetH + 'px'
+              scrollClone.style.maxHeight       = 'none'
+              scrollClone.style.flexShrink      = '0'
+              scrollClone.style.backgroundColor = '#ffffff'
             }
           },
         }).then(captured => {
-        restore()
-        const canvas = canvasRef.current
-        if (!canvas) return
-        canvas.width  = captured.width
-        canvas.height = captured.height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(captured, 0, 0)
+          restore()
+          const canvas = canvasRef.current
+          if (!canvas) return
+          canvas.width  = captured.width
+          canvas.height = captured.height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(captured, 0, 0)
 
-        // Calculate initial fit-zoom so canvas fills editor without scrolling
-        const editorW = window.innerWidth  - 48
-        const editorH = window.innerHeight - 120
-        const fitZ    = Math.min(editorW / captured.width, editorH / captured.height, 1)
-        setCanvasNat({ w: captured.width, h: captured.height })
-        setZoom(Math.max(0.25, Math.round(fitZ * 4) / 4)) // round to nearest 0.25
+          // Fit-zoom: fill editor window without scrolling
+          const editorW = window.innerWidth  - 48
+          const editorH = window.innerHeight - 120
+          const fitZ    = Math.min(editorW / captured.width, editorH / captured.height, 1)
+          setCanvasNat({ w: captured.width, h: captured.height })
+          setZoom(Math.max(0.25, Math.round(fitZ * 4) / 4))
 
-        setCapturing(false)
-        const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        historyRef.current = [id]
-        histIdx.current    = 0
-        setCanUndo(false)
-      }).catch(err => {
-        console.error('html2canvas error:', err)
-        restore()
-        setCapturing(false)
-      })
+          setCapturing(false)
+          const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
+          historyRef.current = [id]
+          histIdx.current    = 0
+          setCanUndo(false)
+        }).catch(err => {
+          console.error('html2canvas error:', err)
+          restore()
+          setCapturing(false)
+        })
+
       }) // end inner rAF
     }) // end outer rAF
   }, []) // eslint-disable-line

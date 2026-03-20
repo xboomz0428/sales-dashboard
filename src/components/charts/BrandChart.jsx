@@ -90,39 +90,82 @@ function ChannelTooltip({ active, payload, label, metric }) {
 
 function BrandChannelChart({ brandChannelData, metric }) {
   const { map, brands, channels, years } = brandChannelData
-  const [selectedBrand, setSelectedBrand] = useState(() => brands[0] || '')
-  const [chartStyle, setChartStyle] = useState('grouped') // 'grouped' | 'stacked' | 'line'
+  const [selectedBrand, setSelectedBrand]   = useState(() => brands[0] || '')
+  const [chartStyle, setChartStyle]         = useState('grouped')
+  const [activeChannels, setActiveChannels] = useState(() => new Set(channels))
   const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
-  // Build chart data: [{year, 線上: X, 實體: Y, ...}, ...]
+  // Keep activeChannels valid when channels prop changes
+  const activeChannelList = useMemo(
+    () => channels.filter(ch => activeChannels.has(ch)),
+    [channels, activeChannels]
+  )
+
+  const toggleChannel = (ch) => {
+    setActiveChannels(prev => {
+      if (prev.has(ch) && prev.size <= 1) return prev // keep at least 1
+      const next = new Set(prev)
+      prev.has(ch) ? next.delete(ch) : next.add(ch)
+      return next
+    })
+  }
+
+  // Full chart data (all channels, all years)
   const chartData = useMemo(() => {
     if (!selectedBrand || !map[selectedBrand]) return []
     return years.map(y => {
       const entry = { year: y }
-      channels.forEach(ch => {
-        entry[ch] = map[selectedBrand]?.[ch]?.[y] || 0
-      })
+      channels.forEach(ch => { entry[ch] = map[selectedBrand]?.[ch]?.[y] || 0 })
       return entry
     })
   }, [selectedBrand, map, channels, years])
 
-  // Compute total per channel (for share card)
+  // ── Top-3 indices per active channel (for label rendering) ──────────────────
+  const top3ByChannel = useMemo(() => {
+    const res = {}
+    activeChannelList.forEach(ch => {
+      const sorted = chartData
+        .map((d, i) => ({ i, v: d[ch] || 0 }))
+        .filter(x => x.v > 0)
+        .sort((a, b) => b.v - a.v)
+        .slice(0, 3)
+      res[ch] = new Set(sorted.map(x => x.i))
+    })
+    return res
+  }, [chartData, activeChannelList])
+
+  // Top-3 total indices for stacked chart
+  const top3Totals = useMemo(() => {
+    const sorted = chartData
+      .map((d, i) => ({ i, v: activeChannelList.reduce((s, ch) => s + (d[ch] || 0), 0) }))
+      .filter(x => x.v > 0)
+      .sort((a, b) => b.v - a.v)
+      .slice(0, 3)
+    return new Set(sorted.map(x => x.i))
+  }, [chartData, activeChannelList])
+
+  // Channel totals (all channels, sorted by total, with original index for color)
   const channelTotals = useMemo(() => {
     if (!selectedBrand || !map[selectedBrand]) return []
-    return channels.map(ch => {
-      const total = years.reduce((s, y) => s + (map[selectedBrand]?.[ch]?.[y] || 0), 0)
-      return { ch, total }
-    }).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
+    return channels
+      .map((ch, origIdx) => ({
+        ch, origIdx,
+        total: years.reduce((s, y) => s + (map[selectedBrand]?.[ch]?.[y] || 0), 0),
+      }))
+      .filter(c => c.total > 0)
+      .sort((a, b) => b.total - a.total)
   }, [selectedBrand, map, channels, years])
 
   const grandTotal = channelTotals.reduce((s, c) => s + c.total, 0)
 
-  if (!brands.length) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">無品牌通路資料</div>
-  }
-  if (!channels.length) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">資料中無通路欄位，無法比較</div>
-  }
+  // Y-axis width based on active channels only (auto domain from Recharts)
+  const yW = useMemo(() => calcValueAxisWidth(
+    Math.max(1, ...chartData.flatMap(d => activeChannelList.map(ch => d[ch] || 0))),
+    fmtY
+  ), [chartData, activeChannelList])
+
+  if (!brands.length)   return <div className="flex items-center justify-center h-64 text-gray-400">無品牌通路資料</div>
+  if (!channels.length) return <div className="flex items-center justify-center h-64 text-gray-400">資料中無通路欄位，無法比較</div>
 
   const CHART_STYLES = [
     { v: 'grouped', l: '群組長條', icon: '▦', desc: '各年各通路並排，方便直接對比數量' },
@@ -130,14 +173,28 @@ function BrandChannelChart({ brandChannelData, metric }) {
     { v: 'line',    l: '面積趨勢', icon: '◉', desc: '連續曲線，看通路成長軌跡與交叉點' },
   ]
 
-  const yW = calcValueAxisWidth(
-    Math.max(...chartData.flatMap(d => channels.map(ch => d[ch] || 0))),
-    fmtY
-  )
+  // ── Custom label content renderers (only top-3 per series) ─────────────────
+  const barLabel = (ch) => ({ x, y, width, index }) => {
+    if (!top3ByChannel[ch]?.has(index)) return null
+    const v = chartData[index]?.[ch]; if (!v) return null
+    return <text key={`bl${ch}${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(v)}</text>
+  }
+  const stackLabel = ({ x, y, width, index }) => {
+    if (!top3Totals.has(index)) return null
+    const total = activeChannelList.reduce((s, ch) => s + (chartData[index]?.[ch] || 0), 0)
+    if (!total) return null
+    return <text key={`sl${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(total)}</text>
+  }
+  const areaLabel = (ch) => ({ x, y, index }) => {
+    if (!top3ByChannel[ch]?.has(index)) return null
+    const v = chartData[index]?.[ch]; if (!v) return null
+    return <text key={`al${ch}${index}`} x={x} y={(y||0)-9} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(v)}</text>
+  }
 
   return (
     <div className="space-y-4">
-      {/* Brand picker */}
+
+      {/* ── Brand picker ─────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">選擇品牌</h4>
         <div className="flex flex-wrap gap-2">
@@ -151,7 +208,7 @@ function BrandChannelChart({ brandChannelData, metric }) {
         </div>
       </div>
 
-      {/* Chart style selector */}
+      {/* ── Chart style selector ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {CHART_STYLES.map(s => (
           <button key={s.v} onClick={() => setChartStyle(s.v)}
@@ -165,66 +222,72 @@ function BrandChannelChart({ brandChannelData, metric }) {
         ))}
       </div>
 
-      {/* Chart */}
+      {/* ── Chart ────────────────────────────────────────────────────────── */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <div className="mb-4">
           <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">
             {selectedBrand} — 通路歷年{label}比較
           </h4>
-          <p className="text-sm text-gray-400 mt-0.5">共 {channels.length} 個通路 × {years.length} 年</p>
+          <p className="text-sm text-gray-400 mt-0.5">
+            顯示 {activeChannelList.length} / {channels.length} 個通路 × {years.length} 年
+            {activeChannelList.length < channels.length && <span className="ml-2 text-blue-500 font-medium">（部分通路已隱藏）</span>}
+          </p>
         </div>
 
+        {/* Grouped bar */}
         {chartStyle === 'grouped' && (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }} barCategoryGap="30%" barGap={3}>
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={chartData} margin={{ top: 24, right: 20, left: 4, bottom: 4 }} barCategoryGap="28%" barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="year" tick={{ fontSize: 13, fill: '#9ca3af' }} tickFormatter={v => v + '年'} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
               <Tooltip content={<ChannelTooltip metric={metric} />} />
               <Legend wrapperStyle={{ fontSize: 13 }} />
-              {channels.map((ch, i) => (
-                <Bar key={ch} dataKey={ch} name={ch} fill={CH_COLORS[i % CH_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={50}>
-                  <LabelList dataKey={ch} position="top" formatter={fmtY} style={{ fontSize: 11, fill: '#9ca3af' }} />
-                </Bar>
-              ))}
+              {activeChannelList.map(ch => {
+                const ci = channels.indexOf(ch)
+                return (
+                  <Bar key={ch} dataKey={ch} name={ch} fill={CH_COLORS[ci % CH_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={46}>
+                    <LabelList dataKey={ch} content={barLabel(ch)} />
+                  </Bar>
+                )
+              })}
             </BarChart>
           </ResponsiveContainer>
         )}
 
+        {/* Stacked bar */}
         {chartStyle === 'stacked' && (
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }} barCategoryGap="35%">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart data={chartData} margin={{ top: 24, right: 20, left: 4, bottom: 4 }} barCategoryGap="35%">
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="year" tick={{ fontSize: 13, fill: '#9ca3af' }} tickFormatter={v => v + '年'} />
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
               <Tooltip content={<ChannelTooltip metric={metric} />} />
               <Legend wrapperStyle={{ fontSize: 13 }} />
-              {channels.map((ch, i) => (
-                <Bar key={ch} dataKey={ch} name={ch} stackId="a" fill={CH_COLORS[i % CH_COLORS.length]}
-                  radius={i === channels.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} maxBarSize={80}>
-                  {i === channels.length - 1 && (
-                    <LabelList
-                      content={({ x, y, width, value, index }) => {
-                        const total = channels.reduce((s, c) => s + (chartData[index]?.[c] || 0), 0)
-                        if (!total) return null
-                        return <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="#9ca3af">{fmtY(total)}</text>
-                      }}
-                    />
-                  )}
-                </Bar>
-              ))}
+              {activeChannelList.map((ch, i) => {
+                const ci = channels.indexOf(ch)
+                const isLast = i === activeChannelList.length - 1
+                return (
+                  <Bar key={ch} dataKey={ch} name={ch} stackId="s"
+                    fill={CH_COLORS[ci % CH_COLORS.length]}
+                    radius={isLast ? [4, 4, 0, 0] : [0, 0, 0, 0]} maxBarSize={80}>
+                    {isLast && <LabelList content={stackLabel} />}
+                  </Bar>
+                )
+              })}
             </BarChart>
           </ResponsiveContainer>
         )}
 
+        {/* Area chart */}
         {chartStyle === 'line' && (
-          <ResponsiveContainer width="100%" height={320}>
-            <AreaChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }}>
+          <ResponsiveContainer width="100%" height={340}>
+            <AreaChart data={chartData} margin={{ top: 24, right: 20, left: 4, bottom: 4 }}>
               <defs>
                 {channels.map((ch, i) => (
-                  <linearGradient key={ch} id={`grad_${i}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.25} />
-                    <stop offset="95%" stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.03} />
+                  <linearGradient key={ch} id={`bcc_grad_${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.22} />
+                    <stop offset="95%" stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.02} />
                   </linearGradient>
                 ))}
               </defs>
@@ -233,36 +296,56 @@ function BrandChannelChart({ brandChannelData, metric }) {
               <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
               <Tooltip content={<ChannelTooltip metric={metric} />} />
               <Legend wrapperStyle={{ fontSize: 13 }} />
-              {channels.map((ch, i) => (
-                <Area key={ch} type="monotone" dataKey={ch} name={ch}
-                  stroke={CH_COLORS[i % CH_COLORS.length]} strokeWidth={2.5}
-                  fill={`url(#grad_${i})`}
-                  dot={{ r: 4, fill: CH_COLORS[i % CH_COLORS.length] }}
-                  activeDot={{ r: 6 }}
-                />
-              ))}
+              {activeChannelList.map(ch => {
+                const ci = channels.indexOf(ch)
+                return (
+                  <Area key={ch} type="monotone" dataKey={ch} name={ch}
+                    stroke={CH_COLORS[ci % CH_COLORS.length]} strokeWidth={2.5}
+                    fill={`url(#bcc_grad_${ci})`}
+                    dot={{ r: 3, fill: CH_COLORS[ci % CH_COLORS.length] }}
+                    activeDot={{ r: 5 }}
+                    label={{ content: areaLabel(ch) }}
+                  />
+                )
+              })}
             </AreaChart>
           </ResponsiveContainer>
         )}
       </div>
 
-      {/* Channel summary cards */}
+      {/* ── Channel toggle cards ──────────────────────────────────────────── */}
       {channelTotals.length > 0 && (
-        <div className={`grid gap-3 ${channelTotals.length <= 4 ? `grid-cols-${channelTotals.length}` : 'grid-cols-2 sm:grid-cols-4'}`}>
-          {channelTotals.map((c, i) => {
-            const share = grandTotal > 0 ? (c.total / grandTotal * 100).toFixed(1) : '0'
-            return (
-              <div key={c.ch} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: CH_COLORS[i % CH_COLORS.length] }} />
-                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{c.ch}</span>
+        <>
+          <p className="text-xs text-gray-400 -mb-1 pl-1">點擊卡片可開關圖表中的通路資料</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {channelTotals.map(c => {
+              const isActive = activeChannels.has(c.ch)
+              const color    = CH_COLORS[c.origIdx % CH_COLORS.length]
+              const share    = grandTotal > 0 ? (c.total / grandTotal * 100).toFixed(1) : '0'
+              return (
+                <div key={c.ch} onClick={() => toggleChannel(c.ch)}
+                  className={`cursor-pointer select-none rounded-2xl border-2 p-4 transition-all duration-150 ${
+                    isActive
+                      ? 'bg-white dark:bg-gray-800 shadow-sm hover:shadow-md'
+                      : 'bg-gray-50 dark:bg-gray-800/40 opacity-45 hover:opacity-60'
+                  }`}
+                  style={{ borderColor: isActive ? color : '#d1d5db' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{c.ch}</span>
+                    </div>
+                    <span className={`text-xs font-bold flex-shrink-0 ml-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
+                      {isActive ? '✓' : '–'}
+                    </span>
+                  </div>
+                  <p className="text-base font-black text-gray-800 dark:text-gray-100 font-mono leading-tight">{fmtY(c.total)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">佔 {share}%</p>
                 </div>
-                <p className="text-lg font-black text-gray-800 dark:text-gray-100 font-mono">{fmtY(c.total)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">佔 {share}% 總{label}</p>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
