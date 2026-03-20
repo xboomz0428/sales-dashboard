@@ -198,6 +198,29 @@ export function useSalesData(rows, filters) {
     })).sort((a, b) => b.customerCount - a.customerCount)
   }, [filtered])
 
+  // Brand × Channel × Year analysis (for the channel comparison tab)
+  const brandChannelData = useMemo(() => {
+    // map: brand → channel → year → value
+    const map = {}
+    filtered.forEach(row => {
+      const brand   = row.brand || '未知'
+      const channel = row.channelType || row.channel || '其他'
+      const year    = row.yearMonth?.slice(0, 4)
+      if (!year) return
+      if (!map[brand]) map[brand] = {}
+      if (!map[brand][channel]) map[brand][channel] = {}
+      map[brand][channel][year] = (map[brand][channel][year] || 0) + row[metric]
+    })
+    // Sort brands by total descending
+    const brands = Object.keys(map).sort((a, b) => {
+      const tot = obj => Object.values(obj).reduce((s, y) => s + Object.values(y).reduce((ss, v) => ss + v, 0), 0)
+      return tot(map[b]) - tot(map[a])
+    })
+    const channels = [...new Set(filtered.map(r => r.channelType || r.channel).filter(Boolean))].sort()
+    const years    = [...new Set(filtered.map(r => r.yearMonth?.slice(0, 4)).filter(Boolean))].sort()
+    return { map, brands, channels, years }
+  }, [filtered, metric])
+
   // Brand analysis
   const brandData = useMemo(() => {
     const map = {}
@@ -358,7 +381,7 @@ export function useSalesData(rows, filters) {
     trendData, trendDataYoY, trendDataMoM,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, heatmapData,
+    brandData, brandChannelData, heatmapData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,

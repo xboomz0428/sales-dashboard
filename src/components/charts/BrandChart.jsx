@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend, LabelList,
-  LineChart, Line,
+  LineChart, Line, AreaChart, Area,
 } from 'recharts'
 import ChartDataTable from '../ChartDataTable'
 import ChartCard from '../ChartCard'
@@ -51,6 +51,219 @@ function LinesTooltip({ active, payload, label }) {
           <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+// ─── Brand × Channel Comparison ───────────────────────────────────────────────
+const CH_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#06B6D4', '#F97316', '#84CC16',
+]
+
+function ChannelTooltip({ active, payload, label, metric }) {
+  if (!active || !payload?.length) return null
+  const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl p-4 min-w-[200px]">
+      <p className="text-base font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-2 mb-2">{label} 年</p>
+      {[...payload].sort((a, b) => b.value - a.value).map((e, i) => (
+        <div key={i} className="flex justify-between gap-4 py-0.5">
+          <span className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.fill || e.stroke || e.color }} />
+            {e.name}
+          </span>
+          <span className="font-mono font-bold text-sm text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
+        </div>
+      ))}
+      {payload.length > 1 && (
+        <div className="flex justify-between gap-4 pt-1.5 mt-1 border-t border-gray-100 dark:border-gray-700">
+          <span className="text-xs text-gray-400">合計 {metricLabel}</span>
+          <span className="font-mono font-bold text-xs text-gray-600 dark:text-gray-300">
+            {payload.reduce((s, e) => s + (e.value || 0), 0).toLocaleString()}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BrandChannelChart({ brandChannelData, metric }) {
+  const { map, brands, channels, years } = brandChannelData
+  const [selectedBrand, setSelectedBrand] = useState(() => brands[0] || '')
+  const [chartStyle, setChartStyle] = useState('grouped') // 'grouped' | 'stacked' | 'line'
+  const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
+
+  // Build chart data: [{year, 線上: X, 實體: Y, ...}, ...]
+  const chartData = useMemo(() => {
+    if (!selectedBrand || !map[selectedBrand]) return []
+    return years.map(y => {
+      const entry = { year: y }
+      channels.forEach(ch => {
+        entry[ch] = map[selectedBrand]?.[ch]?.[y] || 0
+      })
+      return entry
+    })
+  }, [selectedBrand, map, channels, years])
+
+  // Compute total per channel (for share card)
+  const channelTotals = useMemo(() => {
+    if (!selectedBrand || !map[selectedBrand]) return []
+    return channels.map(ch => {
+      const total = years.reduce((s, y) => s + (map[selectedBrand]?.[ch]?.[y] || 0), 0)
+      return { ch, total }
+    }).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
+  }, [selectedBrand, map, channels, years])
+
+  const grandTotal = channelTotals.reduce((s, c) => s + c.total, 0)
+
+  if (!brands.length) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">無品牌通路資料</div>
+  }
+  if (!channels.length) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">資料中無通路欄位，無法比較</div>
+  }
+
+  const CHART_STYLES = [
+    { v: 'grouped', l: '群組長條', icon: '▦', desc: '各年各通路並排，方便直接對比數量' },
+    { v: 'stacked', l: '堆疊長條', icon: '▬', desc: '顯示總量結構，看各通路佔比消長' },
+    { v: 'line',    l: '面積趨勢', icon: '◉', desc: '連續曲線，看通路成長軌跡與交叉點' },
+  ]
+
+  const yW = calcValueAxisWidth(
+    Math.max(...chartData.flatMap(d => channels.map(ch => d[ch] || 0))),
+    fmtY
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Brand picker */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">選擇品牌</h4>
+        <div className="flex flex-wrap gap-2">
+          {brands.slice(0, 20).map((b, i) => (
+            <button key={b} onClick={() => setSelectedBrand(b)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${selectedBrand === b ? 'text-white border-transparent shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+              style={selectedBrand === b ? { background: COLORS[i % COLORS.length], borderColor: COLORS[i % COLORS.length] } : {}}>
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart style selector */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {CHART_STYLES.map(s => (
+          <button key={s.v} onClick={() => setChartStyle(s.v)}
+            className={`flex flex-col items-start gap-1.5 p-4 rounded-2xl border-2 transition-all text-left ${chartStyle === s.v ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+            <div className="flex items-center gap-2">
+              <span className="text-lg leading-none">{s.icon}</span>
+              <span className={`text-sm font-bold ${chartStyle === s.v ? 'text-blue-700 dark:text-blue-400' : 'text-gray-700 dark:text-gray-200'}`}>{s.l}</span>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 leading-snug">{s.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <div className="mb-4">
+          <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">
+            {selectedBrand} — 通路歷年{label}比較
+          </h4>
+          <p className="text-sm text-gray-400 mt-0.5">共 {channels.length} 個通路 × {years.length} 年</p>
+        </div>
+
+        {chartStyle === 'grouped' && (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }} barCategoryGap="30%" barGap={3}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 13, fill: '#9ca3af' }} tickFormatter={v => v + '年'} />
+              <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
+              <Tooltip content={<ChannelTooltip metric={metric} />} />
+              <Legend wrapperStyle={{ fontSize: 13 }} />
+              {channels.map((ch, i) => (
+                <Bar key={ch} dataKey={ch} name={ch} fill={CH_COLORS[i % CH_COLORS.length]} radius={[4, 4, 0, 0]} maxBarSize={50}>
+                  <LabelList dataKey={ch} position="top" formatter={fmtY} style={{ fontSize: 11, fill: '#9ca3af' }} />
+                </Bar>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+
+        {chartStyle === 'stacked' && (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }} barCategoryGap="35%">
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 13, fill: '#9ca3af' }} tickFormatter={v => v + '年'} />
+              <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
+              <Tooltip content={<ChannelTooltip metric={metric} />} />
+              <Legend wrapperStyle={{ fontSize: 13 }} />
+              {channels.map((ch, i) => (
+                <Bar key={ch} dataKey={ch} name={ch} stackId="a" fill={CH_COLORS[i % CH_COLORS.length]}
+                  radius={i === channels.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} maxBarSize={80}>
+                  {i === channels.length - 1 && (
+                    <LabelList
+                      content={({ x, y, width, value, index }) => {
+                        const total = channels.reduce((s, c) => s + (chartData[index]?.[c] || 0), 0)
+                        if (!total) return null
+                        return <text x={x + width / 2} y={y - 6} textAnchor="middle" fontSize={11} fill="#9ca3af">{fmtY(total)}</text>
+                      }}
+                    />
+                  )}
+                </Bar>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+
+        {chartStyle === 'line' && (
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={chartData} margin={{ top: 8, right: 20, left: 4, bottom: 4 }}>
+              <defs>
+                {channels.map((ch, i) => (
+                  <linearGradient key={ch} id={`grad_${i}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={CH_COLORS[i % CH_COLORS.length]} stopOpacity={0.03} />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <XAxis dataKey="year" tick={{ fontSize: 13, fill: '#9ca3af' }} tickFormatter={v => v + '年'} />
+              <YAxis tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} width={yW} />
+              <Tooltip content={<ChannelTooltip metric={metric} />} />
+              <Legend wrapperStyle={{ fontSize: 13 }} />
+              {channels.map((ch, i) => (
+                <Area key={ch} type="monotone" dataKey={ch} name={ch}
+                  stroke={CH_COLORS[i % CH_COLORS.length]} strokeWidth={2.5}
+                  fill={`url(#grad_${i})`}
+                  dot={{ r: 4, fill: CH_COLORS[i % CH_COLORS.length] }}
+                  activeDot={{ r: 6 }}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Channel summary cards */}
+      {channelTotals.length > 0 && (
+        <div className={`grid gap-3 ${channelTotals.length <= 4 ? `grid-cols-${channelTotals.length}` : 'grid-cols-2 sm:grid-cols-4'}`}>
+          {channelTotals.map((c, i) => {
+            const share = grandTotal > 0 ? (c.total / grandTotal * 100).toFixed(1) : '0'
+            return (
+              <div key={c.ch} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: CH_COLORS[i % CH_COLORS.length] }} />
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{c.ch}</span>
+                </div>
+                <p className="text-lg font-black text-gray-800 dark:text-gray-100 font-mono">{fmtY(c.total)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">佔 {share}% 總{label}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -287,16 +500,19 @@ function BrandTrendChart({ trendByBrand, metric }) {
 }
 
 // ─── Main BrandChart ──────────────────────────────────────────────────────────
-export default function BrandChart({ brandData, trendByBrand, metric }) {
+export default function BrandChart({ brandData, trendByBrand, brandChannelData, metric }) {
   const [tab, setTab] = useState('ranking')
   const top20 = brandData.slice(0, 20)
   const top8 = brandData.slice(0, 8)
   const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
+  const hasChannelData = brandChannelData?.channels?.length > 0
+
   const tabs = [
-    { v: 'ranking', l: '📊 排行分析' },
-    { v: 'trend', l: '📈 品牌趨勢' },
-  ]
+    { v: 'ranking',  l: '📊 排行分析' },
+    { v: 'trend',    l: '📈 品牌趨勢' },
+    { v: 'channel',  l: '🔀 通路比較', hidden: !hasChannelData },
+  ].filter(t => !t.hidden)
 
   return (
     <ChartCard title={`品牌分析 — ${label}`}>
@@ -384,6 +600,10 @@ export default function BrandChart({ brandData, trendByBrand, metric }) {
       )}
       {tab === 'trend' && !trendByBrand && (
         <div className="flex items-center justify-center h-64 text-base text-gray-400">無趨勢資料</div>
+      )}
+
+      {tab === 'channel' && brandChannelData && (
+        <BrandChannelChart brandChannelData={brandChannelData} metric={metric} />
       )}
         </div>
         )

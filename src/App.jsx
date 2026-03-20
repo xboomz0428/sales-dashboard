@@ -209,7 +209,7 @@ export default function App() {
     summary, filtered,
     trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, heatmapData,
+    brandData, brandChannelData, heatmapData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
@@ -501,7 +501,7 @@ export default function App() {
           )}
           {activeTab === 'brand' && (
             <div data-pdf-section data-pdf-title="品牌分析">
-              <BrandChart brandData={brandData} trendByBrand={trendByBrand} metric={filters.metric} />
+              <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'product' && (
