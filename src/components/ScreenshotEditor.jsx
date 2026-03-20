@@ -56,10 +56,9 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
     const el = targetRef?.current
     if (!el) { setCapturing(false); return }
 
-    // 1. Hide elements marked as no-capture (e.g. toolbar buttons)
-    const noCaptureEls = [...el.querySelectorAll('[data-no-capture="true"]')]
-    const savedVis = noCaptureEls.map(e => e.style.visibility)
-    noCaptureEls.forEach(e => { e.style.visibility = 'hidden' })
+    // 1. Save the element's natural width BEFORE any style changes
+    //    (prevents capturing overflow to the right which causes gray areas)
+    const naturalWidth = el.offsetWidth
 
     // 2. Expand inner scrollable container to its full scroll height
     const scrollEl = scrollRef?.current
@@ -72,7 +71,7 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         flexShrink: scrollEl.style.flexShrink,
         scrollTop:  scrollEl.scrollTop,
       }
-      scrollEl.scrollTop   = 0
+      scrollEl.scrollTop        = 0
       scrollEl.style.overflow   = 'visible'
       scrollEl.style.height     = scrollEl.scrollHeight + 'px'
       scrollEl.style.maxHeight  = 'none'
@@ -91,7 +90,6 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
 
     // 4. Detect background colour
     const bgColor = window.getComputedStyle(el).backgroundColor || '#ffffff'
-
     const dpr = window.devicePixelRatio > 1 ? 2 : 1
     scaleRef.current = dpr
 
@@ -106,7 +104,6 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         scrollEl.style.flexShrink = savedScroll.flexShrink
         scrollEl.scrollTop        = savedScroll.scrollTop
       }
-      noCaptureEls.forEach((e, i) => { e.style.visibility = savedVis[i] })
     }
 
     // 5. Wait two animation frames for layout to reflow, then capture
@@ -117,6 +114,12 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         allowTaint:      true,
         logging:         false,
         backgroundColor: bgColor,
+        // Clamp to the natural element width — prevents capturing
+        // overflow content that would appear as gray areas on the right
+        width:           naturalWidth,
+        // Use ignoreElements to cleanly skip no-capture buttons without
+        // touching their display/visibility (no layout disruption)
+        ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
       }).then(captured => {
         restore()
         const canvas = canvasRef.current

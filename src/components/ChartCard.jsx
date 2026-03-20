@@ -82,10 +82,9 @@ export default function ChartCard({ title, subtitle, children, className = '' })
                 {subtitle && <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
               </div>
 
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div data-no-capture="true" className="flex items-center gap-2 flex-shrink-0">
                 {/* Screenshot editor button */}
                 <button
-                  data-no-capture="true"
                   onClick={() => setShowEditor(true)}
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 min-h-[44px] rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-violet-50 dark:hover:bg-violet-900/30 hover:border-violet-400 dark:hover:border-violet-500 text-sm sm:text-base text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 font-semibold transition-colors"
                   title="截圖並開啟編輯器"
