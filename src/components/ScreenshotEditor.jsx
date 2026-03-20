@@ -59,12 +59,10 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
     const el = targetRef?.current
     if (!el) { setCapturing(false); return }
 
-    // 1. Save the element's natural width BEFORE any style changes
-    //    (prevents capturing overflow to the right which causes gray areas)
-    const naturalWidth = el.offsetWidth
-
-    // 2. Expand inner scrollable container up to MAX_CAPTURE_HEIGHT
     const MAX_CAPTURE_H = 2000
+
+    // 1. Expand scroll container: set overflow:hidden (removes scrollbar cleanly)
+    //    and expand its height so all content is visible.
     const scrollEl = scrollRef?.current
     let savedScroll = null
     if (scrollEl) {
@@ -76,14 +74,14 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         scrollTop:  scrollEl.scrollTop,
       }
       scrollEl.scrollTop        = 0
-      scrollEl.style.overflow   = 'visible'
-      // Cap content height so total capture stays ≤ 2000 px
+      scrollEl.style.overflow   = 'hidden'
       scrollEl.style.height     = Math.min(scrollEl.scrollHeight, MAX_CAPTURE_H) + 'px'
       scrollEl.style.maxHeight  = 'none'
       scrollEl.style.flexShrink = '0'
     }
 
-    // 3. Remove overflow/maxHeight clipping from the outer container
+    // 2. Remove overflow/maxHeight clipping from the outer modal container
+    //    so html2canvas can see content that extends past the viewport height.
     const savedOuter = {
       overflow:  el.style.overflow,
       maxHeight: el.style.maxHeight,
@@ -93,12 +91,9 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
     el.style.maxHeight = 'none'
     el.style.height    = 'auto'
 
-    // 4. Detect background colour
+    // 3. Detect background colour and set scale
     const bgColor = window.getComputedStyle(el).backgroundColor || '#ffffff'
-    // Use scale:1 for speed — scale:2 renders 4× the pixels on retina displays
-    // and is the single biggest performance bottleneck. Scale:1 is plenty for
-    // editing + JPG export.
-    const dpr = 1
+    const dpr = 1   // scale:1 is 4× faster than scale:2 on retina — plenty for editing
     scaleRef.current = dpr
 
     const restore = () => {
@@ -114,37 +109,39 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       }
     }
 
-    // 5. Single rAF — one frame is enough after synchronous style changes.
+    // 4. Double-rAF: the first frame lets ResizeObserver fire and React queue
+    //    re-renders for any Recharts components whose container width changed.
+    //    The second frame lets those re-renders finish and paint, so html2canvas
+    //    sees the final DOM with correct chart dimensions (no gray areas).
     requestAnimationFrame(() => {
-      // Cap total capture height at MAX_CAPTURE_H
-      const captureH = Math.min(el.offsetHeight, MAX_CAPTURE_H)
+      requestAnimationFrame(() => {
+        // Measure width/height AFTER layout has settled
+        const captureW = el.offsetWidth
+        const captureH = Math.min(el.offsetHeight, MAX_CAPTURE_H)
 
-      html2canvas(el, {
-        scale:           dpr,
-        useCORS:         true,
-        allowTaint:      true,
-        logging:         false,
-        imageTimeout:    0,
-        backgroundColor: bgColor,
-        width:           naturalWidth,
-        height:          captureH,
-        ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
-        // Fix gray-area artifact: force the cloned element to the same
-        // natural width and clip horizontal overflow from sub-components.
-        onclone: (_doc, clonedEl) => {
-          clonedEl.style.width           = naturalWidth + 'px'
-          clonedEl.style.maxWidth        = naturalWidth + 'px'
-          clonedEl.style.backgroundColor = bgColor
-          // Clip children that overflow horizontally
-          Array.from(clonedEl.children).forEach(child => {
-            child.style.maxWidth = '100%'
-            child.style.overflow = 'hidden'
-          })
-          // But keep the scroll container's vertical overflow visible
-          const scrollClone = clonedEl.querySelector('[data-screenshot-scroll]')
-          if (scrollClone) scrollClone.style.overflow = 'visible'
-        },
-      }).then(captured => {
+        html2canvas(el, {
+          scale:           dpr,
+          useCORS:         true,
+          allowTaint:      true,
+          logging:         false,
+          imageTimeout:    0,
+          backgroundColor: bgColor,
+          width:           captureW,
+          height:          captureH,
+          ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
+          onclone: (_doc, clonedEl) => {
+            // Lock the clone to the measured width and apply background
+            clonedEl.style.width           = captureW + 'px'
+            clonedEl.style.maxWidth        = captureW + 'px'
+            clonedEl.style.backgroundColor = bgColor
+            // Keep scroll container fully expanded in the clone
+            const scrollClone = clonedEl.querySelector('[data-screenshot-scroll]')
+            if (scrollClone) {
+              scrollClone.style.overflow = 'visible'
+              scrollClone.style.height   = 'auto'
+            }
+          },
+        }).then(captured => {
         restore()
         const canvas = canvasRef.current
         if (!canvas) return
@@ -170,7 +167,8 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         restore()
         setCapturing(false)
       })
-    })
+      }) // end inner rAF
+    }) // end outer rAF
   }, []) // eslint-disable-line
 
   // ── History ──────────────────────────────────────────────────────────────────
