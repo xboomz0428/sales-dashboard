@@ -30,6 +30,8 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
   const [capturing, setCapturing]    = useState(true)
   const [canUndo, setCanUndo]        = useState(false)
   const [textInput, setTextInput]    = useState(null) // { x, y, cx, cy, value }
+  const [zoom, setZoom]              = useState(1)
+  const [canvasNat, setCanvasNat]    = useState({ w: 0, h: 0 }) // natural canvas px size
 
   // Mutable refs (avoid stale closures in event handlers)
   const drawingRef   = useRef(false)
@@ -37,13 +39,14 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
   const savedDataRef = useRef(null)
   const historyRef   = useRef([])
   const histIdx      = useRef(-1)
-  const scaleRef     = useRef(2)       // capture DPR scale
+  const scaleRef     = useRef(1)       // capture DPR scale
   const shiftRef     = useRef(false)   // Shift key held
   const toolRef      = useRef(tool)
   const colorRef     = useRef(color)
   const swRef        = useRef(strokeWidth)
   const msRef        = useRef(mosaicSize)
-  const textInputRef = useRef(textInput)
+  const textInputRef  = useRef(textInput)
+  const canvasAreaRef = useRef(null)
 
   useEffect(() => { toolRef.current  = tool },        [tool])
   useEffect(() => { colorRef.current = color },       [color])
@@ -60,7 +63,8 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
     //    (prevents capturing overflow to the right which causes gray areas)
     const naturalWidth = el.offsetWidth
 
-    // 2. Expand inner scrollable container to its full scroll height
+    // 2. Expand inner scrollable container up to MAX_CAPTURE_HEIGHT
+    const MAX_CAPTURE_H = 2000
     const scrollEl = scrollRef?.current
     let savedScroll = null
     if (scrollEl) {
@@ -73,7 +77,8 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       }
       scrollEl.scrollTop        = 0
       scrollEl.style.overflow   = 'visible'
-      scrollEl.style.height     = scrollEl.scrollHeight + 'px'
+      // Cap content height so total capture stays ≤ 2000 px
+      scrollEl.style.height     = Math.min(scrollEl.scrollHeight, MAX_CAPTURE_H) + 'px'
       scrollEl.style.maxHeight  = 'none'
       scrollEl.style.flexShrink = '0'
     }
@@ -90,7 +95,10 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
 
     // 4. Detect background colour
     const bgColor = window.getComputedStyle(el).backgroundColor || '#ffffff'
-    const dpr = window.devicePixelRatio > 1 ? 2 : 1
+    // Use scale:1 for speed — scale:2 renders 4× the pixels on retina displays
+    // and is the single biggest performance bottleneck. Scale:1 is plenty for
+    // editing + JPG export.
+    const dpr = 1
     scaleRef.current = dpr
 
     const restore = () => {
@@ -106,20 +114,36 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       }
     }
 
-    // 5. Wait two animation frames for layout to reflow, then capture
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    // 5. Single rAF — one frame is enough after synchronous style changes.
+    requestAnimationFrame(() => {
+      // Cap total capture height at MAX_CAPTURE_H
+      const captureH = Math.min(el.offsetHeight, MAX_CAPTURE_H)
+
       html2canvas(el, {
         scale:           dpr,
         useCORS:         true,
         allowTaint:      true,
         logging:         false,
+        imageTimeout:    0,
         backgroundColor: bgColor,
-        // Clamp to the natural element width — prevents capturing
-        // overflow content that would appear as gray areas on the right
         width:           naturalWidth,
-        // Use ignoreElements to cleanly skip no-capture buttons without
-        // touching their display/visibility (no layout disruption)
+        height:          captureH,
         ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
+        // Fix gray-area artifact: force the cloned element to the same
+        // natural width and clip horizontal overflow from sub-components.
+        onclone: (_doc, clonedEl) => {
+          clonedEl.style.width           = naturalWidth + 'px'
+          clonedEl.style.maxWidth        = naturalWidth + 'px'
+          clonedEl.style.backgroundColor = bgColor
+          // Clip children that overflow horizontally
+          Array.from(clonedEl.children).forEach(child => {
+            child.style.maxWidth = '100%'
+            child.style.overflow = 'hidden'
+          })
+          // But keep the scroll container's vertical overflow visible
+          const scrollClone = clonedEl.querySelector('[data-screenshot-scroll]')
+          if (scrollClone) scrollClone.style.overflow = 'visible'
+        },
       }).then(captured => {
         restore()
         const canvas = canvasRef.current
@@ -128,6 +152,14 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         canvas.height = captured.height
         const ctx = canvas.getContext('2d')
         ctx.drawImage(captured, 0, 0)
+
+        // Calculate initial fit-zoom so canvas fills editor without scrolling
+        const editorW = window.innerWidth  - 48
+        const editorH = window.innerHeight - 120
+        const fitZ    = Math.min(editorW / captured.width, editorH / captured.height, 1)
+        setCanvasNat({ w: captured.width, h: captured.height })
+        setZoom(Math.max(0.25, Math.round(fitZ * 4) / 4)) // round to nearest 0.25
+
         setCapturing(false)
         const id = ctx.getImageData(0, 0, canvas.width, canvas.height)
         historyRef.current = [id]
@@ -138,7 +170,7 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
         restore()
         setCapturing(false)
       })
-    }))
+    })
   }, []) // eslint-disable-line
 
   // ── History ──────────────────────────────────────────────────────────────────
@@ -392,6 +424,20 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
     }
   }, [onClose, undo, saveJpg])
 
+  // ── Wheel zoom (Ctrl + scroll) ───────────────────────────────────────────────
+  useEffect(() => {
+    const el = canvasAreaRef.current
+    if (!el) return
+    const onWheel = (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 0.25 : -0.25
+      setZoom(z => Math.min(3, Math.max(0.25, Math.round((z + delta) * 4) / 4)))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   // ── Cursor ───────────────────────────────────────────────────────────────────
   const cursor = tool === 'text' ? 'text' : 'crosshair'
 
@@ -469,6 +515,21 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
 
         <div className="flex-1" />
 
+        {/* Zoom controls */}
+        {!capturing && <>
+          <div className="w-px h-5 bg-gray-700 shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
+            <button onClick={() => setZoom(z => Math.max(0.25, Math.round((z - 0.25) * 4) / 4))}
+              className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 hover:bg-gray-700 text-white text-lg font-bold leading-none transition-colors" title="縮小">−</button>
+            <button onClick={() => setZoom(1)}
+              className="px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-mono min-w-[44px] text-center transition-colors" title="重設 100%">
+              {Math.round(zoom * 100)}%</button>
+            <button onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 4) / 4))}
+              className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 hover:bg-gray-700 text-white text-lg font-bold leading-none transition-colors" title="放大">+</button>
+          </div>
+          <div className="w-px h-5 bg-gray-700 shrink-0" />
+        </>}
+
         {/* Undo */}
         <button onClick={undo} disabled={!canUndo} title="撤銷 (Ctrl+Z)"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-35 disabled:cursor-not-allowed text-white text-sm transition-colors shrink-0">
@@ -492,16 +553,21 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       </div>
 
       {/* ── Canvas area ── */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-4 bg-gray-950" style={{ cursor }}>
+      <div ref={canvasAreaRef}
+        className="flex-1 overflow-auto p-6 bg-gray-950"
+        style={{ cursor }}>
 
         {capturing && (
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-4" />
-            <p className="text-gray-300 text-sm">正在截取畫面，請稍候…</p>
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-4" />
+              <p className="text-gray-300 text-sm">正在截取畫面，請稍候…</p>
+            </div>
           </div>
         )}
 
-        <div className="relative select-none" style={{ display: capturing ? 'none' : 'block' }}>
+        {/* Wrapper maintains layout space for the zoomed canvas */}
+        <div className="relative select-none inline-block" style={{ display: capturing ? 'none' : 'inline-block' }}>
           <canvas
             ref={canvasRef}
             onMouseDown={handleMouseDown}
@@ -511,8 +577,9 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
             onClick={handleClick}
             style={{
               display: 'block',
-              maxWidth: '100%',
-              maxHeight: 'calc(100dvh - 96px)',
+              // Apply zoom via CSS width/height (canvas pixel data stays full-res)
+              width:  canvasNat.w ? Math.round(canvasNat.w * zoom) + 'px' : undefined,
+              height: canvasNat.h ? Math.round(canvasNat.h * zoom) + 'px' : undefined,
               cursor,
               userSelect: 'none',
               boxShadow: '0 4px 60px rgba(0,0,0,0.7)',

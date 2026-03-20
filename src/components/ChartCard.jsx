@@ -116,7 +116,7 @@ export default function ChartCard({ title, subtitle, children, className = '' })
             </div>
 
             {/* Chart content */}
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-6">
+            <div ref={scrollContainerRef} data-screenshot-scroll className="flex-1 overflow-y-auto p-3 sm:p-6">
               {typeof children === 'function' ? children(true) : children}
             </div>
           </div>
