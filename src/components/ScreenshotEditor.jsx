@@ -11,6 +11,7 @@ const PRESET_COLORS = [
 const TOOLS = [
   { id: 'mosaic', label: '馬賽克', icon: '▦', hint: '拖曳選取要遮擋的區域' },
   { id: 'rect',   label: '矩形',   icon: '▭', hint: '拖曳繪製矩形框' },
+  { id: 'fill',   label: '色塊',   icon: '■', hint: '拖曳繪製實心色塊' },
   { id: 'circle', label: '圓形',   icon: '◯', hint: '拖曳繪製橢圓' },
   { id: 'line',   label: '直線',   icon: '╱', hint: '拖曳繪製直線（按住 Shift 鎖定 45°）' },
   { id: 'dline',  label: '虛線',   icon: '╌', hint: '拖曳繪製虛線（按住 Shift 鎖定 45°）' },
@@ -274,6 +275,8 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
       if (savedDataRef.current) ctx.putImageData(savedDataRef.current, 0, 0)
       if (t === 'rect') {
         ctx.strokeRect(sx, sy, pos.x - sx, pos.y - sy)
+      } else if (t === 'fill') {
+        ctx.fillRect(sx, sy, pos.x - sx, pos.y - sy)
       } else if (t === 'circle') {
         const rx = Math.abs(pos.x - sx) / 2
         const ry = Math.abs(pos.y - sy) / 2
