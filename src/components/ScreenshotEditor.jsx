@@ -129,18 +129,35 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
           ignoreElements:  (elem) => elem.dataset?.noCapture === 'true',
           // onclone: expand the OUTER modal container only inside the clone
           // (never in the live DOM) so the flex layout is never disrupted.
-          // Also force light-mode so all dark: Tailwind variants are removed,
-          // giving white backgrounds and consistent gray borders everywhere.
           onclone: (doc, clonedEl) => {
-            // Remove dark mode → all dark:bg-* classes revert to light values
+            // ① Remove dark mode → dark:bg-* revert to light values
             doc.documentElement.classList.remove('dark')
 
+            // ② Force pure white on the entire clone page.
+            //    html2canvas renders a page-sized canvas then crops to the
+            //    element's bounding box — anything outside clonedEl (e.g. the
+            //    root bg-gray-50 / bg-gray-950 app div) bleeds through as gray.
+            //    Overriding html/body + injecting CSS kills all gray tints.
+            doc.documentElement.style.background = '#ffffff'
+            doc.body.style.cssText = 'background:#ffffff !important; margin:0; padding:0'
+
+            const whiteCSS = doc.createElement('style')
+            whiteCSS.textContent = `
+              html, body, #root { background: #ffffff !important; }
+              .bg-gray-50,  .hover\\:bg-gray-50  { background-color: #ffffff !important; }
+              .bg-gray-100, .hover\\:bg-gray-100 { background-color: #f9fafb !important; }
+              .bg-gray-950, .bg-gray-900 { background-color: #ffffff !important; }
+            `
+            doc.head.appendChild(whiteCSS)
+
+            // ③ Expand the outer modal so html2canvas sees the full content
             clonedEl.style.overflow        = 'visible'
             clonedEl.style.maxHeight       = 'none'
             clonedEl.style.height          = captureH + 'px'
             clonedEl.style.width           = captureW + 'px'
             clonedEl.style.backgroundColor = '#ffffff'
 
+            // ④ Expand the scroll container so all chart content is visible
             const scrollClone = clonedEl.querySelector('[data-screenshot-scroll]')
             if (scrollClone) {
               scrollClone.style.overflow        = 'visible'
