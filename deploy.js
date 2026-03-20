@@ -66,7 +66,9 @@ async function main() {
   // 確認有沒有變更
   const status = run('git status --short')
   if (!status) {
-    console.log('沒有需要 commit 的變更。')
+    console.log('沒有需要 commit 的變更，直接 push 已有的 commits...\n')
+    run('git push')
+    console.log('✅  已 push 到 GitHub，Vercel 部署中\n')
     return
   }
 
