@@ -24,6 +24,7 @@ import CustomerHealthPanel from './components/CustomerHealthPanel'
 import SalesForecast from './components/SalesForecast'
 import ExecutiveSummary from './components/ExecutiveSummary'
 import ProductCostManager from './components/ProductCostManager'
+import FlowDiagram from './components/charts/FlowDiagram'
 
 const TABS = [
   { id: 'summary',     label: '執行摘要', icon: '📊' },
@@ -41,6 +42,7 @@ const TABS = [
   { id: 'alerts',      label: '預警中心', icon: '🔔' },
   { id: 'health',      label: '客戶健康', icon: '💊' },
   { id: 'forecast',    label: '預測分析', icon: '🔮' },
+  { id: 'flow',        label: '流程架構', icon: '🗺️' },
 ]
 
 const DEFAULT_FILTERS = {

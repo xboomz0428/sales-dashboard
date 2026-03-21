@@ -221,6 +221,105 @@ export function useSalesData(rows, filters) {
     return { map, brands, channels, years }
   }, [filtered, metric])
 
+  // ── Flow data for Sankey diagrams ──────────────────────────────────────────
+  const flowData = useMemo(() => {
+    if (!filtered.length) return null
+
+    const chTotals = {}, brTotals = {}, prTotals = {}
+    const chBrMap = {}, brPrMap = {}
+
+    filtered.forEach(row => {
+      const ch = row.channelType || row.channel || '其他'
+      const br = row.brand || '未知'
+      const pr = row.product || '未知產品'
+      const v  = row[metric] || 0
+      chTotals[ch] = (chTotals[ch] || 0) + v
+      brTotals[br] = (brTotals[br] || 0) + v
+      prTotals[pr] = (prTotals[pr] || 0) + v
+      if (!chBrMap[ch]) chBrMap[ch] = {}
+      chBrMap[ch][br] = (chBrMap[ch][br] || 0) + v
+      if (!brPrMap[br]) brPrMap[br] = {}
+      brPrMap[br][pr] = (brPrMap[br][pr] || 0) + v
+    })
+
+    // Channel → Brand (top 12 brands)
+    const top12Brands = Object.entries(brTotals).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id]) => id)
+    const top12Set = new Set(top12Brands)
+    const chTotalsVis = {}
+    Object.entries(chBrMap).forEach(([ch, brands]) => {
+      Object.entries(brands).forEach(([br, v]) => { if (top12Set.has(br)) chTotalsVis[ch] = (chTotalsVis[ch] || 0) + v })
+    })
+    const channelToBrand = {
+      sourceNodes: Object.entries(chTotalsVis).sort((a, b) => b[1] - a[1]).map(([id, value]) => ({ id, value })),
+      targetNodes: top12Brands.map(id => ({ id, value: brTotals[id] })),
+      links: Object.entries(chBrMap).flatMap(([ch, brands]) =>
+        Object.entries(brands).filter(([br]) => top12Set.has(br)).map(([br, value]) => ({ source: ch, target: br, value }))
+      ),
+    }
+
+    // Brand → Product (top 8 brands, top 12 products)
+    const top8Brands = Object.entries(brTotals).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([id]) => id)
+    const top8Set = new Set(top8Brands)
+    const top12Prods = Object.entries(prTotals).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id]) => id)
+    const top12ProdSet = new Set(top12Prods)
+    const brTotalsVis = {}
+    Object.entries(brPrMap).forEach(([br, prods]) => {
+      if (!top8Set.has(br)) return
+      Object.entries(prods).forEach(([pr, v]) => { if (top12ProdSet.has(pr)) brTotalsVis[br] = (brTotalsVis[br] || 0) + v })
+    })
+    const brandToProduct = {
+      sourceNodes: top8Brands.filter(id => brTotalsVis[id] > 0).map(id => ({ id, value: brTotalsVis[id] })),
+      targetNodes: top12Prods.map(id => ({ id, value: prTotals[id] })),
+      links: top8Brands.flatMap(br =>
+        Object.entries(brPrMap[br] || {}).filter(([pr]) => top12ProdSet.has(pr)).map(([pr, value]) => ({ source: br, target: pr, value }))
+      ),
+    }
+
+    return { channelToBrand, brandToProduct }
+  }, [filtered, metric])
+
+  // ── Structure data for tree / treemap diagrams ──────────────────────────────
+  const structureData = useMemo(() => {
+    if (!filtered.length) return null
+
+    // Channel → Brand tree (top 5 brands per channel)
+    const chBrTree = {}
+    filtered.forEach(row => {
+      const ch = row.channelType || row.channel || '其他'
+      const br = row.brand || '未知'
+      const v  = row[metric] || 0
+      if (!chBrTree[ch]) chBrTree[ch] = {}
+      chBrTree[ch][br] = (chBrTree[ch][br] || 0) + v
+    })
+    const channelBrandTree = Object.entries(chBrTree).map(([ch, brands]) => {
+      const sorted = Object.entries(brands).sort((a, b) => b[1] - a[1])
+      const topBrands = sorted.slice(0, 5).map(([name, value]) => ({ name, value }))
+      const othersVal = sorted.slice(5).reduce((s, [, v]) => s + v, 0)
+      if (othersVal > 0) topBrands.push({ name: '其他品牌', value: othersVal })
+      return { name: ch, value: Object.values(brands).reduce((s, v) => s + v, 0), children: topBrands }
+    }).sort((a, b) => b.value - a.value)
+
+    // Brand → Product tree (top 8 brands, top 5 products each)
+    const brPrTree = {}
+    filtered.forEach(row => {
+      const br = row.brand || '未知'
+      const pr = row.product || '未知產品'
+      const v  = row[metric] || 0
+      if (!brPrTree[br]) brPrTree[br] = {}
+      brPrTree[br][pr] = (brPrTree[br][pr] || 0) + v
+    })
+    const brTotals2 = Object.entries(brPrTree).map(([br, prods]) => ({ br, total: Object.values(prods).reduce((s, v) => s + v, 0) })).sort((a, b) => b.total - a.total)
+    const brandProductTree = brTotals2.slice(0, 8).map(({ br, total }) => {
+      const sorted = Object.entries(brPrTree[br]).sort((a, b) => b[1] - a[1])
+      const topProds = sorted.slice(0, 5).map(([name, value]) => ({ name, value }))
+      const othersVal = sorted.slice(5).reduce((s, [, v]) => s + v, 0)
+      if (othersVal > 0) topProds.push({ name: '其他產品', value: othersVal })
+      return { name: br, value: total, children: topProds }
+    })
+
+    return { channelBrandTree, brandProductTree }
+  }, [filtered, metric])
+
   // Brand analysis
   const brandData = useMemo(() => {
     const map = {}
@@ -385,5 +484,6 @@ export function useSalesData(rows, filters) {
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
+    flowData, structureData,
   }
 }
