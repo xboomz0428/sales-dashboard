@@ -35,6 +35,9 @@ function aiSavePlugin() {
 
 export default defineConfig({
   plugins: [react(), aiSavePlugin()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   test: {
     environment: 'jsdom',
     globals: true,

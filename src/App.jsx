@@ -3,7 +3,7 @@ import { getStoredApiKey, setStoredApiKey } from './utils/ai'
 import { processExcelFile } from './utils/dataProcessor'
 import { useSalesData } from './hooks/useSalesData'
 import { useDarkMode } from './hooks/useDarkMode'
-import { getDateRange, hasDateOverlap } from './utils/dateUtils'
+import { getDateRange } from './utils/dateUtils'
 import FileUpload from './components/FileUpload'
 import FilterPanel from './components/FilterPanel'
 import SummaryCards from './components/SummaryCards'
@@ -136,22 +136,20 @@ export default function App() {
         return
       }
 
-      const existingRange = getDateRange(allRows)
       const newRange = getDateRange(data.rows)
       let finalNewRows
       let duplicateCount = 0
 
-      if (!existingRange || !hasDateOverlap(existingRange, newRange)) {
+      // Full key-based dedup: remove any new rows whose _key already exists in allRows.
+      // This is simpler and more reliable than date-range overlap detection,
+      // and correctly handles overlapping date ranges between files regardless of upload order.
+      if (allRows.length === 0) {
         finalNewRows = data.rows
       } else {
-        const existingKeysInOverlap = new Set(
-          allRows.filter(r => r.date >= newRange.min && r.date <= newRange.max).map(r => r._key)
-        )
-        const overlapRows = data.rows.filter(r => r.date >= existingRange.min && r.date <= existingRange.max)
-        const nonOverlapRows = data.rows.filter(r => r.date < existingRange.min || r.date > existingRange.max)
-        const dedupedOverlap = overlapRows.filter(r => !existingKeysInOverlap.has(r._key))
-        duplicateCount = overlapRows.length - dedupedOverlap.length
-        finalNewRows = [...nonOverlapRows, ...dedupedOverlap]
+        const existingKeys = new Set(allRows.map(r => r._key))
+        const nonDuplicateRows = data.rows.filter(r => !existingKeys.has(r._key))
+        duplicateCount = data.rows.length - nonDuplicateRows.length
+        finalNewRows = nonDuplicateRows
       }
 
       if (finalNewRows.length === 0) {

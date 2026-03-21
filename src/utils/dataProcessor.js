@@ -33,7 +33,7 @@ function findColumn(headers, candidates) {
 // 1. Accounting format negatives: (1000) → -1000
 // 2. Comma separators: -1,000 → -1000
 // 3. Standard negatives: -1000 → -1000
-function parseNumeric(value) {
+export function parseNumeric(value) {
   if (value == null || value === '') return 0
   if (typeof value === 'number') return value
   let str = value.toString().trim()
@@ -47,7 +47,7 @@ function parseNumeric(value) {
   return isNaN(parsed) ? 0 : parsed
 }
 
-function parseDate(value) {
+export function parseDate(value) {
   if (!value) return null
   if (typeof value === 'number') {
     const date = XLSX.SSF.parse_date_code(value)
