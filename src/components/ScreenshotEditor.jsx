@@ -144,11 +144,29 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
             const whiteCSS = doc.createElement('style')
             whiteCSS.textContent = `
               html, body, #root { background: #ffffff !important; }
-              .bg-gray-50,  .hover\\:bg-gray-50  { background-color: #ffffff !important; }
-              .bg-gray-100, .hover\\:bg-gray-100 { background-color: #f9fafb !important; }
-              .bg-gray-950, .bg-gray-900 { background-color: #ffffff !important; }
+              .bg-gray-50,  .hover\\:bg-gray-50,
+              .bg-gray-100, .hover\\:bg-gray-100,
+              .bg-gray-700, .bg-gray-800,
+              .bg-gray-900, .bg-gray-950 { background-color: #ffffff !important; }
+              .dark\\:bg-gray-700, .dark\\:bg-gray-800,
+              .dark\\:bg-gray-900, .dark\\:bg-gray-950 { background-color: #ffffff !important; }
+              .border-gray-700, .dark\\:border-gray-700 { border-color: #e5e7eb !important; }
             `
             doc.head.appendChild(whiteCSS)
+
+            // Also walk all non-SVG layout elements and force white on any
+            // that still have a gray background class (handles utility variants
+            // like rounded-*, ring-*, etc. that CSS selectors above may miss).
+            ;[clonedEl, ...Array.from(clonedEl.querySelectorAll('div, section, nav, header, article'))].forEach(child => {
+              const cls = child.getAttribute('class') || ''
+              if (/\bbg-gray-(50|100|700|800|900|950)\b/.test(cls)) {
+                child.style.setProperty('background-color', '#ffffff', 'important')
+              }
+              // Also fix dark:text-* that would be invisible on white
+              if (/\btext-gray-(100|200)\b/.test(cls)) {
+                child.style.setProperty('color', '#374151', 'important')
+              }
+            })
 
             // ③ Expand the outer modal so html2canvas sees the full content
             clonedEl.style.overflow        = 'visible'

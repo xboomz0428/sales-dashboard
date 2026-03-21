@@ -57,7 +57,11 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
     return ys
   }, [trendData])
 
-  const activeYear = selectedYear || availableYears[availableYears.length - 1] || ''
+  // If selectedYear is no longer in available years (e.g. user changed year filter),
+  // fall back to the latest available year so bars always show data.
+  const activeYear = (selectedYear && availableYears.includes(selectedYear))
+    ? selectedYear
+    : availableYears[availableYears.length - 1] || ''
 
   // Monthly trend for selected year — all 12 months (fill missing with 0)
   const yearlyTrend = useMemo(() => {
