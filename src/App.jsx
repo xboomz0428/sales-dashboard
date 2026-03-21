@@ -27,7 +27,7 @@ import ProductCostManager from './components/ProductCostManager'
 import FlowDiagram from './components/charts/FlowDiagram'
 
 const TABS = [
-  { id: 'summary',     label: '執行摘要', icon: '📊' },
+  { id: 'summary',     label: '老闆視角', icon: '👔' },
   { id: 'performance', label: '績效矩陣', icon: '🎯' },
   { id: 'comparison',  label: '對比分析', icon: '⚖️' },
   { id: 'trend',       label: '趨勢分析', icon: '📈' },
@@ -215,6 +215,7 @@ export default function App() {
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
+    flowData, structureData,
   } = salesData
 
   const pdfSalesData = useMemo(() => ({
@@ -555,6 +556,11 @@ export default function App() {
           {activeTab === 'forecast' && (
             <div data-pdf-section data-pdf-title="預測分析">
               <SalesForecast trendData={trendData} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'flow' && (
+            <div data-pdf-section data-pdf-title="流程架構">
+              <FlowDiagram flowData={flowData} structureData={structureData} />
             </div>
           )}
         </div>
