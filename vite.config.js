@@ -35,4 +35,9 @@ function aiSavePlugin() {
 
 export default defineConfig({
   plugins: [react(), aiSavePlugin()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/tests/setup.js',
+  },
 })
