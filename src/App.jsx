@@ -76,6 +76,8 @@ function AppDashboard() {
   const { user, role, logout, perms, allowedTabs, roleInfo, isLoggedIn } = useAuth()
   const [dark, setDark] = useDarkMode()
   const [allRows, setAllRows] = useState([])
+  const allRowsRef = useRef([])   // 給 handleCloudDataLoaded 讀取，避免 stale closure
+  useEffect(() => { allRowsRef.current = allRows }, [allRows])
   const [meta, setMeta] = useState(null)
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
@@ -91,23 +93,29 @@ function AppDashboard() {
   const [pdfLoading, setPdfLoading] = useState(false)
 
   // ── 雲端資料同步 ──────────────────────────────────────────────────────────
+  // 雲端資料載入完成 callback
+  // 注意：不可在 setAllRows updater 內呼叫其他 setState（React 反模式）
+  // 改用 allRowsRef 讀取當前值，並在 updater 外直接設定 meta / uploadHistory
   const handleCloudDataLoaded = useCallback((rows, fileNames) => {
-    setAllRows(prev => {
-      if (!prev.length) {
-        setMeta(buildMeta(rows))
-        setUploadHistory(fileNames.map(name => ({
-          id: name, name, addedCount: 0, duplicateCount: 0,
-          time: '雲端載入', dateRange: null,
-        })))
-        return rows
-      }
+    const prev = allRowsRef.current
+
+    let finalRows
+    if (!prev.length) {
+      finalRows = rows
+      setUploadHistory(fileNames.map(name => ({
+        id: name, name, addedCount: 0, duplicateCount: 0,
+        time: '雲端載入', dateRange: null,
+      })))
+    } else {
       const existingKeys = new Set(prev.map(r => r._key))
       const newRows = rows.filter(r => !existingKeys.has(r._key))
-      if (!newRows.length) return prev
-      const merged = [...prev, ...newRows]
-      setMeta(buildMeta(merged))
-      return merged
-    })
+      if (!newRows.length) return   // 完全重複，不更新
+      finalRows = [...prev, ...newRows]
+    }
+
+    // React 18 會自動批次這三個 setState，只觸發一次 re-render
+    setAllRows(finalRows)
+    setMeta(buildMeta(finalRows))
   }, [])
 
   const handleCloudCostsLoaded = useCallback((costs) => {

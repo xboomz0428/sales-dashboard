@@ -9,8 +9,12 @@
  * 若 Supabase 未設定（示範模式），全部降級為 localStorage。
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { supabase, supabaseReady } from '../config/supabase'
+import { supabase, supabaseAdmin, supabaseReady } from '../config/supabase'
 import { processExcelFile } from '../utils/dataProcessor'
+
+// Storage 讀取用 admin client（繞過 RLS），若無則降級至 anon client
+// 上傳仍用 anon client（以使用者身份）
+const storageReader = supabaseAdmin || supabase
 
 const STORAGE_BUCKET = 'sales-files'
 const LS_COSTS = 'product_costs'
@@ -46,29 +50,34 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setSyncing(true)
       setSyncStatus('讀取雲端檔案清單…')
 
-      const { data: files, error } = await supabase.storage
+      // 用 storageReader（admin client）讀取，繞過 RLS，確保每次登入都能取得檔案
+      const { data: files, error } = await storageReader.storage
         .from(STORAGE_BUCKET)
         .list(uid, { limit: 100, sortBy: { column: 'created_at', order: 'asc' } })
 
       if (error) throw error
-      if (!files?.length) {
+
+      // 篩除空資料夾佔位符，只保留真實檔案
+      const validFiles = (files || []).filter(
+        f => f.name && f.name !== '.emptyFolderPlaceholder' && !f.name.endsWith('/')
+      )
+
+      if (!validFiles.length) {
         setSyncing(false)
         setSyncStatus('')
         return
       }
 
-      const validFiles = files.filter(f => f.name && !f.name.endsWith('/'))
       setCloudFiles(validFiles.map(f => ({ name: f.name, path: userPath(uid, f.name) })))
-
       setSyncStatus(`正在載入 ${validFiles.length} 個雲端檔案…`)
 
       const allRows = []
       for (const f of validFiles) {
         try {
-          const { data: blob, error: dlErr } = await supabase.storage
+          const { data: blob, error: dlErr } = await storageReader.storage
             .from(STORAGE_BUCKET)
             .download(userPath(uid, f.name))
-          if (dlErr) continue
+          if (dlErr || !blob) continue
 
           const file = new File([blob], f.name)
           const result = await processExcelFile(file)
@@ -81,11 +90,12 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         onDataLoadedRef.current(allRows, validFiles.map(f => f.name))
         setTimeout(() => setSyncStatus(''), 4000)
       } else {
-        setSyncStatus('')
+        setSyncStatus('⚠️ 雲端有檔案但無法解析資料，請重新上傳')
+        setTimeout(() => setSyncStatus(''), 6000)
       }
     } catch (e) {
-      setSyncStatus('雲端資料載入失敗')
-      setTimeout(() => setSyncStatus(''), 4000)
+      setSyncStatus(`⚠️ 雲端資料載入失敗：${e.message || '請確認網路連線'}`)
+      setTimeout(() => setSyncStatus(''), 6000)
     } finally {
       setSyncing(false)
     }
@@ -181,7 +191,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
 
     for (const path of filePaths) {
       try {
-        const { data: blob, error } = await supabase.storage
+        const { data: blob, error } = await storageReader.storage
           .from(STORAGE_BUCKET)
           .download(path)
         if (error || !blob) continue
