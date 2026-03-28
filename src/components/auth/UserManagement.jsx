@@ -238,7 +238,7 @@ export default function UserManagement({ currentUserId }) {
     setError('')
     try {
       if (!supabaseAdmin) {
-        setError('未設定 VITE_SUPABASE_SERVICE_KEY，無法列出使用者')
+        setError('SERVICE_KEY_MISSING')
         return
       }
       const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 })
@@ -354,12 +354,14 @@ export default function UserManagement({ currentUserId }) {
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">使用者管理</h2>
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">建立帳號、設定角色與功能權限</p>
         </div>
-        <button
-          onClick={() => { setShowForm(v => !v); setError('') }}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
-        >
-          <span className="text-lg leading-none">＋</span> 新增帳號
-        </button>
+        {supabaseAdmin && (
+          <button
+            onClick={() => { setShowForm(v => !v); setError('') }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+          >
+            <span className="text-lg leading-none">＋</span> 新增帳號
+          </button>
+        )}
       </div>
 
       {/* 通知 / 錯誤 */}
@@ -368,12 +370,29 @@ export default function UserManagement({ currentUserId }) {
           {notice}
         </div>
       )}
-      {error && (
+      {error === 'SERVICE_KEY_MISSING' ? (
+        <div className="px-5 py-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl space-y-3">
+          <p className="text-sm font-bold text-amber-700 dark:text-amber-400">⚠️ 需要設定 Service Role Key 才能管理使用者</p>
+          <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1.5">
+            <p>1. 前往 <strong>Supabase Dashboard → Project Settings → API</strong></p>
+            <p>2. 複製 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">service_role</code> 的 Secret key（不是 anon key）</p>
+            <p>3. 加入環境變數：</p>
+            <p className="ml-3">
+              <span className="font-semibold">本機開發：</span>在 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">.env</code> 加入<br />
+              <code className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded block mt-0.5">VITE_SUPABASE_SERVICE_KEY=eyJhbGci...</code>
+            </p>
+            <p className="ml-3">
+              <span className="font-semibold">Vercel 部署：</span>前往 <strong>Vercel Dashboard → Settings → Environment Variables</strong><br />
+              新增 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">VITE_SUPABASE_SERVICE_KEY</code>，然後重新部署
+            </p>
+          </div>
+        </div>
+      ) : error ? (
         <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
           <span>⚠️ {error}</span>
           <button onClick={() => setError('')} className="opacity-60 hover:opacity-100 ml-2">✕</button>
         </div>
-      )}
+      ) : null}
 
       {/* 新增帳號表單 */}
       {showForm && (

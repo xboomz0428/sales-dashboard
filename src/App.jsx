@@ -30,6 +30,7 @@ import ProductCostManager from './components/ProductCostManager'
 import FlowDiagram from './components/charts/FlowDiagram'
 import UserManagement from './components/auth/UserManagement'
 import DataBackupPanel from './components/DataBackupPanel'
+import DatabaseStatusPanel from './components/DatabaseStatusPanel'
 
 const TABS = [
   { id: 'summary',     label: '老闆視角', icon: '👔' },
@@ -50,6 +51,7 @@ const TABS = [
   { id: 'flow',        label: '流程架構', icon: '🗺️' },
   { id: 'backup',      label: '資料備份',   icon: '💾' },
   { id: 'users',       label: '使用者管理', icon: '👤' },
+  { id: 'database',    label: '資料庫狀態', icon: '🗄️' },
 ]
 
 const DEFAULT_FILTERS = {
@@ -334,7 +336,7 @@ function AppDashboard() {
   }, [pdfSalesData])
 
   // 資料尚未載入且非特殊 tab 時的空狀態 flag
-  const noDataTabs = ['users', 'backup']
+  const noDataTabs = ['users', 'backup', 'database']
   const showEmptyState = !meta && !noDataTabs.includes(activeTab)
 
   return (
@@ -484,6 +486,28 @@ function AppDashboard() {
             )}
           </div>
         </header>
+
+        {/* Admin Bar — 管理員快速導航 */}
+        {role === 'admin' && (
+          <div className="bg-red-50 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/50 px-3 sm:px-4 py-1.5 flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-xs font-bold text-red-400 dark:text-red-500 mr-1 hidden sm:inline">🔐 管理員</span>
+            {[
+              { id: 'users',    label: '人員設定', icon: '👥' },
+              { id: 'database', label: '資料庫',   icon: '🗄️' },
+              { id: 'backup',   label: '備份還原', icon: '💾' },
+            ].map(item => (
+              <button key={item.id} onClick={() => handleTabChange(item.id)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  activeTab === item.id
+                    ? 'bg-red-500 text-white'
+                    : 'text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30'
+                }`}>
+                <span>{item.icon}</span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Notifications */}
         {(notice || error) && (
@@ -693,6 +717,9 @@ function AppDashboard() {
           )}
           {activeTab === 'users' && (
             <UserManagement currentUserId={user?.id} />
+          )}
+          {activeTab === 'database' && (
+            <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={allRows} />
           )}
         </div>
       </div>

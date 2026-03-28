@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../config/supabase'
+import { supabase, supabaseReady } from '../config/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function DataBackupPanel({
@@ -25,6 +25,7 @@ export default function DataBackupPanel({
   // ── 載入備份清單 ────────────────────────────────────────────────────────
   const loadBackups = useCallback(async () => {
     if (!user) return
+    if (!supabaseReady) { setLoading(false); return }
     setLoading(true)
     try {
       let query = supabase
@@ -53,6 +54,7 @@ export default function DataBackupPanel({
   async function handleCreate(e) {
     e.preventDefault()
     if (!backupName.trim()) return
+    if (!supabaseReady) { setError('示範模式無法使用備份功能，請先設定 Supabase 環境變數'); return }
     setCreating(true)
     setError('')
     try {
@@ -128,7 +130,7 @@ export default function DataBackupPanel({
             儲存目前狀態，紀錄操作人員與時間，必要時可一鍵還原
           </p>
         </div>
-        {canManage && (
+        {canManage && supabaseReady && (
           <button
             onClick={() => { setShowForm(v => !v); setError('') }}
             className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
@@ -137,6 +139,14 @@ export default function DataBackupPanel({
           </button>
         )}
       </div>
+
+      {/* 示範模式提示 */}
+      {!supabaseReady && (
+        <div className="px-5 py-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl text-sm text-amber-700 dark:text-amber-400 space-y-1">
+          <p className="font-semibold">⚠️ 示範模式 — 備份功能不可用</p>
+          <p className="text-xs opacity-80">請在 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">.env</code> 或 Vercel 環境變數中設定 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">VITE_SUPABASE_URL</code> 與 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">VITE_SUPABASE_ANON_KEY</code>，即可啟用備份功能。</p>
+        </div>
+      )}
 
       {/* 通知 / 錯誤 */}
       {notice && (

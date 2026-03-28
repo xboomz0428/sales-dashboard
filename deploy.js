@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import { readFileSync, existsSync } from 'fs'
 import https from 'https'
 import readline from 'readline'
@@ -8,12 +8,59 @@ function loadEnv() {
   if (existsSync('.env')) {
     const lines = readFileSync('.env', 'utf8').split('\n')
     for (const line of lines) {
-      const [key, ...vals] = line.split('=')
-      if (key?.trim() && vals.length) {
-        process.env[key.trim()] = vals.join('=').trim()
-      }
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) continue
+      const idx = trimmed.indexOf('=')
+      if (idx < 1) continue
+      const key = trimmed.slice(0, idx).trim()
+      const val = trimmed.slice(idx + 1).trim()
+      if (key && val) process.env[key] = val
     }
   }
+}
+
+// 同步單一環境變數至 Vercel
+function vercelEnvAdd(name, value, envTarget) {
+  const result = spawnSync(
+    'vercel',
+    ['env', 'add', name, envTarget, '--force'],
+    { input: value + '\n', encoding: 'utf8', shell: true, timeout: 30000 }
+  )
+  if (result.status !== 0) throw new Error(result.stderr || `exit ${result.status}`)
+}
+
+// 同步所有 VITE_* 環境變數至 Vercel production + preview
+async function syncEnvToVercel() {
+  console.log('\n🔄 同步環境變數至 Vercel...')
+  const env = {}
+  if (existsSync('.env')) {
+    readFileSync('.env', 'utf8').split('\n').forEach(line => {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) return
+      const idx = trimmed.indexOf('=')
+      if (idx < 1) return
+      const key = trimmed.slice(0, idx).trim()
+      const val = trimmed.slice(idx + 1).trim()
+      if (key?.startsWith('VITE_') && val) env[key] = val
+    })
+  }
+
+  const keys = Object.keys(env)
+  if (!keys.length) { console.log('   沒有 VITE_* 變數需要同步'); return }
+
+  let ok = 0, fail = 0
+  for (const key of keys) {
+    process.stdout.write(`   ${key}`)
+    for (const target of ['production', 'preview']) {
+      try { vercelEnvAdd(key, env[key], target); process.stdout.write(` [${target}✓]`); ok++ }
+      catch { process.stdout.write(` [${target}✗]`); fail++ }
+    }
+    console.log()
+  }
+  console.log(fail === 0
+    ? `✅  ${keys.length} 個變數已同步（production + preview）`
+    : `⚠️  ${ok/2} 個成功，${fail/2} 個失敗（請確認已執行 vercel link）`
+  )
 }
 
 function run(cmd) {
@@ -62,6 +109,18 @@ async function main() {
   console.log('\n================================')
   console.log('   自動部署到 Vercel')
   console.log('================================\n')
+
+  // 詢問是否同步環境變數
+  const syncEnv = await ask('🔧 是否同步 .env 環境變數至 Vercel？(y/N) ')
+  if (syncEnv.toLowerCase() === 'y') {
+    // 確認已連結 Vercel 專案
+    if (!existsSync('.vercel/project.json')) {
+      console.log('\n首次部署：需先連結 Vercel 專案，請依提示操作...')
+      try { run('vercel link') } catch { console.log('⚠️  vercel link 失敗，請手動執行') }
+    }
+    await syncEnvToVercel()
+    console.log()
+  }
 
   // 先同步遠端（避免 rejected）
   try {
