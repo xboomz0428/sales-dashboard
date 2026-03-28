@@ -46,7 +46,10 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
     // 示範模式：成本已在 localStorage，不需額外動作
   }, [user?.id])
 
-  // ── 從 Supabase Storage 載入共用銷售檔案（所有帳號共用 shared/ 資料夾）────
+  // ── JSON 快取檔名（避免重複解析大型 .xls 造成 stack overflow）────────────
+  const jsonCacheName = (fileName) => fileName + '.rows.json'
+
+  // ── 從 Supabase Storage 載入共用銷售檔案 ────────────────────────────────
   async function loadCloudFiles() {
     try {
       setSyncing(true)
@@ -54,51 +57,63 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
 
       const { data: files, error } = await storageReader.storage
         .from(STORAGE_BUCKET)
-        .list(SHARED_FOLDER, { limit: 100, sortBy: { column: 'created_at', order: 'asc' } })
+        .list(SHARED_FOLDER, { limit: 200, sortBy: { column: 'created_at', order: 'asc' } })
 
       if (error) throw error
 
-      // 篩除空資料夾佔位符，只保留真實檔案
       const validFiles = (files || []).filter(
         f => f.name && f.name !== '.emptyFolderPlaceholder' && !f.name.endsWith('/')
       )
 
       if (!validFiles.length) {
-        setSyncing(false)
-        setSyncStatus('')
-        return
+        setSyncing(false); setSyncStatus(''); return
       }
 
-      setCloudFiles(validFiles.map(f => ({ name: f.name, path: sharedPath(f.name) })))
+      // 分類：Excel 檔 vs JSON 快取檔
+      const jsonCacheSet = new Set(
+        validFiles.filter(f => f.name.endsWith('.rows.json')).map(f => f.name)
+      )
+      const excelFiles = validFiles.filter(f => !f.name.endsWith('.rows.json'))
+
+      setCloudFiles(excelFiles.map(f => ({ name: f.name, path: sharedPath(f.name) })))
 
       const allRows = []
       const failedFiles = []
       const loadedFileNames = []
 
-      for (let i = 0; i < validFiles.length; i++) {
-        const f = validFiles[i]
-        setSyncStatus(`正在載入 ${f.name}（${i + 1}/${validFiles.length}）…`)
+      for (let i = 0; i < excelFiles.length; i++) {
+        const f = excelFiles[i]
+        setSyncStatus(`正在載入 ${f.name}（${i + 1}/${excelFiles.length}）…`)
         try {
-          const { data: blob, error: dlErr } = await storageReader.storage
-            .from(STORAGE_BUCKET)
-            .download(sharedPath(f.name))
-          if (dlErr) throw new Error(dlErr.message || '下載失敗')
-          if (!blob) throw new Error('下載內容為空')
+          const cacheFile = jsonCacheName(f.name)
 
-          const file = new File([blob], f.name)
-          const result = await processExcelFile(file)
-          if (result?.rows?.length) {
-            allRows.push(...result.rows)
+          if (jsonCacheSet.has(cacheFile)) {
+            // ✅ 優先從 JSON 快取載入（不需重新解析 Excel，避免 stack overflow）
+            const { data: blob, error: dlErr } = await storageReader.storage
+              .from(STORAGE_BUCKET).download(sharedPath(cacheFile))
+            if (dlErr) throw new Error(dlErr.message)
+            const rows = JSON.parse(await blob.text())
+            if (!rows?.length) throw new Error('快取資料為空')
+            allRows.push(...rows)
             loadedFileNames.push(f.name)
           } else {
-            throw new Error('檔案無可解析的資料列')
+            // 無快取，解析原始 Excel
+            const { data: blob, error: dlErr } = await storageReader.storage
+              .from(STORAGE_BUCKET).download(sharedPath(f.name))
+            if (dlErr) throw new Error(dlErr.message || '下載失敗')
+            if (!blob) throw new Error('下載內容為空')
+
+            const file = new File([blob], f.name)
+            const result = await processExcelFile(file)
+            if (!result?.rows?.length) throw new Error('檔案無可解析的資料列')
+            allRows.push(...result.rows)
+            loadedFileNames.push(f.name)
           }
         } catch (e) {
           failedFiles.push({ name: f.name, reason: e.message })
         }
       }
 
-      // 回報失敗的檔案
       if (failedFiles.length) {
         const failMsg = failedFiles.map(f => `${f.name}（${f.reason}）`).join('、')
         setSyncStatus(`⚠️ ${failedFiles.length} 個檔案載入失敗：${failMsg}`)
@@ -142,7 +157,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   }
 
   // ── 上傳銷售 Excel 至 Storage ────────────────────────────────────────────
-  const uploadSalesFile = useCallback(async (file) => {
+  const uploadSalesFile = useCallback(async (file, rows) => {
     if (!user) return
 
     if (!supabaseReady) {
@@ -178,6 +193,16 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         return [...filtered, { name: file.name, path }]
       })
 
+      // 同時存 JSON 快取（下次登入直接讀 JSON，不再解析 Excel，避免大型 .xls stack overflow）
+      if (rows?.length) {
+        try {
+          const jsonBlob = new Blob([JSON.stringify(rows)], { type: 'application/json' })
+          await storageReader.storage
+            .from(STORAGE_BUCKET)
+            .upload(sharedPath(jsonCacheName(file.name)), jsonBlob, { upsert: true })
+        } catch { /* JSON 快取失敗不影響主流程 */ }
+      }
+
       setSyncStatus(`✓ ${file.name} 已同步至雲端`)
       setTimeout(() => setSyncStatus(''), 3000)
     } catch (e) {
@@ -197,11 +222,9 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   // ── 刪除雲端檔案 ─────────────────────────────────────────────────────────
   const deleteCloudFile = useCallback(async (fileName) => {
     if (!user || !supabaseReady) return
-    const path = sharedPath(fileName)
-    const { error } = await storageReader.storage.from(STORAGE_BUCKET).remove([path])
-    if (!error) {
-      setCloudFiles(prev => prev.filter(f => f.name !== fileName))
-    }
+    const paths = [sharedPath(fileName), sharedPath(jsonCacheName(fileName))]
+    await storageReader.storage.from(STORAGE_BUCKET).remove(paths)
+    setCloudFiles(prev => prev.filter(f => f.name !== fileName))
   }, [user])
 
   // ── 儲存成本（localStorage + Supabase DB） ───────────────────────────────
