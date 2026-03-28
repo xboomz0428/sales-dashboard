@@ -181,8 +181,10 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setSyncStatus(`✓ ${file.name} 已同步至雲端`)
       setTimeout(() => setSyncStatus(''), 3000)
     } catch (e) {
-      const errMsg = e.message || '請確認網路連線'
-      // 用獨立 state 儲存每個檔案的錯誤，不會被其他上傳覆蓋
+      const rawMsg = e.message || '請確認網路連線'
+      const errMsg = rawMsg.includes('Bucket not found') || rawMsg.includes('bucket')
+        ? 'BUCKET_NOT_FOUND'
+        : rawMsg
       setUploadErrors(prev => [...prev.filter(x => x.name !== file.name), { name: file.name, reason: errMsg }])
       setSyncStatus(`⚠️ ${file.name} 上傳失敗`)
       setTimeout(() => setSyncStatus(''), 5000)

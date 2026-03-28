@@ -66,7 +66,12 @@ export function processExcelFile(file) {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result)
-        const workbook = XLSX.read(data, { type: 'array', cellDates: false })
+        const workbook = XLSX.read(data, {
+          type: 'array',
+          cellDates: false,
+          dense: true,   // 減少大檔案遞迴深度，避免 stack overflow
+          sheets: 0,     // 只解析第一個工作表
+        })
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
         const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true })

@@ -522,9 +522,15 @@ function AppDashboard() {
         )}
 
         {/* 上傳錯誤（每個檔案獨立顯示，不互相覆蓋） */}
-        {uploadErrors.map(e => (
+        {uploadErrors.some(e => e.reason === 'BUCKET_NOT_FOUND') && (
+          <div className="mx-3 sm:mx-4 mt-1 px-4 py-3 rounded-lg text-sm flex-shrink-0 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400 space-y-1">
+            <p className="font-bold">⚠️ 雲端儲存空間（Bucket）尚未建立，資料無法同步至雲端</p>
+            <p className="text-xs">請前往 <strong>Supabase Dashboard → Storage → New bucket</strong>，名稱填 <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">sales-files</code>，建立後重新上傳檔案即可。</p>
+          </div>
+        )}
+        {uploadErrors.filter(e => e.reason !== 'BUCKET_NOT_FOUND').map(e => (
           <div key={e.name} className="mx-3 sm:mx-4 mt-1 px-4 py-2 rounded-lg text-sm flex items-center justify-between flex-shrink-0 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
-            <span>⚠️ 「{e.name}」雲端上傳失敗：{e.reason}（資料已在畫面中，但重新登入後不會顯示）</span>
+            <span>⚠️ 「{e.name}」上傳失敗：{e.reason}（重新登入後資料不會顯示）</span>
           </div>
         ))}
 

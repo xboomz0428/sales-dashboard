@@ -22,49 +22,25 @@ alter table public.user_roles enable row level security;
 alter table public.user_costs enable row level security;
 
 -- ─── 4. RLS 政策：user_roles ──────────────────────────────────────────────
-create policy "read own role"
-  on public.user_roles for select
-  using (auth.uid() = id);
+do $$ begin
+  create policy "read own role"
+    on public.user_roles for select
+    using (auth.uid() = id);
+exception when duplicate_object then null; end $$;
 
-create policy "insert own role"
-  on public.user_roles for insert
-  with check (auth.uid() = id);
+do $$ begin
+  create policy "insert own role"
+    on public.user_roles for insert
+    with check (auth.uid() = id);
+exception when duplicate_object then null; end $$;
 
 -- ─── 5. RLS 政策：user_costs ─────────────────────────────────────────────
-create policy "manage own costs"
-  on public.user_costs for all
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+do $$ begin
+  create policy "manage own costs"
+    on public.user_costs for all
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+exception when duplicate_object then null; end $$;
 
--- ─── 6. Storage RLS 政策（需先在 Dashboard 建立 sales-files bucket）────────
-create policy "user upload own files"
-  on storage.objects for insert
-  to authenticated
-  with check (
-    bucket_id = 'sales-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "user read own files"
-  on storage.objects for select
-  to authenticated
-  using (
-    bucket_id = 'sales-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "user delete own files"
-  on storage.objects for delete
-  to authenticated
-  using (
-    bucket_id = 'sales-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "user update own files"
-  on storage.objects for update
-  to authenticated
-  using (
-    bucket_id = 'sales-files'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
+-- ─── 6. Storage RLS 政策（shared/ 共用資料夾，見 migration 000004）────────
+-- 舊的 per-user 政策已由 000004 取代，此處保留空白以維持版本順序
