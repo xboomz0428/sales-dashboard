@@ -94,7 +94,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
             if (dlErr) throw new Error(dlErr.message)
             const rows = JSON.parse(await blob.text())
             if (!rows?.length) throw new Error('快取資料為空')
-            allRows.push(...rows)
+            for (const r of rows) allRows.push(r)
             loadedFileNames.push(f.name)
           } else {
             // 無快取，解析原始 Excel
@@ -106,7 +106,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
             const file = new File([blob], f.name)
             const result = await processExcelFile(file)
             if (!result?.rows?.length) throw new Error('檔案無可解析的資料列')
-            allRows.push(...result.rows)
+            for (const r of result.rows) allRows.push(r)
             loadedFileNames.push(f.name)
           }
         } catch (e) {
@@ -262,7 +262,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         const file = new File([blob], fileName)
         const result = await processExcelFile(file)
         if (result?.rows?.length) {
-          allRows.push(...result.rows)
+          for (const r of result.rows) allRows.push(r)
           fileNames.push(fileName)
         }
       } catch { /* 單一檔案失敗不影響其他 */ }

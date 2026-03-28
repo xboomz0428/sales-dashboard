@@ -62,10 +62,16 @@ export function parseDate(value) {
 export function parseBuffer(buffer) {
   const data = new Uint8Array(buffer)
   const workbook = XLSX.read(data, {
-    type:      'array',
-    cellDates: false,
-    dense:     true,
-    sheets:    0,       // 只解析第一個工作表
+    type:         'array',
+    cellDates:    false,
+    dense:        true,
+    sheets:       0,            // 只解析第一個工作表
+    cellFormula:  false,        // 跳過公式解析（主要遞迴來源）
+    cellStyles:   false,        // 跳過樣式解析
+    cellHTML:     false,        // 跳過 HTML 生成
+    cellNF:       false,        // 跳過數字格式解析
+    sheetStubs:   false,        // 跳過空儲存格 stub
+    WTF:          false,        // 跳過非致命錯誤拋出
   })
 
   const sheetName = workbook.SheetNames[0]
