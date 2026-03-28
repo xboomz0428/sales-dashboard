@@ -17,11 +17,12 @@ import { processExcelFile } from '../utils/dataProcessor'
 const storageReader = supabaseAdmin || supabase
 
 const STORAGE_BUCKET = 'sales-files'
+const SHARED_FOLDER  = 'shared'          // 所有帳號共用的資料夾
 const LS_COSTS = 'product_costs'
 
-// ─── 工具：使用者的 Storage 資料夾路徑 ───────────────────────────────────────
-const userPath = (uid, filename) =>
-  filename ? `${uid}/${filename}` : `${uid}/`
+// ─── 工具：共用資料夾路徑 ────────────────────────────────────────────────────
+const sharedPath = (filename) =>
+  filename ? `${SHARED_FOLDER}/${filename}` : SHARED_FOLDER
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 export function useCloudData(user, onDataLoaded, onCostsLoaded) {
@@ -38,22 +39,21 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   useEffect(() => {
     if (!user) return
     if (supabaseReady) {
-      loadCloudFiles(user.id)
+      loadCloudFiles()
       loadCosts(user.id)
     }
     // 示範模式：成本已在 localStorage，不需額外動作
   }, [user?.id])
 
-  // ── 從 Supabase Storage 載入歷史銷售檔案 ────────────────────────────────
-  async function loadCloudFiles(uid) {
+  // ── 從 Supabase Storage 載入共用銷售檔案（所有帳號共用 shared/ 資料夾）────
+  async function loadCloudFiles() {
     try {
       setSyncing(true)
       setSyncStatus('讀取雲端檔案清單…')
 
-      // 用 storageReader（admin client）讀取，繞過 RLS，確保每次登入都能取得檔案
       const { data: files, error } = await storageReader.storage
         .from(STORAGE_BUCKET)
-        .list(uid, { limit: 100, sortBy: { column: 'created_at', order: 'asc' } })
+        .list(SHARED_FOLDER, { limit: 100, sortBy: { column: 'created_at', order: 'asc' } })
 
       if (error) throw error
 
@@ -68,7 +68,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         return
       }
 
-      setCloudFiles(validFiles.map(f => ({ name: f.name, path: userPath(uid, f.name) })))
+      setCloudFiles(validFiles.map(f => ({ name: f.name, path: sharedPath(f.name) })))
       setSyncStatus(`正在載入 ${validFiles.length} 個雲端檔案…`)
 
       const allRows = []
@@ -76,7 +76,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         try {
           const { data: blob, error: dlErr } = await storageReader.storage
             .from(STORAGE_BUCKET)
-            .download(userPath(uid, f.name))
+            .download(sharedPath(f.name))
           if (dlErr || !blob) continue
 
           const file = new File([blob], f.name)
@@ -133,8 +133,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setSyncing(true)
       setSyncStatus('同步至雲端…')
 
-      const path = userPath(user.id, file.name)
-      // 用 storageReader（admin key）上傳，繞過 RLS，確保一定能寫入
+      const path = sharedPath(file.name)
       const { error } = await storageReader.storage
         .from(STORAGE_BUCKET)
         .upload(path, file, { upsert: true })
@@ -144,7 +143,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       // 上傳後立即列出確認檔案存在
       const { data: listed } = await storageReader.storage
         .from(STORAGE_BUCKET)
-        .list(user.id, { limit: 1, search: file.name })
+        .list(SHARED_FOLDER, { limit: 1, search: file.name })
       if (!listed?.length) throw new Error('檔案上傳後無法確認存在，請重試')
 
       setCloudFiles(prev => {
@@ -166,8 +165,8 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   // ── 刪除雲端檔案 ─────────────────────────────────────────────────────────
   const deleteCloudFile = useCallback(async (fileName) => {
     if (!user || !supabaseReady) return
-    const path = userPath(user.id, fileName)
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path])
+    const path = sharedPath(fileName)
+    const { error } = await storageReader.storage.from(STORAGE_BUCKET).remove([path])
     if (!error) {
       setCloudFiles(prev => prev.filter(f => f.name !== fileName))
     }
