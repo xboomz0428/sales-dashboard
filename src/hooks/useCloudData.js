@@ -26,9 +26,10 @@ const sharedPath = (filename) =>
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 export function useCloudData(user, onDataLoaded, onCostsLoaded) {
-  const [syncing,    setSyncing]    = useState(false)
-  const [syncStatus, setSyncStatus] = useState('')
-  const [cloudFiles, setCloudFiles] = useState([])  // { name, path }
+  const [syncing,      setSyncing]      = useState(false)
+  const [syncStatus,   setSyncStatus]   = useState('')
+  const [uploadErrors, setUploadErrors] = useState([])   // 每個檔案的上傳錯誤
+  const [cloudFiles,   setCloudFiles]   = useState([])   // { name, path }
 
   const onDataLoadedRef  = useRef(onDataLoaded)
   const onCostsLoadedRef = useRef(onCostsLoaded)
@@ -69,29 +70,50 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       }
 
       setCloudFiles(validFiles.map(f => ({ name: f.name, path: sharedPath(f.name) })))
-      setSyncStatus(`正在載入 ${validFiles.length} 個雲端檔案…`)
 
       const allRows = []
-      for (const f of validFiles) {
+      const failedFiles = []
+      const loadedFileNames = []
+
+      for (let i = 0; i < validFiles.length; i++) {
+        const f = validFiles[i]
+        setSyncStatus(`正在載入 ${f.name}（${i + 1}/${validFiles.length}）…`)
         try {
           const { data: blob, error: dlErr } = await storageReader.storage
             .from(STORAGE_BUCKET)
             .download(sharedPath(f.name))
-          if (dlErr || !blob) continue
+          if (dlErr) throw new Error(dlErr.message || '下載失敗')
+          if (!blob) throw new Error('下載內容為空')
 
           const file = new File([blob], f.name)
           const result = await processExcelFile(file)
-          if (result?.rows?.length) allRows.push(...result.rows)
-        } catch { /* 單一檔案失敗不影響其他 */ }
+          if (result?.rows?.length) {
+            allRows.push(...result.rows)
+            loadedFileNames.push(f.name)
+          } else {
+            throw new Error('檔案無可解析的資料列')
+          }
+        } catch (e) {
+          failedFiles.push({ name: f.name, reason: e.message })
+        }
+      }
+
+      // 回報失敗的檔案
+      if (failedFiles.length) {
+        const failMsg = failedFiles.map(f => `${f.name}（${f.reason}）`).join('、')
+        setSyncStatus(`⚠️ ${failedFiles.length} 個檔案載入失敗：${failMsg}`)
+        setTimeout(() => setSyncStatus(''), 10000)
       }
 
       if (allRows.length && onDataLoadedRef.current) {
-        setSyncStatus(`✓ 已從雲端載入 ${allRows.length.toLocaleString()} 筆資料`)
-        onDataLoadedRef.current(allRows, validFiles.map(f => f.name))
-        setTimeout(() => setSyncStatus(''), 4000)
-      } else {
-        setSyncStatus('⚠️ 雲端有檔案但無法解析資料，請重新上傳')
-        setTimeout(() => setSyncStatus(''), 6000)
+        if (!failedFiles.length) {
+          setSyncStatus(`✓ 已從雲端載入 ${allRows.length.toLocaleString()} 筆資料（${loadedFileNames.length} 個檔案）`)
+          setTimeout(() => setSyncStatus(''), 4000)
+        }
+        onDataLoadedRef.current(allRows, loadedFileNames)
+      } else if (!allRows.length) {
+        setSyncStatus('⚠️ 雲端有檔案但全部無法解析，請重新上傳')
+        setTimeout(() => setSyncStatus(''), 8000)
       }
     } catch (e) {
       setSyncStatus(`⚠️ 雲端資料載入失敗：${e.message || '請確認網路連線'}`)
@@ -129,9 +151,12 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       return
     }
 
+    // 先清除此檔案的舊錯誤
+    setUploadErrors(prev => prev.filter(e => e.name !== file.name))
+
     try {
       setSyncing(true)
-      setSyncStatus('同步至雲端…')
+      setSyncStatus(`正在上傳 ${file.name}…`)
 
       const path = sharedPath(file.name)
       const { error } = await storageReader.storage
@@ -143,20 +168,25 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       // 上傳後立即列出確認檔案存在
       const { data: listed } = await storageReader.storage
         .from(STORAGE_BUCKET)
-        .list(SHARED_FOLDER, { limit: 1, search: file.name })
-      if (!listed?.length) throw new Error('檔案上傳後無法確認存在，請重試')
+        .list(SHARED_FOLDER, { limit: 10, search: file.name })
+      if (!listed?.find(f => f.name === file.name)) {
+        throw new Error('上傳後無法確認存在，請重試')
+      }
 
       setCloudFiles(prev => {
         const filtered = prev.filter(f => f.name !== file.name)
         return [...filtered, { name: file.name, path }]
       })
 
-      setSyncStatus('✓ 已同步至雲端')
+      setSyncStatus(`✓ ${file.name} 已同步至雲端`)
       setTimeout(() => setSyncStatus(''), 3000)
     } catch (e) {
-      setSyncStatus(`⚠️ 雲端上傳失敗：${e.message || '請確認網路連線'}`)
-      setTimeout(() => setSyncStatus(''), 8000)
-      console.error('[uploadSalesFile]', e)
+      const errMsg = e.message || '請確認網路連線'
+      // 用獨立 state 儲存每個檔案的錯誤，不會被其他上傳覆蓋
+      setUploadErrors(prev => [...prev.filter(x => x.name !== file.name), { name: file.name, reason: errMsg }])
+      setSyncStatus(`⚠️ ${file.name} 上傳失敗`)
+      setTimeout(() => setSyncStatus(''), 5000)
+      console.error('[uploadSalesFile]', file.name, e)
     } finally {
       setSyncing(false)
     }
@@ -225,6 +255,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   return {
     syncing,
     syncStatus,
+    uploadErrors,
     cloudFiles,
     uploadSalesFile,
     deleteCloudFile,

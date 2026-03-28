@@ -124,7 +124,7 @@ function AppDashboard() {
     setProductCosts(costs)
   }, [])
 
-  const { syncing, syncStatus, cloudFiles, uploadSalesFile, deleteCloudFile, saveCosts, loadSpecificFiles } =
+  const { syncing, syncStatus, uploadErrors, cloudFiles, uploadSalesFile, deleteCloudFile, saveCosts, loadSpecificFiles } =
     useCloudData(isLoggedIn ? user : null, handleCloudDataLoaded, handleCloudCostsLoaded)
   const [pdfProgress, setPdfProgress] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
@@ -520,6 +520,13 @@ function AppDashboard() {
             <button onClick={() => { setNotice(null); setError(null) }} className="ml-2 opacity-60 hover:opacity-100">✕</button>
           </div>
         )}
+
+        {/* 上傳錯誤（每個檔案獨立顯示，不互相覆蓋） */}
+        {uploadErrors.map(e => (
+          <div key={e.name} className="mx-3 sm:mx-4 mt-1 px-4 py-2 rounded-lg text-sm flex items-center justify-between flex-shrink-0 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
+            <span>⚠️ 「{e.name}」雲端上傳失敗：{e.reason}（資料已在畫面中，但重新登入後不會顯示）</span>
+          </div>
+        ))}
 
         {/* Upload history panel */}
         {showHistory && (
