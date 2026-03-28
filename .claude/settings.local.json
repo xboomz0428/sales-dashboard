@@ -22,7 +22,15 @@
       "Read(//c/Users/User/sales-dashboard/$APPDATA/supabase/**)",
       "Bash(SERVICE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bWVwZG1zcXRpcHpuenVhamtuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDY0Njg2MywiZXhwIjoyMDkwMjIyODYzfQ.nhlCW2seZQOuF-Go755JQGj5D-zzmdsW58W05EGsljg\")",
       "Bash(__NEW_LINE_a17eabbffea7cc30__ curl:*)",
-      "Bash(printf:*)"
+      "Bash(printf:*)",
+      "Bash(ls /c/Users/User/sales-dashboard/*.bat /c/Users/User/sales-dashboard/*.sh)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(echo \"=== $f ===\")",
+      "Read(//c/Users/User/sales-dashboard/**)",
+      "Bash(done)",
+      "Bash(__NEW_LINE_6d4e924e4ea1857c__ printf:*)",
+      "Bash(\"/c/Users/User/sales-dashboard/部署.bat\")"
     ]
   }
 }
