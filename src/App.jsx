@@ -91,6 +91,11 @@ function AppDashboard() {
   }, [allRows, dataYearsLimit])
 
   const [meta, setMeta] = useState(null)
+  // 依年限過濾後的 meta，供篩選器顯示可選年份
+  const visibleMeta = useMemo(
+    () => visibleRows.length ? buildMeta(visibleRows) : meta ? buildMeta([]) : null,
+    [visibleRows, meta]
+  )
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -369,7 +374,7 @@ function AppDashboard() {
           ${panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}>
           <FilterPanel
-            meta={meta} filters={filters} onChange={setFilters}
+            meta={visibleMeta} filters={filters} onChange={setFilters}
             allRows={visibleRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
           />
         </div>
