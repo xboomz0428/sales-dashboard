@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { supabase, supabaseReady } from '../config/supabase'
+import { supabase, supabaseAdmin, supabaseReady } from '../config/supabase'
 
 // ─── 角色定義 ────────────────────────────────────────────────────────────────
 // admin   : 全部功能 + 使用者管理
@@ -105,10 +105,24 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [fetchRolePermissions])
 
+  // ── 檢查系統是否已有 admin ────────────────────────────────────────────────
+  async function hasAnyAdmin() {
+    if (!supabaseAdmin) return false
+    try {
+      const { count } = await supabaseAdmin
+        .from('user_roles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'admin')
+      return (count ?? 0) > 0
+    } catch { return false }
+  }
+
   // ── 從 user_roles 資料表取得角色 ─────────────────────────────────────────
   async function fetchRole(uid) {
     try {
-      const { data, error } = await supabase
+      // 優先用 admin client 讀取（繞過 RLS），確保能讀到自己的角色
+      const readClient = supabaseAdmin || supabase
+      const { data, error } = await readClient
         .from('user_roles')
         .select('role')
         .eq('id', uid)
@@ -117,14 +131,28 @@ export function AuthProvider({ children }) {
       if (error) throw error
 
       if (data?.role) {
+        // 已有角色：若為 viewer 且系統沒有任何 admin，自動升級為 admin
+        if (data.role === 'viewer') {
+          const noAdmin = !(await hasAnyAdmin())
+          if (noAdmin) {
+            await readClient
+              .from('user_roles')
+              .update({ role: 'admin' })
+              .eq('id', uid)
+            setRole('admin')
+            setLoading(false)
+            return
+          }
+        }
         setRole(data.role)
       } else {
-        // 新使用者：建立預設 viewer 角色
-        await supabase
+        // 全新使用者：若系統無 admin，成為 admin；否則設為 viewer
+        const noAdmin = !(await hasAnyAdmin())
+        const newRole = noAdmin ? 'admin' : 'viewer'
+        await readClient
           .from('user_roles')
-          .insert({ id: uid, role: 'viewer' })
-          .select()
-        setRole('viewer')
+          .upsert({ id: uid, role: newRole }, { onConflict: 'id' })
+        setRole(newRole)
       }
     } catch {
       setRole('viewer')

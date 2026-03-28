@@ -134,11 +134,18 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setSyncStatus('同步至雲端…')
 
       const path = userPath(user.id, file.name)
-      const { error } = await supabase.storage
+      // 用 storageReader（admin key）上傳，繞過 RLS，確保一定能寫入
+      const { error } = await storageReader.storage
         .from(STORAGE_BUCKET)
-        .upload(path, file, { upsert: true })   // upsert: 同名覆蓋
+        .upload(path, file, { upsert: true })
 
       if (error) throw error
+
+      // 上傳後立即列出確認檔案存在
+      const { data: listed } = await storageReader.storage
+        .from(STORAGE_BUCKET)
+        .list(user.id, { limit: 1, search: file.name })
+      if (!listed?.length) throw new Error('檔案上傳後無法確認存在，請重試')
 
       setCloudFiles(prev => {
         const filtered = prev.filter(f => f.name !== file.name)
@@ -147,9 +154,10 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
 
       setSyncStatus('✓ 已同步至雲端')
       setTimeout(() => setSyncStatus(''), 3000)
-    } catch {
-      setSyncStatus('雲端上傳失敗，資料保留於本地')
-      setTimeout(() => setSyncStatus(''), 4000)
+    } catch (e) {
+      setSyncStatus(`⚠️ 雲端上傳失敗：${e.message || '請確認網路連線'}`)
+      setTimeout(() => setSyncStatus(''), 8000)
+      console.error('[uploadSalesFile]', e)
     } finally {
       setSyncing(false)
     }
