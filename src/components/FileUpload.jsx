@@ -50,7 +50,7 @@ export default function FileUpload({ onFileLoaded, onError, loading }) {
         {loading ? (
           <div className="flex flex-col items-center gap-4">
             <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-gray-600 dark:text-gray-300 font-medium text-lg">解析中，請稍候...</p>
+            <p className="text-gray-600 dark:text-gray-300 font-medium text-lg">載入資料中，請稍候…</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-5">
@@ -70,7 +70,7 @@ export default function FileUpload({ onFileLoaded, onError, loading }) {
       </div>
 
       <p className="mt-6 text-sm text-gray-400 dark:text-gray-600 text-center px-4">
-        資料在本機瀏覽器中處理，不會上傳至任何伺服器
+        上傳後資料將自動同步至雲端，下次登入無需重新上傳
       </p>
     </div>
   )

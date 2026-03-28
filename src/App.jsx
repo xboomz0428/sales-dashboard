@@ -4,6 +4,9 @@ import { processExcelFile } from './utils/dataProcessor'
 import { useSalesData } from './hooks/useSalesData'
 import { useDarkMode } from './hooks/useDarkMode'
 import { getDateRange } from './utils/dateUtils'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { useCloudData } from './hooks/useCloudData'
+import LoginPage from './components/auth/LoginPage'
 import FileUpload from './components/FileUpload'
 import FilterPanel from './components/FilterPanel'
 import SummaryCards from './components/SummaryCards'
@@ -65,7 +68,8 @@ function buildMeta(rows) {
   }
 }
 
-export default function App() {
+function AppDashboard() {
+  const { user, role, logout, perms, allowedTabs, roleInfo, isLoggedIn } = useAuth()
   const [dark, setDark] = useDarkMode()
   const [allRows, setAllRows] = useState([])
   const [meta, setMeta] = useState(null)
@@ -81,6 +85,33 @@ export default function App() {
   })
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+
+  // ── 雲端資料同步 ──────────────────────────────────────────────────────────
+  const handleCloudDataLoaded = useCallback((rows, fileNames) => {
+    setAllRows(prev => {
+      if (!prev.length) {
+        setMeta(buildMeta(rows))
+        setUploadHistory(fileNames.map(name => ({
+          id: name, name, addedCount: 0, duplicateCount: 0,
+          time: '雲端載入', dateRange: null,
+        })))
+        return rows
+      }
+      const existingKeys = new Set(prev.map(r => r._key))
+      const newRows = rows.filter(r => !existingKeys.has(r._key))
+      if (!newRows.length) return prev
+      const merged = [...prev, ...newRows]
+      setMeta(buildMeta(merged))
+      return merged
+    })
+  }, [])
+
+  const handleCloudCostsLoaded = useCallback((costs) => {
+    setProductCosts(costs)
+  }, [])
+
+  const { syncing, syncStatus, cloudFiles, uploadSalesFile, deleteCloudFile, saveCosts } =
+    useCloudData(isLoggedIn ? user : null, handleCloudDataLoaded, handleCloudCostsLoaded)
   const [pdfProgress, setPdfProgress] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -91,6 +122,9 @@ export default function App() {
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
   const tabBarRef = useRef(null)
+
+  // ── 角色控制可見 Tab ──────────────────────────────────────────────────────
+  const visibleTabs = allowedTabs ? TABS.filter(t => allowedTabs.includes(t.id)) : TABS
 
   // Scroll active tab into view on mobile
   useEffect(() => {
@@ -173,12 +207,15 @@ export default function App() {
         : `「${file.name}」成功匯入 ${finalNewRows.length.toLocaleString()} 筆`
       setNotice(msg)
       setTimeout(() => setNotice(null), 5000)
+
+      // 同步至雲端（非同步，不阻塞 UI）
+      uploadSalesFile(file, finalNewRows)
     } catch (err) {
       setError(err.message || '解析失敗，請確認檔案格式')
     } finally {
       setLoading(false)
     }
-  }, [allRows, uploadHistory])
+  }, [allRows, uploadHistory, uploadSalesFile])
 
   const handleReset = useCallback(() => {
     setAllRows([]); setMeta(null); setUploadHistory([])
@@ -191,18 +228,18 @@ export default function App() {
       const next = { ...prev }
       if (cost == null) delete next[product]
       else next[product] = cost
-      localStorage.setItem('product_costs', JSON.stringify(next))
+      saveCosts(next)
       return next
     })
-  }, [])
+  }, [saveCosts])
 
   const updateManyProductCosts = useCallback((updates) => {
     setProductCosts(prev => {
       const next = { ...prev, ...updates }
-      localStorage.setItem('product_costs', JSON.stringify(next))
+      saveCosts(next)
       return next
     })
-  }, [])
+  }, [saveCosts])
 
   const salesData = useSalesData(allRows, filters)
   const {
@@ -266,7 +303,13 @@ export default function App() {
             ⚠️ {error}
           </div>
         )}
-        <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={loading} />
+        {syncStatus && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-100 dark:bg-blue-900/80 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-lg shadow text-sm flex items-center gap-2">
+            {syncing && <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+            {syncStatus}
+          </div>
+        )}
+        <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={loading || syncing} />
       </div>
     )
   }
@@ -316,7 +359,10 @@ export default function App() {
 
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">S</div>
             <div className="min-w-0">
-              <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">銷售數據分析系統</h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">銷售數據分析系統</h1>
+                {roleInfo && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full sm:hidden ${roleInfo.badge}`}>{roleInfo.label}</span>}
+              </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-tight">
                 {uploadHistory.length} 個檔案 · {meta?.totalRows?.toLocaleString()} 筆 · 顯示 {filtered.length.toLocaleString()} 筆
               </p>
@@ -370,6 +416,14 @@ export default function App() {
               {pdfLoading ? '⏳' : '📄'} <span className="hidden md:inline">{pdfLoading ? pdfProgress || 'PDF...' : 'PDF'}</span>
             </button>
 
+            {/* Cloud sync status */}
+            {syncStatus && (
+              <span className="hidden sm:flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 px-2 py-1 rounded-lg">
+                {syncing && <span className="w-2.5 h-2.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+                {syncStatus}
+              </span>
+            )}
+
             {/* Dark mode toggle */}
             <button
               onClick={() => setDark(d => !d)}
@@ -379,11 +433,34 @@ export default function App() {
               {dark ? '☀️' : '🌙'}
             </button>
 
+            {/* Mobile logout */}
+            <button
+              onClick={logout}
+              title="登出"
+              className="sm:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/50 transition-colors text-sm"
+            >
+              ⏏
+            </button>
+
             {/* Reset — hidden on mobile */}
             <button onClick={handleReset}
               className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               重置
             </button>
+
+            {/* User info + logout */}
+            {roleInfo && (
+              <div className="hidden sm:flex items-center gap-1.5 pl-2 border-l border-gray-200 dark:border-gray-600">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${roleInfo.badge}`}>{roleInfo.label}</span>
+                <button
+                  onClick={logout}
+                  title="登出"
+                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/50 transition-colors"
+                >
+                  登出
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
@@ -458,7 +535,7 @@ export default function App() {
 
         {/* Tabs */}
         <div ref={tabBarRef} className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth">
-          {TABS.map(tab => (
+          {visibleTabs.map(tab => (
             <button key={tab.id}
               data-tab-active={activeTab === tab.id}
               onClick={() => handleTabChange(tab.id)}
@@ -623,5 +700,30 @@ export default function App() {
         }}
       />
     </div>
+  )
+}
+
+function AppInner() {
+  const { isLoggedIn, loading: authLoading } = useAuth()
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-blue-300 text-sm">載入中…</p>
+        </div>
+      </div>
+    )
+  }
+  if (!isLoggedIn) return <LoginPage />
+  return <AppDashboard />
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }

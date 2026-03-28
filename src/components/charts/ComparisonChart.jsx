@@ -63,6 +63,7 @@ function RankBadge({ rank }) {
 }
 
 function CalcHint({ type }) {
+  const [show, setShow] = useState(false)
   const hints = {
     yoy: '同比成長 = (本期 − 同期去年) ÷ 同期去年 × 100%',
     qoq_year: '年度成長 = (本年 − 上年) ÷ 上年 × 100%',
@@ -70,12 +71,18 @@ function CalcHint({ type }) {
     mom: '月度成長 = (本月 − 上年同月) ÷ 上年同月 × 100%',
   }
   return (
-    <div className="inline-flex items-center gap-1 group relative">
-      <span className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-xs flex items-center justify-center cursor-help font-bold">?</span>
-      <div className="absolute left-5 top-0 hidden group-hover:block z-20 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap shadow-xl min-w-max">
-        {hints[type]}
-      </div>
-    </div>
+    <span className="inline-flex items-center gap-1 relative">
+      <span
+        className="w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300 text-xs flex items-center justify-center cursor-help font-bold select-none"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      >?</span>
+      {show && (
+        <span className="absolute left-5 top-0 z-20 bg-gray-900 text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap shadow-xl min-w-max pointer-events-none">
+          {hints[type]}
+        </span>
+      )}
+    </span>
   )
 }
 
