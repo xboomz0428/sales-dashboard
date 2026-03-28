@@ -42,7 +42,12 @@ export default function DataBackupPanel({
       if (err) throw err
       setBackups(data || [])
     } catch (e) {
-      setError('載入備份失敗：' + e.message)
+      const msg = e.message || ''
+      if (msg.includes('data_backups') || msg.includes('schema cache') || msg.includes('does not exist')) {
+        setError('TABLE_NOT_FOUND')
+      } else {
+        setError('載入備份失敗：' + msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -73,7 +78,12 @@ export default function DataBackupPanel({
       setShowForm(false)
       await loadBackups()
     } catch (e) {
-      setError('備份失敗：' + e.message)
+      const msg = e.message || ''
+      if (msg.includes('data_backups') || msg.includes('schema cache') || msg.includes('does not exist')) {
+        setError('TABLE_NOT_FOUND')
+      } else {
+        setError('備份失敗：' + msg)
+      }
     } finally {
       setCreating(false)
     }
@@ -154,12 +164,43 @@ export default function DataBackupPanel({
           {notice}
         </div>
       )}
-      {error && (
+      {error === 'TABLE_NOT_FOUND' ? (
+        <div className="px-5 py-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl space-y-3">
+          <p className="text-sm font-bold text-amber-700 dark:text-amber-400">⚠️ 資料庫尚未建立備份資料表</p>
+          <div className="text-xs text-amber-700 dark:text-amber-400 space-y-2">
+            <p><strong>方式一（推薦）：</strong>在終端機執行 <code className="bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded font-mono">db-push.bat</code></p>
+            <p><strong>方式二：</strong>前往 <strong>Supabase Dashboard → SQL Editor</strong>，貼上以下 SQL 執行：</p>
+            <pre className="bg-amber-100 dark:bg-amber-900/40 rounded-lg p-3 text-[11px] overflow-x-auto leading-relaxed">{`create table if not exists public.data_backups (
+  id            uuid primary key default gen_random_uuid(),
+  name          text not null,
+  creator_id    uuid references auth.users(id) on delete set null,
+  creator_email text not null default '',
+  costs         jsonb not null default '{}',
+  file_paths    text[] not null default '{}',
+  row_count     int not null default 0,
+  created_at    timestamptz default now()
+);
+alter table public.data_backups enable row level security;
+create policy "authenticated read backups"
+  on public.data_backups for select to authenticated using (true);
+create policy "authenticated insert backup"
+  on public.data_backups for insert to authenticated
+  with check (auth.uid() = creator_id);
+create policy "owner or admin delete backup"
+  on public.data_backups for delete to authenticated
+  using (auth.uid() = creator_id or public.get_my_role() = 'admin');`}</pre>
+          </div>
+          <button onClick={() => { setError(''); loadBackups() }}
+            className="text-xs px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors">
+            執行後點此重試
+          </button>
+        </div>
+      ) : error ? (
         <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
           <span>⚠️ {error}</span>
           <button onClick={() => setError('')} className="opacity-60 hover:opacity-100 ml-2">✕</button>
         </div>
-      )}
+      ) : null}
 
       {/* 建立備份表單 */}
       {showForm && canManage && (
