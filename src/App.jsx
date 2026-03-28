@@ -29,6 +29,7 @@ import ExecutiveSummary from './components/ExecutiveSummary'
 import ProductCostManager from './components/ProductCostManager'
 import FlowDiagram from './components/charts/FlowDiagram'
 import UserManagement from './components/auth/UserManagement'
+import DataBackupPanel from './components/DataBackupPanel'
 
 const TABS = [
   { id: 'summary',     label: '老闆視角', icon: '👔' },
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'health',      label: '客戶健康', icon: '💊' },
   { id: 'forecast',    label: '預測分析', icon: '🔮' },
   { id: 'flow',        label: '流程架構', icon: '🗺️' },
+  { id: 'backup',      label: '資料備份',   icon: '💾' },
   { id: 'users',       label: '使用者管理', icon: '👤' },
 ]
 
@@ -112,7 +114,7 @@ function AppDashboard() {
     setProductCosts(costs)
   }, [])
 
-  const { syncing, syncStatus, cloudFiles, uploadSalesFile, deleteCloudFile, saveCosts } =
+  const { syncing, syncStatus, cloudFiles, uploadSalesFile, deleteCloudFile, saveCosts, loadSpecificFiles } =
     useCloudData(isLoggedIn ? user : null, handleCloudDataLoaded, handleCloudCostsLoaded)
   const [pdfProgress, setPdfProgress] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
@@ -225,6 +227,32 @@ function AppDashboard() {
     setFilters(DEFAULT_FILTERS); setActiveTab('performance')
   }, [])
 
+  const handleRestoreBackup = useCallback(async (backup) => {
+    // 重置目前資料
+    setAllRows([]); setMeta(null); setUploadHistory([])
+    setError(null); setNotice(null); setFilters(DEFAULT_FILTERS)
+
+    // 還原成本設定
+    const costs = backup.costs || {}
+    setProductCosts(costs)
+    saveCosts(costs)
+
+    // 重新下載並解析備份時的檔案
+    const filePaths = backup.file_paths || []
+    if (filePaths.length) {
+      const { rows, fileNames } = await loadSpecificFiles(filePaths)
+      if (rows.length) {
+        setAllRows(rows)
+        setMeta(buildMeta(rows))
+        setUploadHistory(fileNames.map(name => ({
+          id: name, name, addedCount: 0, duplicateCount: 0,
+          time: `備份還原：${backup.name}`, dateRange: null,
+        })))
+        setActiveTab('summary')
+      }
+    }
+  }, [saveCosts, loadSpecificFiles])
+
   const updateProductCost = useCallback((product, cost) => {
     setProductCosts(prev => {
       const next = { ...prev }
@@ -297,69 +325,35 @@ function AppDashboard() {
     }
   }, [pdfSalesData])
 
-  if (!meta && !loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        {error && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/80 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg shadow text-sm">
-            ⚠️ {error}
-          </div>
-        )}
-        {syncStatus && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-100 dark:bg-blue-900/80 border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-lg shadow text-sm flex items-center gap-2">
-            {syncing && <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
-            {syncStatus}
-          </div>
-        )}
-        {perms.manageUsers && (
-          <div className="flex justify-end px-4 pt-4">
-            <button
-              onClick={() => setActiveTab(t => t === 'users' ? 'performance' : 'users')}
-              className={`text-sm px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
-                activeTab === 'users'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-              }`}
-            >
-              👤 使用者管理
-            </button>
-          </div>
-        )}
-        {activeTab === 'users' && perms.manageUsers
-          ? <div className="p-4 max-w-4xl mx-auto"><UserManagement currentUserId={user?.id} /></div>
-          : <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={loading || syncing} />
-        }
-      </div>
-    )
-  }
-
-  if (loading && allRows.length === 0) {
-    return <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={true} />
-  }
+  // 資料尚未載入且非特殊 tab 時的空狀態 flag
+  const noDataTabs = ['users', 'backup']
+  const showEmptyState = !meta && !noDataTabs.includes(activeTab)
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
 
-      {/* Mobile backdrop overlay */}
-      {panelOpen && (
+      {/* Mobile backdrop overlay — 只在有資料且側欄打開時顯示 */}
+      {panelOpen && meta && (
         <div
           className="md:hidden fixed inset-0 z-20 bg-black/60 backdrop-blur-sm"
           onClick={() => setPanelOpen(false)}
         />
       )}
 
-      {/* Filter sidebar — mobile: fixed overlay; desktop: flex item */}
-      <div className={`
-        fixed inset-y-0 left-0 z-30 h-full
-        md:relative md:inset-auto md:z-auto md:h-auto md:flex md:flex-shrink-0
-        transition-transform duration-300 ease-in-out
-        ${panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-      `}>
-        <FilterPanel
-          meta={meta} filters={filters} onChange={setFilters}
-          allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
-        />
-      </div>
+      {/* Filter sidebar — 只在有資料時顯示 */}
+      {meta && (
+        <div className={`
+          fixed inset-y-0 left-0 z-30 h-full
+          md:relative md:inset-auto md:z-auto md:h-auto md:flex md:flex-shrink-0
+          transition-transform duration-300 ease-in-out
+          ${panelOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}>
+          <FilterPanel
+            meta={meta} filters={filters} onChange={setFilters}
+            allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
+          />
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
@@ -529,22 +523,24 @@ function AppDashboard() {
           </div>
         )}
 
-        {/* KPI Cards toggle bar */}
-        <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
-          <button
-            onClick={() => setDashboardOpen(v => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            <span className={`transition-transform duration-200 text-xs ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
-            {dashboardOpen ? '收折儀表板' : '展開儀表板'}
-          </button>
-          {!dashboardOpen && (
-            <span className="text-sm text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">（KPI 數據已收折）</span>
-          )}
-        </div>
+        {/* KPI Cards toggle bar — 只在有資料時顯示 */}
+        {meta && (
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+            <button
+              onClick={() => setDashboardOpen(v => !v)}
+              className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              <span className={`transition-transform duration-200 text-xs ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
+              {dashboardOpen ? '收折儀表板' : '展開儀表板'}
+            </button>
+            {!dashboardOpen && (
+              <span className="text-sm text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">（KPI 數據已收折）</span>
+            )}
+          </div>
+        )}
 
         {/* KPI Cards */}
-        {dashboardOpen && (
+        {meta && dashboardOpen && (
           <SummaryCards
             summary={summary} metric={filters.metric} trendData={trendData}
             productData={productData} customerData={customerData}
@@ -576,52 +572,74 @@ function AppDashboard() {
         {/* Chart area */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe" ref={chartAreaRef}
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-          {activeTab === 'summary' && (
+
+          {/* 尚無資料空狀態 */}
+          {showEmptyState && (
+            <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
+              <div className="text-5xl mb-4">📤</div>
+              <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-2">尚未載入資料</h3>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-6 max-w-xs">
+                上傳 Excel 銷售資料，即可使用所有分析功能
+              </p>
+              <button onClick={() => fileInputRef.current?.click()}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-2">
+                📤 上傳資料檔案
+              </button>
+              {syncing && (
+                <div className="mt-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                  <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  {syncStatus}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'summary' && meta && (
             <div data-pdf-section data-pdf-title="執行摘要">
               <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} filters={filters} />
             </div>
           )}
-          {activeTab === 'comparison' && (
+          {activeTab === 'comparison' && meta && (
             <div data-pdf-section data-pdf-title="對比分析">
               <ComparisonChart comparisonData={comparisonData} trendData={trendData} filtered={filtered} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'trend' && (
+          {activeTab === 'trend' && meta && (
             <div data-pdf-section data-pdf-title="趨勢分析">
               <TrendChart trendData={trendData} trendDataYoY={trendDataYoY} trendDataMoM={trendDataMoM} trendByChannel={trendByChannel} trendByBrand={trendByBrand} trendByProduct={trendByProduct} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'channel' && (
+          {activeTab === 'channel' && meta && (
             <div data-pdf-section data-pdf-title="通路分析">
               <ChannelBarChart channelData={channelData} channelTypeData={channelTypeData} channelCustomerData={channelCustomerData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'brand' && (
+          {activeTab === 'brand' && meta && (
             <div data-pdf-section data-pdf-title="品牌分析">
               <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'product' && (
+          {activeTab === 'product' && meta && (
             <div data-pdf-section data-pdf-title="產品分析">
               <ProductChart productData={productData} productByChannel={productByChannel} productCustomerData={productCustomerData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'customer' && (
+          {activeTab === 'customer' && meta && (
             <div data-pdf-section data-pdf-title="客戶分析">
               <CustomerChart customerData={customerData} channelCustomerData={channelCustomerData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'performance' && (
+          {activeTab === 'performance' && meta && (
             <div data-pdf-section data-pdf-title="績效矩陣">
               <PerformanceMatrix performanceData={performanceData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'heatmap' && (
+          {activeTab === 'heatmap' && meta && (
             <div data-pdf-section data-pdf-title="熱力圖">
               <HeatmapChart heatmapData={heatmapData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'table' && (
+          {activeTab === 'table' && meta && (
             <DataTable rows={filtered} />
           )}
           {activeTab === 'costs' && (
@@ -632,30 +650,38 @@ function AppDashboard() {
               onUpdateMany={updateManyProductCosts}
             />
           )}
-          {activeTab === 'goals' && (
+          {activeTab === 'goals' && meta && (
             <div data-pdf-section data-pdf-title="目標管理">
               <GoalDashboard trendData={trendData} comparisonData={comparisonData} summary={summary} brandData={brandData} channelData={channelData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'alerts' && (
+          {activeTab === 'alerts' && meta && (
             <div data-pdf-section data-pdf-title="預警中心">
               <AnomalyPanel allRows={allRows} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'health' && (
+          {activeTab === 'health' && meta && (
             <div data-pdf-section data-pdf-title="客戶健康">
               <CustomerHealthPanel allRows={allRows} />
             </div>
           )}
-          {activeTab === 'forecast' && (
+          {activeTab === 'forecast' && meta && (
             <div data-pdf-section data-pdf-title="預測分析">
               <SalesForecast trendData={trendData} metric={filters.metric} />
             </div>
           )}
-          {activeTab === 'flow' && (
+          {activeTab === 'flow' && meta && (
             <div data-pdf-section data-pdf-title="流程架構">
               <FlowDiagram flowData={flowData} structureData={structureData} />
             </div>
+          )}
+          {activeTab === 'backup' && (
+            <DataBackupPanel
+              productCosts={productCosts}
+              cloudFiles={cloudFiles}
+              allRows={allRows}
+              onRestore={handleRestoreBackup}
+            />
           )}
           {activeTab === 'users' && (
             <UserManagement currentUserId={user?.id} />

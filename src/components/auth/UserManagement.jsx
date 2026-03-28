@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase, supabaseAdmin } from '../../config/supabase'
-import { ROLES } from '../../contexts/AuthContext'
+import { ROLES, TAB_DEFS, ROLE_TABS_DEFAULT } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 const ROLE_OPTIONS = [
   { value: 'admin',   label: '系統管理員', desc: '全部功能' },
@@ -8,8 +9,214 @@ const ROLE_OPTIONS = [
   { value: 'viewer',  label: '檢視者',     desc: '唯讀瀏覽' },
 ]
 
+// ─── 功能權限設定區塊 ─────────────────────────────────────────────────────────
+function PermissionsEditor({ onNotice, onError }) {
+  const { refreshPermissions } = useAuth()
+
+  // permissions: { manager: Set<string>, viewer: Set<string> }
+  const [permissions, setPermissions] = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [open,        setOpen]        = useState(false)
+
+  const loadPermissions = useCallback(async () => {
+    setLoading(true)
+    try {
+      const defaults = {
+        manager: new Set(ROLE_TABS_DEFAULT.manager),
+        viewer:  new Set(ROLE_TABS_DEFAULT.viewer),
+      }
+      if (!supabaseAdmin) { setPermissions(defaults); return }
+
+      const { data } = await supabaseAdmin
+        .from('role_permissions')
+        .select('role, allowed_tabs')
+
+      if (data?.length) {
+        data.forEach(r => {
+          if (r.role === 'manager' || r.role === 'viewer') {
+            defaults[r.role] = new Set(r.allowed_tabs)
+          }
+        })
+      }
+      setPermissions(defaults)
+    } catch {
+      setPermissions({
+        manager: new Set(ROLE_TABS_DEFAULT.manager),
+        viewer:  new Set(ROLE_TABS_DEFAULT.viewer),
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadPermissions() }, [loadPermissions])
+
+  function toggle(role, tabId) {
+    setPermissions(prev => {
+      const next = { ...prev, [role]: new Set(prev[role]) }
+      next[role].has(tabId) ? next[role].delete(tabId) : next[role].add(tabId)
+      return next
+    })
+  }
+
+  function toggleAll(role, checked) {
+    setPermissions(prev => ({
+      ...prev,
+      [role]: checked ? new Set(TAB_DEFS.map(t => t.id)) : new Set(),
+    }))
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const rows = ['manager', 'viewer'].map(role => ({
+        role,
+        allowed_tabs: [...permissions[role]],
+        updated_at: new Date().toISOString(),
+      }))
+
+      let saveErr
+      if (supabaseAdmin) {
+        const { error } = await supabaseAdmin
+          .from('role_permissions')
+          .upsert(rows, { onConflict: 'role' })
+        saveErr = error
+      } else {
+        const { error } = await supabase
+          .from('role_permissions')
+          .upsert(rows, { onConflict: 'role' })
+        saveErr = error
+      }
+
+      if (saveErr) throw saveErr
+
+      await refreshPermissions?.()
+      onNotice('✓ 功能權限設定已儲存，即刻生效')
+    } catch (e) {
+      onError('儲存失敗：' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 依群組分組
+  const groups = [...new Set(TAB_DEFS.map(t => t.group))]
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+      {/* 標題列（可折疊） */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-lg">🔐</span>
+          <div className="text-left">
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-100">功能區塊權限設定</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">設定各角色可存取的功能頁籤</div>
+          </div>
+        </div>
+        <span className={`text-gray-400 text-xs transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100 dark:border-gray-700">
+          {loading ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-gray-400 text-sm">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              載入權限設定…
+            </div>
+          ) : (
+            <div className="p-4 sm:p-5 space-y-5">
+              {/* 說明 */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs text-amber-700 dark:text-amber-400">
+                ⚠️ <strong>系統管理員</strong>固定可見全部功能，無法限制。<br />
+                勾選代表該角色<strong>可以看到</strong>此功能頁籤。
+              </div>
+
+              {/* 權限矩陣 */}
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-sm min-w-[380px]">
+                  <thead>
+                    <tr className="text-xs text-gray-400 dark:text-gray-500">
+                      <th className="text-left py-2 px-3 font-semibold w-full">功能頁籤</th>
+                      {['manager', 'viewer'].map(r => (
+                        <th key={r} className="text-center py-2 px-3 font-semibold whitespace-nowrap min-w-[90px]">
+                          <div>{ROLES[r]?.label}</div>
+                          <button
+                            onClick={() => {
+                              const allChecked = TAB_DEFS.every(t => permissions[r].has(t.id))
+                              toggleAll(r, !allChecked)
+                            }}
+                            className="text-[10px] font-normal text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline mt-0.5 block mx-auto"
+                          >
+                            {TAB_DEFS.every(t => permissions[r].has(t.id)) ? '取消全選' : '全選'}
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.map(group => (
+                      <>
+                        <tr key={`group-${group}`}>
+                          <td colSpan={3} className="pt-3 pb-1 px-3">
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                              {group}
+                            </span>
+                          </td>
+                        </tr>
+                        {TAB_DEFS.filter(t => t.group === group).map(tab => (
+                          <tr key={tab.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/20 rounded-lg">
+                            <td className="py-1.5 px-3 text-gray-700 dark:text-gray-200">{tab.label}</td>
+                            {['manager', 'viewer'].map(r => (
+                              <td key={r} className="py-1.5 px-3 text-center">
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={permissions[r].has(tab.id)}
+                                    onChange={() => toggle(r, tab.id)}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-9 h-5 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
+                                </label>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 儲存按鈕 */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="text-xs text-gray-400 dark:text-gray-500">
+                  管理者 {permissions.manager.size}/{TAB_DEFS.length} 個功能 ·
+                  檢視者 {permissions.viewer.size}/{TAB_DEFS.length} 個功能
+                </div>
+                <button
+                  onClick={save}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-semibold rounded-xl transition-colors"
+                >
+                  {saving && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                  {saving ? '儲存中…' : '儲存權限設定'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── 使用者管理主元件 ──────────────────────────────────────────────────────────
 export default function UserManagement({ currentUserId }) {
-  const [users,    setUsers]    = useState([])   // [{ id, email, role, created_at, last_sign_in_at }]
+  const [users,    setUsers]    = useState([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
   const [notice,   setNotice]   = useState('')
@@ -34,11 +241,9 @@ export default function UserManagement({ currentUserId }) {
         setError('未設定 VITE_SUPABASE_SERVICE_KEY，無法列出使用者')
         return
       }
-      // 取得所有 auth users
       const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 })
       if (authErr) throw authErr
 
-      // 取得所有角色
       const { data: roles, error: roleErr } = await supabaseAdmin.from('user_roles').select('id, role')
       if (roleErr) throw roleErr
 
@@ -72,17 +277,14 @@ export default function UserManagement({ currentUserId }) {
     try {
       if (!supabaseAdmin) throw new Error('未設定 service_role key')
 
-      // 建立 auth user（email_confirm: true 跳過驗證信）
       const { data, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email:            newEmail.trim(),
-        password:         newPwd,
-        email_confirm:    true,
+        email:         newEmail.trim(),
+        password:      newPwd,
+        email_confirm: true,
       })
       if (createErr) throw createErr
 
       const uid = data.user.id
-
-      // 寫入角色（upsert 防重複）
       const { error: roleErr } = await supabaseAdmin
         .from('user_roles')
         .upsert({ id: uid, role: newRole }, { onConflict: 'id' })
@@ -137,7 +339,6 @@ export default function UserManagement({ currentUserId }) {
     }
   }
 
-  // ── 格式化日期 ────────────────────────────────────────────────────────────
   function fmtDate(d) {
     if (!d) return '—'
     return new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -151,7 +352,7 @@ export default function UserManagement({ currentUserId }) {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">使用者管理</h2>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">建立帳號、設定角色權限</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">建立帳號、設定角色與功能權限</p>
         </div>
         <button
           onClick={() => { setShowForm(v => !v); setError('') }}
@@ -367,6 +568,12 @@ export default function UserManagement({ currentUserId }) {
           </div>
         )}
       </div>
+
+      {/* 功能權限設定 */}
+      <PermissionsEditor
+        onNotice={msg => { setNotice(msg); setTimeout(() => setNotice(''), 4000) }}
+        onError={msg => setError(msg)}
+      />
     </div>
   )
 }

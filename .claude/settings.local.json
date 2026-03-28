@@ -30,7 +30,8 @@
       "Read(//c/Users/User/sales-dashboard/**)",
       "Bash(done)",
       "Bash(__NEW_LINE_6d4e924e4ea1857c__ printf:*)",
-      "Bash(\"/c/Users/User/sales-dashboard/部署.bat\")"
+      "Bash(\"/c/Users/User/sales-dashboard/部署.bat\")",
+      "Bash(npm run:*)"
     ]
   }
 }

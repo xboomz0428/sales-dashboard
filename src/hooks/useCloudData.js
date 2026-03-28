@@ -169,6 +169,42 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
     } catch { /* 靜默失敗，本地已存 */ }
   }, [user])
 
+  // ── 依指定路徑重新下載並解析檔案（備份還原用）──────────────────────────
+  const loadSpecificFiles = useCallback(async (filePaths) => {
+    if (!filePaths?.length || !supabaseReady) return { rows: [], fileNames: [] }
+
+    setSyncing(true)
+    setSyncStatus(`正在還原 ${filePaths.length} 個檔案…`)
+
+    const allRows = []
+    const fileNames = []
+
+    for (const path of filePaths) {
+      try {
+        const { data: blob, error } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .download(path)
+        if (error || !blob) continue
+
+        const fileName = path.split('/').pop()
+        const file = new File([blob], fileName)
+        const result = await processExcelFile(file)
+        if (result?.rows?.length) {
+          allRows.push(...result.rows)
+          fileNames.push(fileName)
+        }
+      } catch { /* 單一檔案失敗不影響其他 */ }
+    }
+
+    setSyncStatus(allRows.length
+      ? `✓ 已還原 ${allRows.length.toLocaleString()} 筆資料`
+      : '還原完成（無可讀取的資料）')
+    setTimeout(() => setSyncStatus(''), 4000)
+    setSyncing(false)
+
+    return { rows: allRows, fileNames }
+  }, [])
+
   return {
     syncing,
     syncStatus,
@@ -176,5 +212,6 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
     uploadSalesFile,
     deleteCloudFile,
     saveCosts,
+    loadSpecificFiles,
   }
 }
