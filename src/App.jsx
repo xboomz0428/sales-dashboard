@@ -75,11 +75,21 @@ function buildMeta(rows) {
 }
 
 function AppDashboard() {
-  const { user, role, logout, perms, allowedTabs, roleInfo, isLoggedIn } = useAuth()
+  const { user, role, logout, perms, allowedTabs, dataYearsLimit, roleInfo, isLoggedIn } = useAuth()
   const [dark, setDark] = useDarkMode()
   const [allRows, setAllRows] = useState([])
   const allRowsRef = useRef([])   // 給 handleCloudDataLoaded 讀取，避免 stale closure
   useEffect(() => { allRowsRef.current = allRows }, [allRows])
+
+  // 依角色資料年限過濾（NULL = 不限制；正整數 = 從今天往前 N 年）
+  const visibleRows = useMemo(() => {
+    if (!dataYearsLimit) return allRows
+    const cutoff = new Date()
+    cutoff.setFullYear(cutoff.getFullYear() - dataYearsLimit)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)  // 'YYYY-MM-DD'
+    return allRows.filter(r => r.date >= cutoffStr)
+  }, [allRows, dataYearsLimit])
+
   const [meta, setMeta] = useState(null)
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
@@ -281,7 +291,7 @@ function AppDashboard() {
     })
   }, [saveCosts])
 
-  const salesData = useSalesData(allRows, filters)
+  const salesData = useSalesData(visibleRows, filters)
   const {
     summary, filtered,
     trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
@@ -360,7 +370,7 @@ function AppDashboard() {
         `}>
           <FilterPanel
             meta={meta} filters={filters} onChange={setFilters}
-            allRows={allRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
+            allRows={visibleRows} open={panelOpen} onToggle={() => setPanelOpen(v => !v)}
           />
         </div>
       )}
@@ -402,14 +412,18 @@ function AppDashboard() {
               <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-1.5 py-0.5 text-xs font-medium">{uploadHistory.length}</span>
             </button>
 
-            {/* Add file */}
-            <button onClick={() => fileInputRef.current?.click()}
-              className="text-sm px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm">
-              <span className="text-base leading-none">＋</span>
-              <span className="hidden sm:inline">新增檔案</span>
-            </button>
-            <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.csv" className="hidden"
-              onChange={e => { if (e.target.files[0]) handleFileLoaded(e.target.files[0]); e.target.value = '' }} />
+            {/* Add file — 僅限有上傳權限的角色 */}
+            {perms.uploadData && (
+              <>
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="text-sm px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm">
+                  <span className="text-base leading-none">＋</span>
+                  <span className="hidden sm:inline">新增檔案</span>
+                </button>
+                <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.csv" className="hidden"
+                  onChange={e => { if (e.target.files[0]) handleFileLoaded(e.target.files[0]); e.target.value = '' }} />
+              </>
+            )}
 
             {/* Global search — hidden on mobile */}
             {meta && (
@@ -420,24 +434,30 @@ function AppDashboard() {
               </button>
             )}
 
-            {/* API Key — hidden on mobile */}
-            <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true) }}
-              title={keyHasValue ? 'API Key 已設定' : '尚未設定 API Key'}
-              className={`hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border transition-colors items-center gap-1 ${keyHasValue ? 'border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30' : 'border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30'}`}>
-              🔑 <span className="hidden md:inline">{keyHasValue ? 'Key 已設定' : '設定 Key'}</span>
-            </button>
+            {/* API Key — 僅限非檢視者；hidden on mobile */}
+            {role !== 'viewer' && (
+              <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true) }}
+                title={keyHasValue ? 'API Key 已設定' : '尚未設定 API Key'}
+                className={`hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border transition-colors items-center gap-1 ${keyHasValue ? 'border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30' : 'border-amber-200 dark:border-amber-700 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30'}`}>
+                🔑 <span className="hidden md:inline">{keyHasValue ? 'Key 已設定' : '設定 Key'}</span>
+              </button>
+            )}
 
-            {/* AI Analysis */}
-            <button onClick={() => setAiOpen(true)}
-              className="text-sm px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
-              🤖 <span className="hidden sm:inline">AI 分析</span>
-            </button>
+            {/* AI Analysis — 僅限非檢視者 */}
+            {role !== 'viewer' && (
+              <button onClick={() => setAiOpen(true)}
+                className="text-sm px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
+                🤖 <span className="hidden sm:inline">AI 分析</span>
+              </button>
+            )}
 
-            {/* PDF export — hidden on mobile */}
-            <button onClick={handleExportPDF} disabled={pdfLoading}
-              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1 disabled:opacity-60">
-              {pdfLoading ? '⏳' : '📄'} <span className="hidden md:inline">{pdfLoading ? pdfProgress || 'PDF...' : 'PDF'}</span>
-            </button>
+            {/* PDF export — 僅限非檢視者；hidden on mobile */}
+            {role !== 'viewer' && (
+              <button onClick={handleExportPDF} disabled={pdfLoading}
+                className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1 disabled:opacity-60">
+                {pdfLoading ? '⏳' : '📄'} <span className="hidden md:inline">{pdfLoading ? pdfProgress || 'PDF...' : 'PDF'}</span>
+              </button>
+            )}
 
             {/* Cloud sync status */}
             {syncStatus && (
@@ -609,7 +629,7 @@ function AppDashboard() {
               <span className="text-lg sm:text-base leading-none">{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden text-[10px] leading-tight max-w-[44px] text-center break-keep">{tab.label}</span>
-              {tab.id === 'alerts' && <AnomalyBadge allRows={allRows} metric={filters.metric} />}
+              {tab.id === 'alerts' && <AnomalyBadge allRows={visibleRows} metric={filters.metric} />}
             </button>
           ))}
         </div>
@@ -626,10 +646,12 @@ function AppDashboard() {
               <p className="text-sm text-gray-400 dark:text-gray-500 mb-6 max-w-xs">
                 上傳 Excel 銷售資料，即可使用所有分析功能
               </p>
-              <button onClick={() => fileInputRef.current?.click()}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-2">
-                📤 上傳資料檔案
-              </button>
+              {perms.uploadData && (
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-2">
+                  📤 上傳資料檔案
+                </button>
+              )}
               {syncing && (
                 <div className="mt-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
                   <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -641,7 +663,7 @@ function AppDashboard() {
 
           {activeTab === 'summary' && meta && (
             <div data-pdf-section data-pdf-title="執行摘要">
-              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={allRows} filters={filters} />
+              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} />
             </div>
           )}
           {activeTab === 'comparison' && meta && (
@@ -702,12 +724,12 @@ function AppDashboard() {
           )}
           {activeTab === 'alerts' && meta && (
             <div data-pdf-section data-pdf-title="預警中心">
-              <AnomalyPanel allRows={allRows} metric={filters.metric} />
+              <AnomalyPanel allRows={visibleRows} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'health' && meta && (
             <div data-pdf-section data-pdf-title="客戶健康">
-              <CustomerHealthPanel allRows={allRows} />
+              <CustomerHealthPanel allRows={visibleRows} />
             </div>
           )}
           {activeTab === 'forecast' && meta && (
@@ -724,7 +746,7 @@ function AppDashboard() {
             <DataBackupPanel
               productCosts={productCosts}
               cloudFiles={cloudFiles}
-              allRows={allRows}
+              allRows={visibleRows}
               onRestore={handleRestoreBackup}
             />
           )}
@@ -732,7 +754,7 @@ function AppDashboard() {
             <UserManagement currentUserId={user?.id} />
           )}
           {activeTab === 'database' && (
-            <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={allRows} />
+            <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={visibleRows} />
           )}
         </div>
       </div>

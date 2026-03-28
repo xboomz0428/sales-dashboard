@@ -15,6 +15,8 @@ function PermissionsEditor({ onNotice, onError }) {
 
   // permissions: { manager: Set<string>, viewer: Set<string> }
   const [permissions, setPermissions] = useState(null)
+  // dataYears: { manager: string, viewer: string }  '' = 不限制
+  const [dataYears,   setDataYears]   = useState({ manager: '', viewer: '' })
   const [loading,     setLoading]     = useState(true)
   const [saving,      setSaving]      = useState(false)
   const [open,        setOpen]        = useState(false)
@@ -26,25 +28,29 @@ function PermissionsEditor({ onNotice, onError }) {
         manager: new Set(ROLE_TABS_DEFAULT.manager),
         viewer:  new Set(ROLE_TABS_DEFAULT.viewer),
       }
+      const defaultYears = { manager: '', viewer: '' }
       if (!supabaseAdmin) { setPermissions(defaults); return }
 
       const { data } = await supabaseAdmin
         .from('role_permissions')
-        .select('role, allowed_tabs')
+        .select('role, allowed_tabs, data_years')
 
       if (data?.length) {
         data.forEach(r => {
           if (r.role === 'manager' || r.role === 'viewer') {
             defaults[r.role] = new Set(r.allowed_tabs)
+            defaultYears[r.role] = r.data_years != null ? String(r.data_years) : ''
           }
         })
       }
       setPermissions(defaults)
+      setDataYears(defaultYears)
     } catch {
       setPermissions({
         manager: new Set(ROLE_TABS_DEFAULT.manager),
         viewer:  new Set(ROLE_TABS_DEFAULT.viewer),
       })
+      setDataYears({ manager: '', viewer: '' })
     } finally {
       setLoading(false)
     }
@@ -73,6 +79,7 @@ function PermissionsEditor({ onNotice, onError }) {
       const rows = ['manager', 'viewer'].map(role => ({
         role,
         allowed_tabs: [...permissions[role]],
+        data_years: dataYears[role] !== '' ? parseInt(dataYears[role], 10) : null,
         updated_at: new Date().toISOString(),
       }))
 
@@ -131,8 +138,41 @@ function PermissionsEditor({ onNotice, onError }) {
             <div className="p-4 sm:p-5 space-y-5">
               {/* 說明 */}
               <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs text-amber-700 dark:text-amber-400">
-                ⚠️ <strong>系統管理員</strong>固定可見全部功能，無法限制。<br />
+                ⚠️ <strong>系統管理員</strong>固定可見全部功能與所有年份資料，無法限制。<br />
                 勾選代表該角色<strong>可以看到</strong>此功能頁籤。
+              </div>
+
+              {/* 資料年限設定 */}
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl space-y-3">
+                <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  資料可視年限（從今天往前回推）
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {['manager', 'viewer'].map(r => (
+                    <div key={r}>
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">
+                        {ROLES[r]?.label}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={dataYears[r]}
+                          onChange={e => setDataYears(prev => ({ ...prev, [r]: e.target.value }))}
+                          placeholder="不限"
+                          className="w-20 px-2.5 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {dataYears[r] ? `最近 ${dataYears[r]} 年` : '不限制'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500">
+                  留空表示不限制年份，可查看全部歷史資料。
+                </p>
               </div>
 
               {/* 權限矩陣 */}
@@ -194,8 +234,10 @@ function PermissionsEditor({ onNotice, onError }) {
               {/* 儲存按鈕 */}
               <div className="flex items-center justify-between pt-1">
                 <div className="text-xs text-gray-400 dark:text-gray-500">
-                  管理者 {permissions.manager.size}/{TAB_DEFS.length} 個功能 ·
+                  管理者 {permissions.manager.size}/{TAB_DEFS.length} 個功能
+                  {dataYears.manager ? `・最近 ${dataYears.manager} 年` : '・年份不限'} ·
                   檢視者 {permissions.viewer.size}/{TAB_DEFS.length} 個功能
+                  {dataYears.viewer ? `・最近 ${dataYears.viewer} 年` : '・年份不限'}
                 </div>
                 <button
                   onClick={save}

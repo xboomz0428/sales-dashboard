@@ -61,7 +61,7 @@ export function AuthProvider({ children }) {
   const [role,          setRole]          = useState(null)   // 'admin' | 'manager' | 'viewer'
   const [loading,       setLoading]       = useState(true)
   const [authError,     setAuthError]     = useState(null)
-  const [dbPermissions, setDbPermissions] = useState(null)   // { manager: string[], viewer: string[] }
+  const [dbPermissions, setDbPermissions] = useState(null)   // { manager: { allowed_tabs, data_years }, viewer: { ... } }
 
   // ── 示範模式（Supabase 未設定時） ────────────────────────────────────────
   const demoMode = !supabaseReady
@@ -72,9 +72,11 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await supabase
         .from('role_permissions')
-        .select('role, allowed_tabs')
+        .select('role, allowed_tabs, data_years')
       if (data?.length) {
-        setDbPermissions(Object.fromEntries(data.map(r => [r.role, r.allowed_tabs])))
+        setDbPermissions(Object.fromEntries(
+          data.map(r => [r.role, { allowed_tabs: r.allowed_tabs, data_years: r.data_years ?? null }])
+        ))
       }
     } catch { /* 靜默失敗，使用預設值 */ }
   }, [])
@@ -209,13 +211,18 @@ export function AuthProvider({ children }) {
   const allowedTabs = role
     ? (role === 'admin'
         ? null
-        : (dbPermissions?.[role] ?? ROLE_TABS_DEFAULT[role]))
+        : (dbPermissions?.[role]?.allowed_tabs ?? ROLE_TABS_DEFAULT[role]))
     : []
+
+  // 資料年限：admin 永遠不限制（null），其他角色從 DB 取得
+  const dataYearsLimit = role
+    ? (role === 'admin' ? null : (dbPermissions?.[role]?.data_years ?? null))
+    : null
 
   const value = {
     user, role, loading, authError, demoMode,
     login, logout,
-    perms, allowedTabs,
+    perms, allowedTabs, dataYearsLimit,
     isLoggedIn: !!user,
     roleInfo,
     refreshPermissions: fetchRolePermissions,
