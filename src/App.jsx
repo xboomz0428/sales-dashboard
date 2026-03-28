@@ -28,6 +28,7 @@ import SalesForecast from './components/SalesForecast'
 import ExecutiveSummary from './components/ExecutiveSummary'
 import ProductCostManager from './components/ProductCostManager'
 import FlowDiagram from './components/charts/FlowDiagram'
+import UserManagement from './components/auth/UserManagement'
 
 const TABS = [
   { id: 'summary',     label: '老闆視角', icon: '👔' },
@@ -46,6 +47,7 @@ const TABS = [
   { id: 'health',      label: '客戶健康', icon: '💊' },
   { id: 'forecast',    label: '預測分析', icon: '🔮' },
   { id: 'flow',        label: '流程架構', icon: '🗺️' },
+  { id: 'users',       label: '使用者管理', icon: '👤' },
 ]
 
 const DEFAULT_FILTERS = {
@@ -297,7 +299,7 @@ function AppDashboard() {
 
   if (!meta && !loading) {
     return (
-      <div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         {error && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/80 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg shadow text-sm">
             ⚠️ {error}
@@ -309,7 +311,24 @@ function AppDashboard() {
             {syncStatus}
           </div>
         )}
-        <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={loading || syncing} />
+        {perms.manageUsers && (
+          <div className="flex justify-end px-4 pt-4">
+            <button
+              onClick={() => setActiveTab(t => t === 'users' ? 'performance' : 'users')}
+              className={`text-sm px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                activeTab === 'users'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-700/50 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              }`}
+            >
+              👤 使用者管理
+            </button>
+          </div>
+        )}
+        {activeTab === 'users' && perms.manageUsers
+          ? <div className="p-4 max-w-4xl mx-auto"><UserManagement currentUserId={user?.id} /></div>
+          : <FileUpload onFileLoaded={handleFileLoaded} onError={setError} loading={loading || syncing} />
+        }
       </div>
     )
   }
@@ -637,6 +656,9 @@ function AppDashboard() {
             <div data-pdf-section data-pdf-title="流程架構">
               <FlowDiagram flowData={flowData} structureData={structureData} />
             </div>
+          )}
+          {activeTab === 'users' && (
+            <UserManagement currentUserId={user?.id} />
           )}
         </div>
       </div>

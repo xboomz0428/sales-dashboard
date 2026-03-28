@@ -63,6 +63,15 @@ async function main() {
   console.log('   自動部署到 Vercel')
   console.log('================================\n')
 
+  // 先同步遠端（避免 rejected）
+  try {
+    process.stdout.write('🔄 同步遠端變更...')
+    run('git pull --rebase origin main')
+    console.log(' ✅')
+  } catch (e) {
+    console.log(' ⚠️  pull 失敗，嘗試繼續')
+  }
+
   // 確認有沒有變更
   const status = run('git status --short')
   if (!status) {
@@ -135,6 +144,7 @@ ${diff || '（無 diff 資訊）'}
   // Git 操作
   run('git add .')
   run(`git commit -m "v${newVersion}: ${description}"`)
+  run('git pull --rebase origin main')
   run('git push')
 
   console.log('\n================================')

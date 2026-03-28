@@ -14,7 +14,9 @@ export const ROLES = {
 // 各角色可看到的 Tab ID（null = 全部可見）
 export const ROLE_TABS = {
   admin:   null,
-  manager: null,
+  manager: ['summary','performance','comparison','trend','product','customer',
+             'channel','brand','heatmap','table','costs','goals','alerts',
+             'health','forecast','flow'],
   viewer:  ['summary','performance','comparison','trend','product','customer',
              'channel','brand','heatmap','table','health','forecast','flow'],
 }
