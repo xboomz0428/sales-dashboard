@@ -246,6 +246,18 @@ function AppDashboard() {
     }
   }, [allRows, uploadHistory, uploadSalesFile])
 
+  const handleDeleteFile = useCallback(async (fileEntry) => {
+    if (!window.confirm(`確定要從雲端永久刪除「${fileEntry.name}」？此操作無法復原。`)) return
+    try {
+      await deleteCloudFile(fileEntry.name)
+      setUploadHistory(prev => prev.filter(f => f.id !== fileEntry.id))
+      setNotice(`「${fileEntry.name}」已從雲端刪除，請重新整理頁面以更新資料`)
+      setTimeout(() => setNotice(null), 8000)
+    } catch (e) {
+      setError(`刪除失敗：${e?.message || '未知錯誤'}`)
+    }
+  }, [deleteCloudFile])
+
   const handleReset = useCallback(() => {
     setAllRows([]); setMeta(null); setUploadHistory([])
     setError(null); setNotice(null)
@@ -410,9 +422,9 @@ function AppDashboard() {
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {loading && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
 
-            {/* Upload history — hidden on mobile */}
+            {/* Upload history — hidden on mobile (except admin) */}
             <button onClick={() => setShowHistory(v => !v)}
-              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1">
+              className={`${role === 'admin' ? 'flex' : 'hidden sm:flex'} text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1`}>
               📁 <span className="hidden md:inline">記錄</span>
               <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-1.5 py-0.5 text-xs font-medium">{uploadHistory.length}</span>
             </button>
@@ -563,7 +575,12 @@ function AppDashboard() {
         {showHistory && (
           <div className="mx-3 sm:mx-4 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex-shrink-0 shadow-sm overflow-x-auto">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-bold text-gray-600 dark:text-gray-300">上傳記錄</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-gray-600 dark:text-gray-300">上傳記錄</span>
+                {role === 'admin' && (
+                  <span className="text-xs text-red-400 dark:text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded font-medium">管理員：可刪除雲端檔案</span>
+                )}
+              </div>
               <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs">✕</button>
             </div>
             <table className="w-full text-sm min-w-[500px]">
@@ -574,6 +591,7 @@ function AppDashboard() {
                   <th className="text-right py-1 pr-3">新增</th>
                   <th className="text-right py-1 pr-3">略過</th>
                   <th className="text-right py-1">時間</th>
+                  {role === 'admin' && <th className="text-right py-1 pl-3">刪除</th>}
                 </tr>
               </thead>
               <tbody>
@@ -586,6 +604,15 @@ function AppDashboard() {
                     <td className="py-1 pr-3 text-right text-emerald-600 dark:text-emerald-400 font-mono">+{f.addedCount.toLocaleString()}</td>
                     <td className="py-1 pr-3 text-right text-gray-400 dark:text-gray-500 font-mono">{f.duplicateCount.toLocaleString()}</td>
                     <td className="py-1 text-right text-gray-400 dark:text-gray-500">{f.time}</td>
+                    {role === 'admin' && (
+                      <td className="py-1 pl-3 text-right">
+                        <button
+                          onClick={() => handleDeleteFile(f)}
+                          className="text-xs px-2 py-0.5 rounded border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                          title={`從雲端刪除 ${f.name}`}
+                        >🗑 刪除</button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -625,15 +652,15 @@ function AppDashboard() {
               data-tab-active={activeTab === tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5
-                px-2.5 sm:px-4 py-2 sm:py-3 min-h-[52px] sm:min-h-0 min-w-[48px] sm:min-w-0
+                px-2.5 sm:px-4 py-2 sm:py-3 min-h-[60px] sm:min-h-0 min-w-[54px] sm:min-w-0
                 text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-blue-600 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
               }`}>
-              <span className="text-lg sm:text-base leading-none">{tab.icon}</span>
+              <span className="text-2xl sm:text-base leading-none">{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-[10px] leading-tight max-w-[44px] text-center break-keep">{tab.label}</span>
+              <span className="sm:hidden text-xs leading-tight max-w-[54px] text-center break-keep">{tab.label}</span>
               {tab.id === 'alerts' && <AnomalyBadge allRows={visibleRows} metric={filters.metric} />}
             </button>
           ))}

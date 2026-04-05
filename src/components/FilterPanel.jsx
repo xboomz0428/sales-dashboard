@@ -164,8 +164,8 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
 
   return (
     <div
-      className="flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden shadow-sm"
-      style={{ width: panelWidth, transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
+      className="flex-shrink-0 h-full bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden shadow-sm"
+      style={{ width: panelWidth, maxWidth: 'calc(100vw - 16px)', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
     >
       {/* Collapsed state */}
       {!open && (
@@ -218,7 +218,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <div className="flex-1 overflow-y-auto p-3.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
             {/* Metric */}
             <div className="mb-4">
               <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">分析指標</label>
