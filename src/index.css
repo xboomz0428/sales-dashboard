@@ -79,6 +79,16 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── 篩選面板捲動區：覆寫 button/label 的 manipulation，改為 pan-y ──
+   讓使用者在任意元素上直接上下滑動即可捲動，不需拖動捲軸 ── */
+.filter-scroll-area,
+.filter-scroll-area button,
+.filter-scroll-area label,
+.filter-scroll-area input,
+.filter-scroll-area div {
+  touch-action: pan-y;
+}
+
 /* ── 防止 iOS 雙擊縮放（不影響文字縮放）── */
 * {
   -webkit-text-size-adjust: 100%;

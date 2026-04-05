@@ -218,7 +218,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
+          <div className="filter-scroll-area flex-1 overflow-y-auto p-3.5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
             {/* Metric */}
             <div className="mb-4">
               <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">分析指標</label>
