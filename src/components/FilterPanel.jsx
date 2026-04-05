@@ -10,9 +10,9 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
-        <label className={`font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
+        <label className="font-bold text-base text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</label>
         {!allSelected && (
-          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-400 ${expanded ? 'text-sm' : 'text-base'}`}>清除</button>
+          <button onClick={() => onChange([])} className="text-base text-blue-500 hover:text-blue-400">清除</button>
         )}
       </div>
       <div className={`flex flex-wrap ${expanded ? 'gap-2' : 'gap-1.5'}`}>
@@ -21,8 +21,8 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
           const lbl = typeof opt === 'object' ? opt.label : opt
           return (
             <button key={val} onClick={() => toggle(val)}
-              className={`rounded-md border transition-all min-h-[36px] ${
-                expanded ? 'px-4 py-2 text-sm font-medium' : 'px-2.5 py-1.5 text-base'
+              className={`rounded-md border transition-all min-h-[40px] ${
+                expanded ? 'px-4 py-2 text-base font-medium' : 'px-2.5 py-1.5 text-base'
               } ${
                 selected.includes(val)
                   ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
@@ -47,9 +47,9 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
-        <label className={`font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ${expanded ? 'text-sm' : 'text-base'}`}>{label}</label>
+        <label className="font-bold text-base text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</label>
         {selected.length > 0 && (
-          <button onClick={() => onChange([])} className={`text-blue-500 hover:text-blue-400 ${expanded ? 'text-sm' : 'text-base'}`}>
+          <button onClick={() => onChange([])} className="text-base text-blue-500 hover:text-blue-400">
             清除 ({selected.length})
           </button>
         )}
@@ -57,24 +57,22 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
       <input
         type="text" value={q} onChange={e => setQ(e.target.value)}
         placeholder={placeholder}
-        className={`w-full border border-gray-200 dark:border-gray-600 rounded-lg mb-1.5 focus:outline-none focus:border-blue-400 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-all ${
-          expanded ? 'text-sm px-3 py-2.5' : 'text-base px-2.5 py-2'
-        }`}
+        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg mb-1.5 focus:outline-none focus:border-blue-400 bg-gray-50 dark:bg-gray-700 text-base px-3 py-2.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-all"
       />
       <div className={`overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 transition-all ${
-        expanded ? 'max-h-64 space-y-1 p-2' : 'max-h-40 space-y-0.5 p-1.5'
+        expanded ? 'max-h-64 space-y-1 p-2' : 'max-h-44 space-y-0.5 p-1.5'
       }`}>
         {shown.length === 0 ? (
-          <p className={`text-gray-400 dark:text-gray-500 px-2 py-1 ${expanded ? 'text-sm' : 'text-base'}`}>無結果</p>
+          <p className="text-base text-gray-400 dark:text-gray-500 px-2 py-1">無結果</p>
         ) : shown.map(opt => (
-          <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors min-h-[40px] ${
+          <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors min-h-[44px] ${
             expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-2 py-2'
           } ${selSet.has(opt) ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-white dark:hover:bg-gray-600'}`}>
             <input
               type="checkbox" checked={selSet.has(opt)} onChange={() => toggle(opt)}
-              className={`accent-blue-600 flex-shrink-0 ${expanded ? 'w-5 h-5' : 'w-4 h-4'}`}
+              className="accent-blue-600 flex-shrink-0 w-5 h-5"
             />
-            <span className={`truncate ${expanded ? 'text-sm' : 'text-base'} ${
+            <span className={`truncate text-base ${
               selSet.has(opt) ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'
             }`}>{opt}</span>
           </label>
@@ -102,7 +100,17 @@ function detectQuickMode(dateRange) {
 }
 
 export default function FilterPanel({ meta, filters, onChange, allRows = [], open = true, onToggle }) {
-  const { years, channels, channelTypes, brands, customers = [], products = [] } = meta
+  const { years, channels, channelTypes, brands: rawBrands, customers = [], products = [] } = meta
+
+  // 品牌依銷售總額降冪排序
+  const brands = useMemo(() => {
+    if (!allRows.length) return rawBrands
+    const totals = {}
+    for (const r of allRows) {
+      if (r.brand) totals[r.brand] = (totals[r.brand] || 0) + (r.subtotal || 0)
+    }
+    return [...rawBrands].sort((a, b) => (totals[b] || 0) - (totals[a] || 0))
+  }, [rawBrands, allRows])
   const [showCustomDate, setShowCustomDate] = useState(false)
   const quickMode = detectQuickMode(filters.dateRange)
 

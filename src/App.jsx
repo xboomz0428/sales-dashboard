@@ -144,7 +144,7 @@ function AppDashboard() {
   const [pdfProgress, setPdfProgress] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [dashboardOpen, setDashboardOpen] = useState(true)
+  const [dashboardOpen, setDashboardOpen] = useState(false)
   const [keyModalOpen, setKeyModalOpen] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
@@ -625,9 +625,9 @@ function AppDashboard() {
           <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
             <button
               onClick={() => setDashboardOpen(v => !v)}
-              className="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              className="flex items-center gap-2 text-base sm:text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors min-h-[40px]"
             >
-              <span className={`transition-transform duration-200 text-xs ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
+              <span className={`transition-transform duration-200 text-2xl sm:text-sm leading-none ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
               {dashboardOpen ? '收折儀表板' : '展開儀表板'}
             </button>
             {!dashboardOpen && (
@@ -843,6 +843,7 @@ function AppDashboard() {
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         onExportFullPDF={handleAIExportFullPDF}
+        user={user}
         salesData={{
           summary, filters,
           productData, brandData, channelData, channelTypeData,

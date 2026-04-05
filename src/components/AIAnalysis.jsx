@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { buildAIPayload, buildPrompt, streamAnalysis } from '../utils/aiAnalyst'
+import { supabase, supabaseReady } from '../config/supabase'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -242,6 +243,54 @@ function addToHistory(entry) {
   h.unshift(entry)
   if (h.length > 30) h.splice(30)
   localStorage.setItem(HISTORY_KEY, JSON.stringify(h))
+}
+
+// ─── Supabase DB 儲存/載入 ────────────────────────────────────────────────────
+async function saveAnalysisToDb(user, entry) {
+  if (!user || !supabaseReady) return null
+  try {
+    const { data, error } = await supabase
+      .from('ai_analysis_records')
+      .insert({
+        user_id: user.id,
+        type: entry.type,
+        filename: entry.filename,
+        content: entry.content,
+        preview: entry.preview,
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    return data?.id ?? null
+  } catch { return null }
+}
+
+async function loadAnalysisFromDb(user) {
+  if (!user || !supabaseReady) return []
+  try {
+    const { data, error } = await supabase
+      .from('ai_analysis_records')
+      .select('id, type, filename, content, preview, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (error) throw error
+    return (data || []).map(r => ({
+      id: r.id,
+      type: r.type,
+      filename: r.filename,
+      content: r.content,
+      preview: r.preview,
+      date: new Date(r.created_at).toLocaleDateString('zh-TW'),
+      fromDb: true,
+    }))
+  } catch { return [] }
+}
+
+async function deleteAnalysisFromDb(user, id) {
+  if (!user || !supabaseReady) return
+  try {
+    await supabase.from('ai_analysis_records').delete().eq('id', id).eq('user_id', user.id)
+  } catch { /* 靜默 */ }
 }
 function makeFilename(type) {
   const d = new Date().toISOString().slice(0, 10)
@@ -488,13 +537,13 @@ function MarkdownReport({ text, analysisType }) {
 }
 
 // ─── History panel ─────────────────────────────────────────────────────────────
-function HistoryPanel({ history, onLoad, onClear }) {
+function HistoryPanel({ history, onLoad, onClear, onDelete }) {
   if (!history.length) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500 gap-3">
         <span className="text-4xl">📂</span>
         <p className="text-sm">尚無分析記錄</p>
-        <p className="text-xs text-gray-300 dark:text-gray-600">每次分析完成後自動儲存</p>
+        <p className="text-xs text-gray-300 dark:text-gray-600">每次分析完成後自動儲存至資料庫</p>
       </div>
     )
   }
@@ -502,7 +551,7 @@ function HistoryPanel({ history, onLoad, onClear }) {
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-bold text-gray-500 dark:text-gray-400">{history.length} 筆歷史記錄</span>
-        <button onClick={onClear} className="text-xs text-red-400 hover:text-red-600 transition-colors">清除全部</button>
+        <button onClick={onClear} className="text-xs text-red-400 hover:text-red-600 transition-colors">清除全部（本機）</button>
       </div>
       {history.map((item, i) => {
         const typeInfo = ANALYSIS_TYPES.find(t => t.value === item.type)
@@ -512,23 +561,31 @@ function HistoryPanel({ history, onLoad, onClear }) {
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-lg flex-shrink-0">{typeInfo?.label.split(' ')[0] || '🤖'}</span>
                 <div className="min-w-0">
-                  <div className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{typeInfo?.label || item.type}</div>
-                  <div className="text-sm text-gray-400 dark:text-gray-500">{item.date} · {item.filename}</div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{typeInfo?.label || item.type}</span>
+                    {item.fromDb
+                      ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium flex-shrink-0">☁ 雲端</span>
+                      : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">本機</span>
+                    }
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500">{item.date} · {item.filename}</div>
                 </div>
               </div>
-              <button
-                onClick={() => onLoad(item)}
-                className="text-sm px-2.5 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex-shrink-0 transition-colors"
-              >
-                載入
-              </button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={() => onLoad(item)}
+                  className="text-sm px-2.5 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >載入</button>
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(item)}
+                    className="text-sm px-2 py-1 rounded-lg border border-red-200 dark:border-red-800 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                    title="刪除此筆記錄"
+                  >🗑</button>
+                )}
+              </div>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{item.preview}</p>
-            {item.savedPath && (
-              <div className="flex items-center gap-1 mt-1.5">
-                <span className="text-sm text-emerald-600 dark:text-emerald-400">✓ {item.savedPath}</span>
-              </div>
-            )}
           </div>
         )
       })}
@@ -537,7 +594,7 @@ function HistoryPanel({ history, onLoad, onClear }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }) {
+export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, user }) {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('google_ai_studio_api_key') || '')
   const [analysisType, setAnalysisType] = useState('comprehensive')
   const [streaming, setStreaming] = useState(false)
@@ -547,14 +604,33 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
   const [showKey, setShowKey] = useState(false)
   const [activeTab, setActiveTab] = useState('analysis') // 'analysis' | 'chart' | 'history'
   const [history, setHistory] = useState(getHistory)
-  const [saveStatus, setSaveStatus] = useState('') // '' | 'saving' | 'saved:path' | 'error'
+  const [saveStatus, setSaveStatus] = useState('') // '' | 'saving' | 'saved:db' | 'saved:local' | 'error'
+  const [dbLoading, setDbLoading] = useState(false)
   const [exportingPDF, setExportingPDF] = useState(false)
   const [continueRound, setContinueRound] = useState(0)
-  const [canManualContinue, setCanManualContinue] = useState(false)  // 顯示「繼續生成」按鈕
+  const [canManualContinue, setCanManualContinue] = useState(false)
   const outputRef = useRef(null)
   const abortRef = useRef(false)
-  const originalPromptRef = useRef('')   // 儲存原始 prompt 供繼續使用
-  const fullOutputRef = useRef('')       // 與 fullOutput 同步，供繼續函式取用
+  const originalPromptRef = useRef('')
+  const fullOutputRef = useRef('')
+
+  // 開啟時從 DB 載入歷史記錄，與 localStorage 合併
+  useEffect(() => {
+    if (!open) return
+    const local = getHistory()
+    setHistory(local)
+    if (!user || !supabaseReady) return
+    setDbLoading(true)
+    loadAnalysisFromDb(user).then(dbRecords => {
+      setHistory(prev => {
+        // 以 DB 記錄為主，local 只補充 fromDb 沒有的 id
+        const dbIds = new Set(dbRecords.map(r => String(r.id)))
+        const localOnly = prev.filter(r => !r.fromDb && !dbIds.has(String(r.id)))
+        return [...dbRecords, ...localOnly]
+      })
+      setDbLoading(false)
+    })
+  }, [open, user])
 
   useEffect(() => {
     if (streaming && outputRef.current) {
@@ -625,20 +701,25 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
 
       const fullOutput = fullOutputRef.current
       const filename = makeFilename(analysisType)
+      const preview = fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…'
       setSaveStatus('saving')
-      const savedPath = await saveToServer(filename, fullOutput)
-      setSaveStatus(savedPath ? `saved:${savedPath}` : 'error')
 
-      addToHistory({
-        id: Date.now(),
+      // 同步儲存至 Supabase DB（主要）+ localStorage（備份）
+      const [savedPath, dbId] = await Promise.all([
+        saveToServer(filename, fullOutput),
+        saveAnalysisToDb(user, { type: analysisType, filename, content: fullOutput, preview }),
+      ])
+      setSaveStatus(dbId ? 'saved:db' : (savedPath ? `saved:${savedPath}` : 'error'))
+
+      const entry = {
+        id: dbId || Date.now(),
         type: analysisType,
         date: new Date().toLocaleDateString('zh-TW'),
-        filename,
-        savedPath,
-        preview: fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…',
-        content: fullOutput,
-      })
-      setHistory(getHistory())
+        filename, savedPath, preview, content: fullOutput,
+        fromDb: !!dbId,
+      }
+      addToHistory(entry)
+      setHistory(prev => [entry, ...prev.filter(h => h.id !== entry.id)])
     } catch (e) {
       setError(e.message); setStreaming(false); setContinueRound(0)
     }
@@ -688,16 +769,21 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
 
       const fullOutput = fullOutputRef.current
       const filename = makeFilename(currentType)
-      const savedPath = await saveToServer(filename, fullOutput)
-      setSaveStatus(savedPath ? `saved:${savedPath}` : 'error')
-      addToHistory({
-        id: Date.now(), type: currentType,
+      const preview = fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…'
+      setSaveStatus('saving')
+      const [savedPath, dbId] = await Promise.all([
+        saveToServer(filename, fullOutput),
+        saveAnalysisToDb(user, { type: currentType, filename, content: fullOutput, preview }),
+      ])
+      setSaveStatus(dbId ? 'saved:db' : (savedPath ? `saved:${savedPath}` : 'error'))
+      const entry = {
+        id: dbId || Date.now(), type: currentType,
         date: new Date().toLocaleDateString('zh-TW'),
-        filename, savedPath,
-        preview: fullOutput.replace(/[#*`>\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 150) + '…',
-        content: fullOutput,
-      })
-      setHistory(getHistory())
+        filename, savedPath, preview, content: fullOutput,
+        fromDb: !!dbId,
+      }
+      addToHistory(entry)
+      setHistory(prev => [entry, ...prev.filter(h => h.id !== entry.id)])
     } catch (e) {
       setError(e.message); setStreaming(false)
     }
@@ -740,15 +826,32 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
         <span className="w-3 h-3 border-2 border-amber-500 dark:border-amber-400 border-t-transparent rounded-full animate-spin" />儲存中...
       </span>
     )
+    if (saveStatus === 'saved:db') return (
+      <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">✓ 已儲存至資料庫</span>
+    )
     if (saveStatus.startsWith('saved:')) return (
       <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
         <span>✓</span><span className="truncate max-w-[200px]">{saveStatus.slice(6)}</span>
       </span>
     )
     if (saveStatus === 'error') return (
-      <span className="text-sm text-orange-500 dark:text-orange-400">⚠ 伺服器不可用（請用 npm run dev）</span>
+      <span className="text-sm text-orange-500 dark:text-orange-400">⚠ 僅儲存本機（資料庫未連線）</span>
     )
     return null
+  }
+
+  function handleClearHistory() {
+    setHistory([])
+    localStorage.removeItem(HISTORY_KEY)
+  }
+
+  async function handleDeleteHistoryItem(item) {
+    setHistory(prev => prev.filter(h => h.id !== item.id))
+    const local = getHistory().filter(h => h.id !== item.id)
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(local))
+    if (item.fromDb && user) {
+      await deleteAnalysisFromDb(user, item.id)
+    }
   }
 
   return (
@@ -801,15 +904,22 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF }
           </div>
         ) : activeTab === 'history' ? (
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
+            {dbLoading && (
+              <div className="flex items-center gap-2 text-sm text-blue-500 dark:text-blue-400 mb-3">
+                <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                從資料庫載入記錄...
+              </div>
+            )}
             <HistoryPanel
               history={history}
               onLoad={(item) => {
                 setOutput(item.content)
                 setCurrentType(item.type)
-                setSaveStatus(item.savedPath ? `saved:${item.savedPath}` : '')
+                setSaveStatus(item.fromDb ? 'saved:db' : (item.savedPath ? `saved:${item.savedPath}` : ''))
                 setActiveTab('analysis')
               }}
-              onClear={() => { localStorage.removeItem(HISTORY_KEY); setHistory([]) }}
+              onClear={handleClearHistory}
+              onDelete={handleDeleteHistoryItem}
             />
           </div>
         ) : activeTab === 'analysis' ? (

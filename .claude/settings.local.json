@@ -31,7 +31,16 @@
       "Bash(done)",
       "Bash(__NEW_LINE_6d4e924e4ea1857c__ printf:*)",
       "Bash(\"/c/Users/User/sales-dashboard/部署.bat\")",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Read(//c/Users/User/**)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\User\\\\LC商品成本_2026-04-05.csv' -Encoding UTF8 | Select-Object -First 20\" 2>&1)",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\User\\\\' | Where-Object {$_.Name -like '*2026-04-05*' -or $_.Name -like '*cost*' -or $_.Name -like '*Cost*'} | Select-Object Name, FullName\" 2>&1)",
+      "Bash(powershell -Command \"Get-ChildItem 'C:\\\\Users\\\\User\\\\' -Filter '*.csv' | Select-Object Name\" 2>&1)",
+      "Bash(powershell -Command \"[System.IO.Directory]::GetFiles\\('C:\\\\Users\\\\User\\\\', '*.csv'\\) | ForEach-Object { Write-Output $_ }\" 2>&1)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\User\\\\' | Select-Object -ExpandProperty Name | Out-String\" 2>&1)",
+      "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\User\\\\LC' | Select-Object Name, FullName | Out-String\" 2>&1)",
+      "Bash(powershell -Command \"[System.IO.File]::ReadAllText\\('C:\\\\Users\\\\User\\\\LC\\\\2026-04-05.csv', [System.Text.Encoding]::GetEncoding\\(950\\)\\) | Select-Object -First 1\" 2>&1)",
+      "Bash(powershell -Command \"\n\\\\$content = [System.IO.File]::ReadAllText\\('C:\\\\Users\\\\User\\\\LC\\\\2026-04-05.csv', [System.Text.Encoding]::GetEncoding\\(950\\)\\)\n\\\\$lines = \\\\$content -split '\\\\r?\\\\n' | Select-Object -First 10\n\\\\$lines | ForEach-Object { Write-Output \\\\$_ }\n\" 2>&1)"
     ]
   }
 }

@@ -81,10 +81,20 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
   const importCSV = (file) => {
     const reader = new FileReader()
     reader.onload = (e) => {
-      const text = e.target.result.replace(/^\uFEFF/, '')
+      const buffer = e.target.result
+
+      // 先試 UTF-8（含 BOM），若第一行不含預期欄位名稱則改用 Big5
+      let text = new TextDecoder('utf-8').decode(buffer).replace(/^\uFEFF/, '')
+      const firstLine = text.split(/\r?\n/)[0] || ''
+      if (!firstLine.includes('品名') && !firstLine.includes('name') && !firstLine.includes('Name')) {
+        try { text = new TextDecoder('big5').decode(buffer) } catch { /* 保持 UTF-8 */ }
+      }
+
       const lines = text.split(/\r?\n/).filter(l => l.trim())
-      let updated = 0, skipped = 0
+      let updated = 0, skipped = 0, noMatch = 0
       const updates = {}
+      const productSet = new Set(products)
+
       lines.slice(1).forEach(line => {
         const cols = parseCSVLine(line)
         if (cols.length >= 2) {
@@ -93,17 +103,18 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
           const cost = parseFloat(costStr)
           if (name && costStr !== '' && !isNaN(cost)) {
             updates[name] = cost
-            updated++
+            if (productSet.has(name)) updated++
+            else noMatch++
           } else if (name && costStr !== '') {
             skipped++
           }
         }
       })
       onUpdateMany(updates)
-      setImportResult({ updated, skipped })
-      setTimeout(() => setImportResult(null), 6000)
+      setImportResult({ updated, skipped, noMatch })
+      setTimeout(() => setImportResult(null), 8000)
     }
-    reader.readAsText(file, 'UTF-8')
+    reader.readAsArrayBuffer(file)
   }
 
   if (products.length === 0) {
@@ -161,12 +172,24 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
 
       {/* Import result */}
       {importResult && (
-        <div className="mb-4 px-4 py-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-xl text-base flex items-center gap-2">
-          <span>✓</span>
-          <span>
-            已更新 <strong>{importResult.updated}</strong> 項成本
-            {importResult.skipped > 0 ? `，略過 ${importResult.skipped} 項無效資料` : ''}
-          </span>
+        <div className={`mb-4 px-4 py-3 rounded-xl text-base border ${
+          importResult.updated > 0
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400'
+            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400'
+        }`}>
+          <div className="flex items-center gap-2">
+            <span>{importResult.updated > 0 ? '✓' : '⚠'}</span>
+            <span>
+              已更新 <strong>{importResult.updated}</strong> 項成本
+              {importResult.skipped > 0 ? `，略過 ${importResult.skipped} 項無效格式` : ''}
+              {importResult.noMatch > 0 ? `，${importResult.noMatch} 項品名在系統中找不到` : ''}
+            </span>
+          </div>
+          {importResult.noMatch > 0 && importResult.updated === 0 && (
+            <p className="text-sm mt-1.5 opacity-80">
+              💡 可能是 CSV 儲存時使用了不同編碼（如 Big5 / ANSI）。請用記事本另存為「UTF-8」格式後再匯入。
+            </p>
+          )}
         </div>
       )}
 
