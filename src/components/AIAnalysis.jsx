@@ -661,7 +661,8 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     abortRef.current = false
     fullOutputRef.current = ''
 
-    const MAX_CONTINUES = 4
+    // MAX_TOKENS / TRUNCATED（逾時）自動續接；STOP 後若輸出明顯不完整也自動一輪
+    const MAX_CONTINUES = 10
 
     // 建立原始 prompt 並儲存到 ref（供手動繼續使用）
     const dataJson = buildAIPayload(salesData)
@@ -683,20 +684,39 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
       })
     })
 
+    // 判斷是否需要繼續：MAX_TOKENS / TRUNCATED（逾時中斷）一定要繼續
+    // STOP 且輸出少於 1500 字，也視為疑似提前截斷，自動再一輪
+    const shouldContinue = (reason, round) => {
+      if (abortRef.current || round >= MAX_CONTINUES) return false
+      if (reason === 'MAX_TOKENS' || reason === 'TRUNCATED') return true
+      if (reason === 'STOP' && round === 0 && fullOutputRef.current.length < 1500) return true
+      return false
+    }
+
+    // 組合續接 messages：只保留最後 4000 字的輸出作為上下文（避免 token 爆炸）
+    const buildContinueMessages = () => {
+      const tail = fullOutputRef.current.slice(-4000)
+      const isHead = fullOutputRef.current.length <= 4000
+      return [
+        { role: 'user', parts: [{ text: originalPrompt }] },
+        {
+          role: 'model',
+          parts: [{ text: isHead ? fullOutputRef.current : `…（前文已省略）\n\n${tail}` }],
+        },
+        { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
+      ]
+    }
+
     try {
       // 第一輪
       let finishReason = await runOnce([{ role: 'user', parts: [{ text: originalPrompt }] }])
 
-      // 若被截斷（MAX_TOKENS），自動繼續，最多 MAX_CONTINUES 輪
+      // 自動續接（MAX_TOKENS / TRUNCATED / 過短的 STOP）
       let round = 0
-      while (finishReason === 'MAX_TOKENS' && round < MAX_CONTINUES && !abortRef.current) {
+      while (shouldContinue(finishReason, round)) {
         round++
         setContinueRound(round)
-        finishReason = await runOnce([
-          { role: 'user', parts: [{ text: originalPrompt }] },
-          { role: 'model', parts: [{ text: fullOutputRef.current }] },
-          { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
-        ])
+        finishReason = await runOnce(buildContinueMessages())
       }
 
       setStreaming(false)
@@ -752,21 +772,23 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
       })
     })
 
-    try {
-      let finishReason = await runOnce([
+    const buildContinueMessages = () => {
+      const tail = fullOutputRef.current.slice(-4000)
+      const isHead = fullOutputRef.current.length <= 4000
+      return [
         { role: 'user', parts: [{ text: originalPromptRef.current }] },
-        { role: 'model', parts: [{ text: fullOutputRef.current }] },
+        { role: 'model', parts: [{ text: isHead ? fullOutputRef.current : `…（前文已省略）\n\n${tail}` }] },
         { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
-      ])
+      ]
+    }
+
+    try {
+      let finishReason = await runOnce(buildContinueMessages())
 
       let round = 0
-      while (finishReason === 'MAX_TOKENS' && round < 4 && !abortRef.current) {
+      while ((finishReason === 'MAX_TOKENS' || finishReason === 'TRUNCATED') && round < 10 && !abortRef.current) {
         round++
-        finishReason = await runOnce([
-          { role: 'user', parts: [{ text: originalPromptRef.current }] },
-          { role: 'model', parts: [{ text: fullOutputRef.current }] },
-          { role: 'user', parts: [{ text: '請繼續完成分析，從你停止的地方接著寫，保持相同格式，不要重複已有內容。' }] },
-        ])
+        finishReason = await runOnce(buildContinueMessages())
       }
 
       setStreaming(false)

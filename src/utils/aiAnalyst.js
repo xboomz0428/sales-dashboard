@@ -186,6 +186,9 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 
 /* messages: 多輪對話陣列 [{ role, parts }]；若只傳 prompt 則自動包裝 */
 export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone, onError }) {
+  const CHUNK_TIMEOUT_MS = 30000  // 30 秒沒有新 chunk 視為卡住
+  const abortCtrl = new AbortController()
+
   try {
     const contents = messages ?? [{ role: 'user', parts: [{ text: prompt }] }]
     const response = await fetch(
@@ -197,6 +200,7 @@ export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone
           contents,
           generationConfig: { maxOutputTokens: 8192, temperature: 0.7 },
         }),
+        signal: abortCtrl.signal,
       }
     )
 
@@ -208,9 +212,29 @@ export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let finishReason = null
+    let gotAnyChunk = false
+
+    // 逐 chunk 讀取，附帶 timeout 防止卡住
+    const readWithTimeout = () => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        abortCtrl.abort()
+        reject(new Error('STREAM_TIMEOUT'))
+      }, CHUNK_TIMEOUT_MS)
+      reader.read().then(result => { clearTimeout(timer); resolve(result) }).catch(reject)
+    })
 
     while (true) {
-      const { done, value } = await reader.read()
+      let done, value
+      try {
+        ;({ done, value } = await readWithTimeout())
+      } catch (e) {
+        if (e.message === 'STREAM_TIMEOUT') {
+          // 已有內容時視為提前截斷，回傳 TRUNCATED 讓上層決定是否繼續
+          onDone?.(gotAnyChunk ? 'TRUNCATED' : null)
+          return
+        }
+        throw e
+      }
       if (done) break
       const chunk = decoder.decode(value, { stream: true })
       for (const line of chunk.split('\n')) {
@@ -220,14 +244,16 @@ export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone
         try {
           const parsed = JSON.parse(data)
           const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text
-          if (text) onChunk(text)
+          if (text) { onChunk(text); gotAnyChunk = true }
           const reason = parsed.candidates?.[0]?.finishReason
           if (reason) finishReason = reason
         } catch {}
       }
     }
-    onDone?.(finishReason)
+    // finishReason 為 null（連線中斷未收到）視同 TRUNCATED
+    onDone?.(finishReason ?? (gotAnyChunk ? 'TRUNCATED' : null))
   } catch (err) {
+    if (err.name === 'AbortError') return   // timeout 已在上方處理
     onError?.(err.message)
   }
 }
