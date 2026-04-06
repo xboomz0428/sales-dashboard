@@ -6,6 +6,7 @@ import { useDarkMode } from './hooks/useDarkMode'
 import { getDateRange } from './utils/dateUtils'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useCloudData } from './hooks/useCloudData'
+import { useBusinessData } from './hooks/useBusinessData'
 import LoginPage from './components/auth/LoginPage'
 import FileUpload from './components/FileUpload'
 import FilterPanel from './components/FilterPanel'
@@ -119,12 +120,11 @@ function AppDashboard() {
   const [productCosts, setProductCosts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('product_costs')) || {} } catch { return {} }
   })
-  const [monthlyExpenses, setMonthlyExpenses] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('monthly_expenses')) || {} } catch { return {} }
-  })
-  const [invoiceRecords, setInvoiceRecords] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('invoice_records')) || {} } catch { return {} }
-  })
+  // ── 業務資料（發票對帳 + 月費用）：localStorage + Supabase 雙向同步 ──────
+  const {
+    invoiceRecords, monthlyExpenses,
+    saveInvoiceRecords: _saveInvoice, saveMonthlyExpenses: _saveExpense,
+  } = useBusinessData(isLoggedIn ? user : null)
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
@@ -171,21 +171,8 @@ function AppDashboard() {
   const fileInputRef = useRef(null)
   const tabBarRef = useRef(null)
 
-  const saveMonthlyExpenses = useCallback((month, items) => {
-    setMonthlyExpenses(prev => {
-      const next = { ...prev, [month]: items }
-      localStorage.setItem('monthly_expenses', JSON.stringify(next))
-      return next
-    })
-  }, [])
-
-  const saveInvoiceRecords = useCallback((month, items) => {
-    setInvoiceRecords(prev => {
-      const next = { ...prev, [month]: items }
-      localStorage.setItem('invoice_records', JSON.stringify(next))
-      return next
-    })
-  }, [])
+  const saveMonthlyExpenses = _saveExpense
+  const saveInvoiceRecords  = _saveInvoice
 
   // ── 角色控制可見 Tab ──────────────────────────────────────────────────────
   const visibleTabs = allowedTabs ? TABS.filter(t => allowedTabs.includes(t.id)) : TABS
