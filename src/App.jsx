@@ -122,8 +122,9 @@ function AppDashboard() {
   })
   // ── 業務資料（發票對帳 + 月費用）：localStorage + Supabase 雙向同步 ──────
   const {
-    invoiceRecords, monthlyExpenses,
+    invoiceRecords, monthlyExpenses, billingEntities,
     saveInvoiceRecords: _saveInvoice, saveMonthlyExpenses: _saveExpense,
+    saveBillingEntity, deleteBillingEntity,
   } = useBusinessData(isLoggedIn ? user : null)
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -837,6 +838,9 @@ function AppDashboard() {
               invoices={invoiceRecords}
               onSave={saveInvoiceRecords}
               allRows={visibleRows}
+              billingEntities={billingEntities}
+              onSaveBillingEntity={saveBillingEntity}
+              onDeleteBillingEntity={deleteBillingEntity}
             />
           )}
           {activeTab === 'goals' && meta && (

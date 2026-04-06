@@ -16,16 +16,24 @@ import { supabase, supabaseReady } from '../config/supabase'
 
 const LS_INVOICE  = 'invoice_records'
 const LS_EXPENSE  = 'monthly_expenses'
+const LS_BILLING  = 'billing_entities'
 
 // ─── 資料表名稱 ───────────────────────────────────────────────────────────────
 const TBL_INVOICE = 'invoice_records'
 const TBL_EXPENSE = 'monthly_expenses'
+const TBL_BILLING = 'billing_entities'
 
 // ─── localStorage 工具 ────────────────────────────────────────────────────────
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} }
 }
 function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)) } catch { /* quota */ }
+}
+function lsGetArr(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || [] } catch { return [] }
+}
+function lsSetArr(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)) } catch { /* quota */ }
 }
 
@@ -47,6 +55,9 @@ function rowsToMonthMap(rows, fields) {
 const INVOICE_FIELDS = [
   { app: 'id',              db: 'id',              default: '' },
   { app: 'store',           db: 'store',           default: '' },
+  { app: 'billingName',     db: 'billing_name',    default: '' },
+  { app: 'taxId',           db: 'tax_id',          default: '' },
+  { app: 'mergedStores',    db: 'merged_stores',   default: [] },
   { app: 'invoiceNo',       db: 'invoice_no',      default: '' },
   { app: 'billingStart',    db: 'billing_start',   default: null },
   { app: 'billingEnd',      db: 'billing_end',     default: null },
@@ -86,6 +97,7 @@ function appToDbRow(appItem, month, fields) {
 export function useBusinessData(user) {
   const [invoiceRecords, setInvoiceRecords] = useState(() => lsGet(LS_INVOICE))
   const [monthlyExpenses, setMonthlyExpenses] = useState(() => lsGet(LS_EXPENSE))
+  const [billingEntities, setBillingEntities] = useState(() => lsGetArr(LS_BILLING))
   const loadedRef = useRef(false)
 
   // ── 登入後從 Supabase 載入全量資料 ─────────────────────────────────────────
@@ -96,7 +108,8 @@ export function useBusinessData(user) {
     Promise.all([
       supabase.from(TBL_INVOICE).select('*').order('month'),
       supabase.from(TBL_EXPENSE).select('*').order('month'),
-    ]).then(([invRes, expRes]) => {
+      supabase.from(TBL_BILLING).select('*').order('created_at'),
+    ]).then(([invRes, expRes, bilRes]) => {
       if (!invRes.error && invRes.data?.length) {
         const map = rowsToMonthMap(invRes.data, INVOICE_FIELDS)
         setInvoiceRecords(prev => {
@@ -119,6 +132,17 @@ export function useBusinessData(user) {
           lsSet(LS_EXPENSE, merged)
           return merged
         })
+      }
+      if (!bilRes.error && bilRes.data?.length) {
+        // 雲端資料為主，轉換欄位名
+        const entities = bilRes.data.map(r => ({
+          id:      r.id,
+          name:    r.name,
+          taxId:   r.tax_id,
+          stores:  r.stores || [],
+        }))
+        setBillingEntities(entities)
+        lsSetArr(LS_BILLING, entities)
       }
     }).catch(() => { /* 靜默失敗，使用 localStorage */ })
   }, [user?.id])
@@ -164,5 +188,50 @@ export function useBusinessData(user) {
     })()
   }, [])
 
-  return { invoiceRecords, monthlyExpenses, saveInvoiceRecords, saveMonthlyExpenses }
+  // ── 儲存常用抬頭（upsert by id）────────────────────────────────────────
+  const saveBillingEntity = useCallback((entity) => {
+    // entity: { id, name, taxId, stores[] }
+    setBillingEntities(prev => {
+      const idx = prev.findIndex(e => e.id === entity.id)
+      const next = idx >= 0
+        ? prev.map((e, i) => i === idx ? entity : e)
+        : [...prev, entity]
+      lsSetArr(LS_BILLING, next)
+      return next
+    })
+
+    if (!supabaseReady) return
+    ;(async () => {
+      try {
+        await supabase.from(TBL_BILLING).upsert({
+          id:         entity.id,
+          name:       entity.name,
+          tax_id:     entity.taxId || '',
+          stores:     entity.stores || [],
+          updated_at: new Date().toISOString(),
+        })
+      } catch { /* 靜默失敗 */ }
+    })()
+  }, [])
+
+  // ── 刪除常用抬頭 ──────────────────────────────────────────────────────
+  const deleteBillingEntity = useCallback((id) => {
+    setBillingEntities(prev => {
+      const next = prev.filter(e => e.id !== id)
+      lsSetArr(LS_BILLING, next)
+      return next
+    })
+
+    if (!supabaseReady) return
+    ;(async () => {
+      try {
+        await supabase.from(TBL_BILLING).delete().eq('id', id)
+      } catch { /* 靜默失敗 */ }
+    })()
+  }, [])
+
+  return {
+    invoiceRecords, monthlyExpenses, billingEntities,
+    saveInvoiceRecords, saveMonthlyExpenses, saveBillingEntity, deleteBillingEntity,
+  }
 }

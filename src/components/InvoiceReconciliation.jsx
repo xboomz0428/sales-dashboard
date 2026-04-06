@@ -54,6 +54,7 @@ function calcSalesInPeriod(allRows, customer, start, end) {
 function emptyForm(m = thisMonth()) {
   return {
     store: '', invoiceNo: '', amount: '',
+    billingName: '', taxId: '', mergedStores: [],
     billingStart: monthStart(m), billingEnd: monthEnd(m),
     issueDate: todayStr(),
     invoiceType: 'electronic', paymentMethod: 'transfer',
@@ -102,6 +103,199 @@ function StatusBadge({ status }) {
   )
 }
 
+// ─── 彙整開立發票面板 ────────────────────────────────────────────────────────
+function BulkInvoicePanel({ selectedStores, salesByCustomer, billingEntities, currentMonth, allRows, onSubmit, onCancel }) {
+  const baseMonth = currentMonth || thisMonth()
+
+  const [form, setForm] = useState(() => {
+    const totalAmt = selectedStores.reduce((s, st) => s + Math.round(salesByCustomer[st] || 0), 0)
+    const suggested = billingEntities.find(e => selectedStores.some(s => e.stores.includes(s)))
+    return {
+      billingName: suggested?.name || '',
+      taxId: suggested?.taxId || '',
+      billingStart: monthStart(baseMonth),
+      billingEnd: monthEnd(baseMonth),
+      amount: totalAmt,
+      invoiceNo: '',
+      issueDate: todayStr(),
+      invoiceType: 'electronic',
+      paymentMethod: 'transfer',
+      paymentTerm: 30,
+      note: '',
+      saveEntity: !!suggested,
+    }
+  })
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // 依結帳週期重新計算彙整金額
+  const periodTotal = useMemo(() => {
+    if (!form.billingStart || !form.billingEnd || !allRows.length) return null
+    let total = 0
+    for (const st of selectedStores) {
+      const v = calcSalesInPeriod(allRows, st, form.billingStart, form.billingEnd)
+      if (v) total += v
+    }
+    return total > 0 ? total : null
+  }, [selectedStores, form.billingStart, form.billingEnd, allRows])
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!form.amount || isNaN(parseFloat(form.amount))) { alert('請填寫有效金額'); return }
+    onSubmit(form, selectedStores)
+  }
+
+  const inputCls = 'border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400'
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-gray-800 border border-teal-200 dark:border-teal-700/50 rounded-2xl p-5 shadow-sm">
+      <h3 className="text-base font-bold text-gray-700 dark:text-gray-200">🔗 彙整開立發票</h3>
+
+      {/* 彙整門市 */}
+      <div>
+        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1 block">彙整門市（{selectedStores.length} 家）</label>
+        <div className="flex flex-wrap gap-1.5">
+          {selectedStores.map(s => (
+            <span key={s} className="flex items-center gap-2 px-2.5 py-1 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-700 rounded-xl text-sm font-semibold text-teal-800 dark:text-teal-200">
+              {s}
+              <span className="text-teal-500 dark:text-teal-400 text-xs font-mono">NT$ {Math.round(salesByCustomer[s] || 0).toLocaleString()}</span>
+            </span>
+          ))}
+        </div>
+        {periodTotal != null && periodTotal !== form.amount && (
+          <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700/50">
+            <p className="text-xs text-blue-600 dark:text-blue-400 flex-1">
+              📅 結帳週期合計：NT$ {periodTotal.toLocaleString()}
+            </p>
+            <button type="button" onClick={() => set('amount', periodTotal)}
+              className="text-xs px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors">
+              套用
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 抬頭 + 統編 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票抬頭 *</label>
+          <input
+            list="bulk-billing-list"
+            value={form.billingName}
+            onChange={e => {
+              set('billingName', e.target.value)
+              const ent = billingEntities.find(x => x.name === e.target.value)
+              if (ent?.taxId) set('taxId', ent.taxId)
+            }}
+            placeholder="例：全聯福利中心"
+            required
+            className={inputCls}
+          />
+          <datalist id="bulk-billing-list">
+            {billingEntities.map(e => <option key={e.id} value={e.name} />)}
+          </datalist>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">統一編號</label>
+          <input value={form.taxId} onChange={e => set('taxId', e.target.value)}
+            placeholder="例：12345678" maxLength={8}
+            className={inputCls + ' font-mono'} />
+        </div>
+      </div>
+
+      {/* 結帳週期 + 金額 + 發票號碼 + 日期 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">結帳週期</label>
+          <div className="flex items-center gap-1.5">
+            <input type="date" value={form.billingStart} onChange={e => set('billingStart', e.target.value)} className={inputCls + ' flex-1 min-w-0'} />
+            <span className="text-gray-400 text-xs flex-shrink-0">至</span>
+            <input type="date" value={form.billingEnd} onChange={e => set('billingEnd', e.target.value)} className={inputCls + ' flex-1 min-w-0'} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">實際發票金額（元）*</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">NT$</span>
+            <input type="number" min="0" step="1" value={form.amount} onChange={e => set('amount', e.target.value)}
+              className={inputCls + ' pl-10 w-full'} />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票號碼
+            <span className="ml-1 text-gray-400 font-normal normal-case">（草稿可留空）</span>
+          </label>
+          <input value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value.toUpperCase())}
+            placeholder="例：AA-12345678" className={inputCls + ' font-mono'} />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票開立日期 *</label>
+          <input type="date" value={form.issueDate} onChange={e => set('issueDate', e.target.value)} className={inputCls} />
+        </div>
+      </div>
+
+      {/* 付款設定 */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票類型</label>
+          <div className="flex gap-2">
+            {INVOICE_TYPES.map(({ value, label, icon }) => (
+              <button key={value} type="button" onClick={() => set('invoiceType', value)}
+                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${form.invoiceType === value ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-400 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400'}`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">付款方式</label>
+          <div className="flex gap-1 flex-wrap">
+            {PAYMENT_METHODS.map(({ value, label, icon }) => (
+              <button key={value} type="button" onClick={() => set('paymentMethod', value)}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${form.paymentMethod === value ? 'bg-violet-50 dark:bg-violet-900/30 border-violet-400 text-violet-700 dark:text-violet-300' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400'}`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">月結天數</label>
+          <div className="flex gap-1 flex-wrap">
+            {PAYMENT_TERMS.map(days => (
+              <button key={days} type="button" onClick={() => set('paymentTerm', days)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${form.paymentTerm === days ? 'bg-teal-50 dark:bg-teal-900/30 border-teal-400 text-teal-700 dark:text-teal-300' : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-400'}`}>
+                {days}天
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 儲存抬頭 */}
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" checked={form.saveEntity} onChange={e => set('saveEntity', e.target.checked)}
+          className="accent-indigo-600 w-4 h-4 flex-shrink-0" />
+        <span className="text-sm text-gray-600 dark:text-gray-300">
+          儲存此抬頭設定（「{form.billingName || '—'}」），未來可直接選用
+        </span>
+      </label>
+
+      <div className="flex gap-2 justify-end pt-1">
+        <button type="button" onClick={onCancel}
+          className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          取消
+        </button>
+        <button type="submit"
+          className="px-5 py-2 rounded-xl bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700 transition-colors shadow-sm">
+          ✓ 彙整開立發票
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // ─── KPI 卡片 ───────────────────────────────────────────────────────────────
 function KpiCard({ label, value, sub, gradient, icon }) {
   return (
@@ -119,7 +313,7 @@ function KpiCard({ label, value, sub, gradient, icon }) {
 }
 
 // ─── 表單 ──────────────────────────────────────────────────────────────────
-function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], currentMonth }) {
+function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], currentMonth, billingEntities = [] }) {
   const baseMonth = currentMonth || thisMonth()
   const [form, setForm] = useState({ ...emptyForm(baseMonth), ...initial })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -186,6 +380,41 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], curren
             onChange={e => set('invoiceNo', e.target.value.toUpperCase())}
             placeholder="例：AA-12345678"
             className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 font-mono"
+          />
+        </div>
+      </div>
+
+      {/* 抬頭 + 統一編號 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票抬頭
+            <span className="ml-1 text-gray-400 font-normal normal-case">（選填）</span>
+          </label>
+          <input
+            list="form-billing-name-list"
+            value={form.billingName || ''}
+            onChange={e => {
+              set('billingName', e.target.value)
+              const ent = billingEntities.find(x => x.name === e.target.value)
+              if (ent?.taxId) set('taxId', ent.taxId)
+            }}
+            placeholder="例：全聯福利中心"
+            className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-400"
+          />
+          <datalist id="form-billing-name-list">
+            {billingEntities.map(e => <option key={e.id} value={e.name} />)}
+          </datalist>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">統一編號
+            <span className="ml-1 text-gray-400 font-normal normal-case">（選填）</span>
+          </label>
+          <input
+            value={form.taxId || ''}
+            onChange={e => set('taxId', e.target.value)}
+            placeholder="例：12345678"
+            maxLength={8}
+            className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-indigo-400 font-mono"
           />
         </div>
       </div>
@@ -421,7 +650,10 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], curren
 }
 
 // ─── 主元件 ─────────────────────────────────────────────────────────────────
-export default function InvoiceReconciliation({ invoices = {}, onSave, allRows = [] }) {
+export default function InvoiceReconciliation({
+  invoices = {}, onSave, allRows = [],
+  billingEntities = [], onSaveBillingEntity, onDeleteBillingEntity,
+}) {
   const [currentMonth, setCurrentMonth] = useState(thisMonth)
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
@@ -432,6 +664,11 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('issueDate')
   const [sortDir, setSortDir] = useState('asc')
+  // 未開立清單：勾選 + 排序
+  const [selectedStores, setSelectedStores] = useState(new Set())
+  const [uninvSortBy, setUninvSortBy] = useState('amount')
+  const [uninvSortDir, setUninvSortDir] = useState('desc')
+  const [showBulkPanel, setShowBulkPanel] = useState(false)
 
   // 當月發票列表（從 invoices[YYYY-MM] 取得）
   const monthItems = useMemo(() => invoices[currentMonth] || [], [invoices, currentMonth])
@@ -467,11 +704,36 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
 
   // ── 當月有銷售但尚未建立發票的客戶清單 ───────────────────────────────────
   const uninvoicedCustomers = useMemo(() => {
-    const invoicedStores = new Set(monthItems.map(r => r.store))
+    const invoicedStores = new Set()
+    monthItems.forEach(r => {
+      if (r.store) invoicedStores.add(r.store)
+      if (r.mergedStores?.length) r.mergedStores.forEach(s => invoicedStores.add(s))
+    })
     return Object.entries(salesByCustomer)
       .filter(([customer]) => !invoicedStores.has(customer))
-      .sort((a, b) => b[1] - a[1])  // 依銷售金額降序
+      .sort((a, b) => b[1] - a[1])
   }, [salesByCustomer, monthItems])
+
+  // 排序後的未開立清單
+  const sortedUninvoiced = useMemo(() => {
+    const list = [...uninvoicedCustomers]
+    const dir = uninvSortDir === 'asc' ? 1 : -1
+    if (uninvSortBy === 'amount') list.sort((a, b) => dir * (a[1] - b[1]))
+    if (uninvSortBy === 'store')  list.sort((a, b) => dir * a[0].localeCompare(b[0], 'zh-TW'))
+    return list
+  }, [uninvoicedCustomers, uninvSortBy, uninvSortDir])
+
+  // 已勾選的門市總計
+  const selectedTotal = useMemo(
+    () => [...selectedStores].reduce((s, st) => s + Math.round(salesByCustomer[st] || 0), 0),
+    [selectedStores, salesByCustomer]
+  )
+
+  // 查找已勾選門市對應的常用抬頭
+  const suggestedEntity = useMemo(() => {
+    if (!selectedStores.size) return null
+    return billingEntities.find(e => [...selectedStores].some(s => e.stores.includes(s))) || null
+  }, [selectedStores, billingEntities])
 
   // 篩選 + 排序
   const displayed = useMemo(() => {
@@ -606,6 +868,52 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
 
   const cancelForm = () => { setShowForm(false); setEditItem(null) }
 
+  // ── 常用抬頭管理 ──────────────────────────────────────────────────────────
+  const saveBillingEntity = useCallback((name, taxId, stores) => {
+    if (!name.trim() || !onSaveBillingEntity) return
+    const existing = billingEntities.find(e => e.name === name.trim())
+    if (existing) {
+      // 更新：合併門市清單
+      onSaveBillingEntity({
+        ...existing,
+        taxId: taxId || existing.taxId,
+        stores: [...new Set([...existing.stores, ...stores])],
+      })
+    } else {
+      onSaveBillingEntity({ id: genId(), name: name.trim(), taxId: taxId || '', stores })
+    }
+  }, [billingEntities, onSaveBillingEntity])
+
+  // ── 彙整開立發票 ──────────────────────────────────────────────────────────
+  const handleBulkSave = useCallback((formData, mergedStores) => {
+    const existing = invoices[currentMonth] || []
+    const newInvoice = {
+      id: genId(),
+      store: formData.billingName || mergedStores[0] || '',
+      invoiceNo: formData.invoiceNo || '',
+      billingName: formData.billingName || '',
+      taxId: formData.taxId || '',
+      mergedStores,
+      billingStart: formData.billingStart,
+      billingEnd: formData.billingEnd,
+      amount: parseFloat(formData.amount),
+      invoiceType: formData.invoiceType,
+      paymentMethod: formData.paymentMethod,
+      paymentTerm: formData.paymentTerm,
+      issueDate: formData.issueDate,
+      status: 'pending',
+      confirmedAt: '',
+      confirmedAmount: null,
+      note: formData.note || '',
+    }
+    onSave(currentMonth, [...existing, newInvoice])
+    if (formData.saveEntity && formData.billingName.trim()) {
+      saveBillingEntity(formData.billingName, formData.taxId, mergedStores)
+    }
+    setSelectedStores(new Set())
+    setShowBulkPanel(false)
+  }, [invoices, currentMonth, onSave, saveBillingEntity])
+
   // ── 一鍵建立本月草稿清單 ──────────────────────────────────────────────────
   const handleGenerateDrafts = useCallback(() => {
     const existing = invoices[currentMonth] || []
@@ -625,19 +933,13 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
       .sort((a, b) => b[1] - a[1])
       .map(([customer, amt]) => ({
         id: genId(),
-        store: customer,
-        invoiceNo: '',
+        store: customer, invoiceNo: '',
+        billingName: '', taxId: '', mergedStores: [],
         amount: Math.round(amt),
-        billingStart: start,
-        billingEnd: end,
+        billingStart: start, billingEnd: end,
         issueDate: todayStr(),
-        invoiceType: 'electronic',
-        paymentMethod: 'transfer',
-        paymentTerm: 30,
-        status: 'pending',
-        confirmedAt: '',
-        confirmedAmount: null,
-        note: '',
+        invoiceType: 'electronic', paymentMethod: 'transfer', paymentTerm: 30,
+        status: 'pending', confirmedAt: '', confirmedAmount: null, note: '',
       }))
 
     if (!drafts.length) {
@@ -661,7 +963,9 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
         const days = r.status !== 'confirmed' ? daysFromToday(due) : null
         return {
           '月份': month,
-          '店家名稱': r.store,
+          '店家名稱': r.billingName || r.store,
+          '統一編號': r.taxId || '',
+          '彙整門市': r.mergedStores?.length > 1 ? r.mergedStores.join('、') : (r.store || ''),
           '發票號碼': r.invoiceNo || '（草稿）',
           '結帳週期_起': r.billingStart || '',
           '結帳週期_迄': r.billingEnd || '',
@@ -759,49 +1063,149 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
             stores={allStores}
             allRows={allRows}
             currentMonth={currentMonth}
+            billingEntities={billingEntities}
           />
         </div>
       )}
 
-      {/* 尚未開立發票的客戶（本月有銷售但未記錄發票）*/}
+      {/* 尚未開立發票的客戶（可排序勾選表格）*/}
       {uninvoicedCustomers.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-2">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl overflow-hidden">
+          {/* 表頭工具列 */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-amber-200 dark:border-amber-700/50 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-base">📋</span>
-              <span className="text-sm font-bold text-amber-800 dark:text-amber-200">
-                本月有銷售記錄、尚未開立發票的客戶
-              </span>
+              <span className="text-sm font-bold text-amber-800 dark:text-amber-200">本月有銷售、尚未開立發票</span>
               <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-bold">
                 {uninvoicedCustomers.length} 家
               </span>
             </div>
+            {/* 排序控制 */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-amber-600 dark:text-amber-400">排序：</span>
+              {[{ v: 'amount', l: '金額' }, { v: 'store', l: '名稱' }].map(({ v, l }) => (
+                <button key={v} onClick={() => {
+                  if (uninvSortBy === v) setUninvSortDir(d => d === 'asc' ? 'desc' : 'asc')
+                  else { setUninvSortBy(v); setUninvSortDir(v === 'amount' ? 'desc' : 'asc') }
+                }} className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${uninvSortBy === v ? 'bg-amber-300 dark:bg-amber-700 text-amber-900 dark:text-amber-100' : 'text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-800/40'}`}>
+                  {l} {uninvSortBy === v ? (uninvSortDir === 'asc' ? '↑' : '↓') : ''}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {uninvoicedCustomers.map(([customer, amt]) => (
-              <button
-                key={customer}
-                type="button"
-                onClick={() => {
-                  setEditItem({
-                    store: customer,
-                    amount: Math.round(amt),
-                    billingStart: monthStart(currentMonth),
-                    billingEnd: monthEnd(currentMonth),
-                  })
-                  setShowForm(true)
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-600 rounded-xl text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors shadow-sm group"
-              >
-                <span className="font-semibold text-gray-700 dark:text-gray-200">{customer}</span>
-                <span className="text-xs text-amber-700 dark:text-amber-400 font-mono">NT$ {Math.round(amt).toLocaleString()}</span>
-                <span className="text-xs text-blue-500 dark:text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity font-semibold">＋開立</span>
-              </button>
-            ))}
+
+          {/* 表格 */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-amber-100/60 dark:bg-amber-900/30">
+                  <th className="w-10 px-3 py-2">
+                    <input type="checkbox"
+                      checked={sortedUninvoiced.length > 0 && sortedUninvoiced.every(([s]) => selectedStores.has(s))}
+                      onChange={e => {
+                        if (e.target.checked) setSelectedStores(new Set(sortedUninvoiced.map(([s]) => s)))
+                        else setSelectedStores(new Set())
+                      }}
+                      className="accent-teal-600 w-4 h-4" />
+                  </th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300">客戶名稱</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300">本月銷售</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hidden sm:table-cell">常用抬頭</th>
+                  <th className="w-20 px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100 dark:divide-amber-800/40">
+                {sortedUninvoiced.map(([customer, amt]) => {
+                  const entity = billingEntities.find(e => e.stores.includes(customer))
+                  const isSelected = selectedStores.has(customer)
+                  return (
+                    <tr key={customer} className={`transition-colors ${isSelected ? 'bg-teal-50/80 dark:bg-teal-900/20' : 'hover:bg-amber-100/40 dark:hover:bg-amber-800/20'}`}>
+                      <td className="px-3 py-2.5 text-center">
+                        <input type="checkbox" checked={isSelected}
+                          onChange={e => setSelectedStores(prev => {
+                            const next = new Set(prev)
+                            e.target.checked ? next.add(customer) : next.delete(customer)
+                            return next
+                          })}
+                          className="accent-teal-600 w-4 h-4" />
+                      </td>
+                      <td className="px-3 py-2.5 font-semibold text-gray-700 dark:text-gray-200">{customer}</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700 dark:text-amber-300">
+                        NT$ {Math.round(amt).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2.5 hidden sm:table-cell">
+                        {entity ? (
+                          <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+                            {entity.name}{entity.taxId ? ` · ${entity.taxId}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <button type="button"
+                          onClick={() => {
+                            setEditItem({
+                              store: customer, amount: Math.round(amt),
+                              billingName: entity?.name || '',
+                              taxId: entity?.taxId || '',
+                              billingStart: monthStart(currentMonth),
+                              billingEnd: monthEnd(currentMonth),
+                            })
+                            setShowForm(true)
+                          }}
+                          className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors">
+                          開立
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 opacity-70">
-            點擊客戶名稱可快速帶入銷售金額並開啟新增表單
-          </p>
+
+          {/* 勾選動作列 */}
+          {selectedStores.size > 0 && (
+            <div className="px-4 py-3 bg-teal-50 dark:bg-teal-900/30 border-t border-teal-200 dark:border-teal-700/50 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-teal-800 dark:text-teal-200">
+                <span>已選 {selectedStores.size} 家</span>
+                <span className="text-teal-500 dark:text-teal-400">·</span>
+                <span className="font-mono">合計 NT$ {selectedTotal.toLocaleString()}</span>
+                {suggestedEntity && (
+                  <span className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full font-semibold">
+                    建議抬頭：{suggestedEntity.name}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setSelectedStores(new Set())}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                  清除選取
+                </button>
+                <button
+                  onClick={() => setShowBulkPanel(v => !v)}
+                  className="text-xs px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors shadow-sm">
+                  🔗 彙整開立發票
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 彙整開立面板 */}
+          {showBulkPanel && selectedStores.size > 0 && (
+            <div className="p-4 border-t border-teal-200 dark:border-teal-700/50">
+              <BulkInvoicePanel
+                selectedStores={[...selectedStores]}
+                salesByCustomer={salesByCustomer}
+                billingEntities={billingEntities}
+                currentMonth={currentMonth}
+                allRows={allRows}
+                onSubmit={handleBulkSave}
+                onCancel={() => setShowBulkPanel(false)}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -1109,7 +1513,15 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
                     const isDueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
                     return (
                       <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isOverdue ? 'bg-red-50/60 dark:bg-red-900/10' : ''}`}>
-                        <td className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">{item.store}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-gray-700 dark:text-gray-200">{item.billingName || item.store}</div>
+                          {item.taxId && <div className="text-xs text-gray-400 font-mono">{item.taxId}</div>}
+                          {item.mergedStores?.length > 1 && (
+                            <div className="text-xs text-teal-600 dark:text-teal-400 mt-0.5">
+                              🔗 {item.mergedStores.join('、')}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">
                           {item.invoiceNo
                             ? item.invoiceNo
