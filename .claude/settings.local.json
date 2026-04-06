@@ -40,7 +40,8 @@
       "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\User\\\\' | Select-Object -ExpandProperty Name | Out-String\" 2>&1)",
       "Bash(powershell -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\User\\\\LC' | Select-Object Name, FullName | Out-String\" 2>&1)",
       "Bash(powershell -Command \"[System.IO.File]::ReadAllText\\('C:\\\\Users\\\\User\\\\LC\\\\2026-04-05.csv', [System.Text.Encoding]::GetEncoding\\(950\\)\\) | Select-Object -First 1\" 2>&1)",
-      "Bash(powershell -Command \"\n\\\\$content = [System.IO.File]::ReadAllText\\('C:\\\\Users\\\\User\\\\LC\\\\2026-04-05.csv', [System.Text.Encoding]::GetEncoding\\(950\\)\\)\n\\\\$lines = \\\\$content -split '\\\\r?\\\\n' | Select-Object -First 10\n\\\\$lines | ForEach-Object { Write-Output \\\\$_ }\n\" 2>&1)"
+      "Bash(powershell -Command \"\n\\\\$content = [System.IO.File]::ReadAllText\\('C:\\\\Users\\\\User\\\\LC\\\\2026-04-05.csv', [System.Text.Encoding]::GetEncoding\\(950\\)\\)\n\\\\$lines = \\\\$content -split '\\\\r?\\\\n' | Select-Object -First 10\n\\\\$lines | ForEach-Object { Write-Output \\\\$_ }\n\" 2>&1)",
+      "Bash(npx madge:*)"
     ]
   }
 }

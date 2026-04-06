@@ -244,12 +244,23 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
     setEditingId(null)
   }
 
-  // ── 前一個月資料用於比較 ────────────────────────────────────────────────
+  // ── 前一個月 ────────────────────────────────────────────────────────────
   const prevMonth = (() => {
     const [y, m] = currentMonth.split('-').map(Number)
     const d = new Date(y, m - 2, 1)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })()
+
+  // ── 複製上個月費用 ──────────────────────────────────────────────────────
+  const handleCopyLastMonth = () => {
+    const prevItems = expenses[prevMonth] || []
+    if (!prevItems.length) { alert('上個月沒有費用資料可複製'); return }
+    if (items.length > 0) {
+      if (!window.confirm(`本月已有 ${items.length} 筆費用資料。\n是否將上個月的 ${prevItems.length} 筆費用「合併新增」到本月？`)) return
+    }
+    const copied = prevItems.map(i => ({ ...i, id: genId() }))
+    saveItems([...items, ...copied])
+  }
   const prevTotal = useMemo(
     () => (expenses[prevMonth] || []).reduce((s, i) => s + itemAmount(i), 0),
     [expenses, prevMonth]
@@ -311,18 +322,28 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
       )}
 
       {/* ── 月份選擇 ── */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 flex-wrap">
         <button onClick={() => changeMonth(-1)}
-          className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-lg font-bold">
+          className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-lg font-bold flex-shrink-0">
           ‹
         </button>
-        <div className="flex-1 text-center">
+        <div className="flex-1 text-center min-w-[130px]">
           <span className="text-xl font-black text-gray-800 dark:text-gray-100">{monthLabel}</span>
         </div>
         <button onClick={() => changeMonth(1)}
-          className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-lg font-bold">
+          className="w-10 h-10 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center text-lg font-bold flex-shrink-0">
           ›
         </button>
+        {/* 複製上個月 */}
+        {(expenses[prevMonth] || []).length > 0 && (
+          <button
+            onClick={handleCopyLastMonth}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors flex-shrink-0"
+            title={`複製 ${prevMonth} 的費用資料到本月`}
+          >
+            📋 複製上月費用
+          </button>
+        )}
       </div>
 
       {/* ── 新增表單 ── */}

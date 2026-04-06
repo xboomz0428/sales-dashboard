@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -31,6 +31,36 @@ function addMonths(m, n) {
   d.setMonth(d.getMonth() + n)
   return d.toISOString().slice(0, 7)
 }
+// 結帳週期預設：當月第一天 / 最後一天
+function monthStart(m) { return m + '-01' }
+function monthEnd(m) {
+  const d = new Date(m + '-01')
+  d.setMonth(d.getMonth() + 1)
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+// 計算某客戶在指定日期區間的銷售金額
+function calcSalesInPeriod(allRows, customer, start, end) {
+  if (!customer || !start || !end || !allRows.length) return null
+  let total = 0
+  for (const r of allRows) {
+    if (r.customer !== customer) continue
+    if (!r.date || r.date < start || r.date > end) continue
+    total += r.subtotal || 0
+  }
+  return total > 0 ? Math.round(total) : null
+}
+// 動態產生空白表單（使用當前月份作為結帳週期預設）
+function emptyForm(m = thisMonth()) {
+  return {
+    store: '', invoiceNo: '', amount: '',
+    billingStart: monthStart(m), billingEnd: monthEnd(m),
+    issueDate: todayStr(),
+    invoiceType: 'electronic', paymentMethod: 'transfer',
+    paymentTerm: 30,
+    status: 'pending', confirmedAt: '', confirmedAmount: '', note: '',
+  }
+}
 
 const INVOICE_TYPES = [
   { value: 'electronic', label: '電子發票', icon: '📱' },
@@ -61,13 +91,6 @@ export function daysFromToday(dateStr) {
   return Math.round(diff / 86400000)
 }
 
-const EMPTY_FORM = {
-  store: '', invoiceNo: '', amount: '', issueDate: todayStr(),
-  invoiceType: 'electronic', paymentMethod: 'transfer',
-  paymentTerm: 30,
-  status: 'pending', confirmedAt: '', confirmedAmount: '', note: '',
-}
-
 // ─── 狀態徽章 ───────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const s = STATUSES[status] || STATUSES.pending
@@ -96,17 +119,27 @@ function KpiCard({ label, value, sub, gradient, icon }) {
 }
 
 // ─── 表單 ──────────────────────────────────────────────────────────────────
-function InvoiceForm({ initial, onSubmit, onCancel, stores, salesByCustomer = {} }) {
-  const [form, setForm] = useState({ ...EMPTY_FORM, ...initial })
+function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], currentMonth }) {
+  const baseMonth = currentMonth || thisMonth()
+  const [form, setForm] = useState({ ...emptyForm(baseMonth), ...initial })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  // 依目前輸入的店家名稱查找銷售金額參考
-  const salesRef = form.store.trim() ? (salesByCustomer[form.store.trim()] ?? null) : null
+  // 依結帳週期動態計算銷售金額參考
+  const salesRef = useMemo(
+    () => calcSalesInPeriod(allRows, form.store.trim(), form.billingStart, form.billingEnd),
+    [allRows, form.store, form.billingStart, form.billingEnd]
+  )
+
+  // 當店家或結帳區間改變時，若金額為空則自動填入
+  useEffect(() => {
+    if (salesRef != null && !form.amount) {
+      setForm(f => ({ ...f, amount: salesRef }))
+    }
+  }, [salesRef]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!form.store.trim()) { alert('請填寫店家名稱'); return }
-    if (!form.invoiceNo.trim()) { alert('請填寫發票號碼'); return }
     if (!form.amount || isNaN(parseFloat(form.amount))) { alert('請填寫有效的發票金額'); return }
     if (!form.issueDate) { alert('請填寫發票開立日期'); return }
     onSubmit({
@@ -144,7 +177,10 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, salesByCustomer = {}
           </datalist>
         </div>
         <div className="flex flex-col gap-0.5">
-          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票號碼 *</label>
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
+            發票號碼
+            <span className="ml-1 text-gray-400 font-normal normal-case">（草稿可先留空）</span>
+          </label>
           <input
             value={form.invoiceNo}
             onChange={e => set('invoiceNo', e.target.value.toUpperCase())}
@@ -154,10 +190,43 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, salesByCustomer = {}
         </div>
       </div>
 
-      {/* 第二列：發票金額 + 開立日期 */}
+      {/* 結帳週期 */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">結帳週期</label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="date"
+            value={form.billingStart}
+            onChange={e => set('billingStart', e.target.value)}
+            className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-400 flex-1 min-w-[130px]"
+          />
+          <span className="text-gray-400 text-sm flex-shrink-0">至</span>
+          <input
+            type="date"
+            value={form.billingEnd}
+            onChange={e => set('billingEnd', e.target.value)}
+            className="border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-400 flex-1 min-w-[130px]"
+          />
+          {/* 快速重設為當月 */}
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, billingStart: monthStart(baseMonth), billingEnd: monthEnd(baseMonth) }))}
+            className="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+          >
+            重設為整月
+          </button>
+        </div>
+        {salesRef != null && (
+          <p className="text-xs text-teal-600 dark:text-teal-400">
+            📅 此週期「{form.store.trim()}」銷售金額：NT$ {salesRef.toLocaleString()}
+          </p>
+        )}
+      </div>
+
+      {/* 發票金額 + 開立日期 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-0.5">
-          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">發票金額（元）*</label>
+          <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">實際發票金額（元）*</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">NT$</span>
             <input
@@ -172,22 +241,22 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, salesByCustomer = {}
           {salesRef != null ? (
             <div className="flex items-center justify-between gap-2 mt-1 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700/50">
               <div>
-                <p className="text-xs text-blue-500 dark:text-blue-400 font-semibold">📊 銷售系統本月金額</p>
+                <p className="text-xs text-blue-500 dark:text-blue-400 font-semibold">📊 銷售系統金額（此週期）</p>
                 <p className="font-mono font-bold text-blue-700 dark:text-blue-300 text-sm">
-                  NT$ {Math.round(salesRef).toLocaleString()}
+                  NT$ {salesRef.toLocaleString()}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => set('amount', Math.round(salesRef))}
+                onClick={() => set('amount', salesRef)}
                 className="flex-shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors shadow-sm"
               >
                 套用
               </button>
             </div>
-          ) : form.store.trim() && Object.keys(salesByCustomer).length > 0 ? (
+          ) : form.store.trim() && allRows.length > 0 ? (
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 px-1">
-              ℹ️ 銷售系統中本月查無「{form.store.trim()}」的銷售記錄
+              ℹ️ 此週期查無「{form.store.trim()}」的銷售記錄
             </p>
           ) : null}
         </div>
@@ -356,6 +425,7 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
   const [currentMonth, setCurrentMonth] = useState(thisMonth)
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
+  const currentYear = useMemo(() => currentMonth.slice(0, 4), [currentMonth])
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterInvoiceType, setFilterInvoiceType] = useState('all')
   const [filterPaymentMethod, setFilterPaymentMethod] = useState('all')
@@ -366,19 +436,29 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
   // 當月發票列表（從 invoices[YYYY-MM] 取得）
   const monthItems = useMemo(() => invoices[currentMonth] || [], [invoices, currentMonth])
 
-  // 所有出現過的店家（發票記錄 + 銷售資料客戶名稱合併）
+  // 只顯示當年有訂貨的店家（優先顯示該年度有銷售記錄的客戶）
   const allStores = useMemo(() => {
     const s = new Set()
-    Object.values(invoices).flat().forEach(r => { if (r.store) s.add(r.store) })
-    allRows.forEach(r => { if (r.customer) s.add(r.customer) })
-    return [...s].sort()
-  }, [invoices, allRows])
+    // 從銷售資料取當年客戶
+    allRows.forEach(r => {
+      if (r.customer && String(r.year) === currentYear) s.add(r.customer)
+    })
+    // 補入當年發票月份已存在的店家（避免已開但無銷售記錄的店消失）
+    Object.entries(invoices).forEach(([month, items]) => {
+      if (month.startsWith(currentYear)) {
+        items.forEach(r => { if (r.store) s.add(r.store) })
+      }
+    })
+    return [...s].sort((a, b) => a.localeCompare(b, 'zh-TW'))
+  }, [invoices, allRows, currentYear])
 
-  // ── 當月各客戶銷售金額（從銷售系統計算）────────────────────────────────
+  // ── 當月各客戶銷售金額（用於「未開立發票」提示列表）──────────────────
   const salesByCustomer = useMemo(() => {
+    const start = monthStart(currentMonth)
+    const end   = monthEnd(currentMonth)
     const map = {}
     for (const r of allRows) {
-      if (!r.date || r.date.slice(0, 7) !== currentMonth) continue
+      if (!r.date || r.date < start || r.date > end) continue
       if (!r.customer) continue
       map[r.customer] = (map[r.customer] || 0) + (r.subtotal || 0)
     }
@@ -526,6 +606,47 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
 
   const cancelForm = () => { setShowForm(false); setEditItem(null) }
 
+  // ── 一鍵建立本月草稿清單 ──────────────────────────────────────────────────
+  const handleGenerateDrafts = useCallback(() => {
+    const existing = invoices[currentMonth] || []
+    const invoicedStores = new Set(existing.map(r => r.store))
+    const start = monthStart(currentMonth)
+    const end   = monthEnd(currentMonth)
+
+    // 計算當月各客戶銷售金額
+    const salesMap = {}
+    for (const r of allRows) {
+      if (!r.date || r.date < start || r.date > end || !r.customer) continue
+      salesMap[r.customer] = (salesMap[r.customer] || 0) + (r.subtotal || 0)
+    }
+
+    const drafts = Object.entries(salesMap)
+      .filter(([customer]) => !invoicedStores.has(customer))
+      .sort((a, b) => b[1] - a[1])
+      .map(([customer, amt]) => ({
+        id: genId(),
+        store: customer,
+        invoiceNo: '',
+        amount: Math.round(amt),
+        billingStart: start,
+        billingEnd: end,
+        issueDate: todayStr(),
+        invoiceType: 'electronic',
+        paymentMethod: 'transfer',
+        paymentTerm: 30,
+        status: 'pending',
+        confirmedAt: '',
+        confirmedAmount: null,
+        note: '',
+      }))
+
+    if (!drafts.length) {
+      alert('本月有銷售記錄的客戶均已建立發票，無需新增草稿')
+      return
+    }
+    onSave(currentMonth, [...existing, ...drafts])
+  }, [invoices, allRows, currentMonth, onSave])
+
   // ── XLSX 匯出 ──────────────────────────────────────────────────────────────
   const handleExportXLSX = useCallback(() => {
     const statusLabel = s => STATUSES[s]?.label || s
@@ -541,7 +662,9 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
         return {
           '月份': month,
           '店家名稱': r.store,
-          '發票號碼': r.invoiceNo,
+          '發票號碼': r.invoiceNo || '（草稿）',
+          '結帳週期_起': r.billingStart || '',
+          '結帳週期_迄': r.billingEnd || '',
           '發票類型': invoiceTypeLabel(r.invoiceType),
           '付款方式': paymentMethodLabel(r.paymentMethod),
           '月結天數': r.paymentTerm || '',
@@ -562,7 +685,7 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
     const ws = XLSX.utils.json_to_sheet(allItems)
     // 設定欄位寬度
     ws['!cols'] = [
-      {wch:10},{wch:18},{wch:16},{wch:10},{wch:8},{wch:8},
+      {wch:10},{wch:18},{wch:16},{wch:13},{wch:13},{wch:10},{wch:8},{wch:8},
       {wch:13},{wch:13},{wch:10},{wch:12},{wch:10},{wch:13},{wch:12},{wch:10},{wch:24},
     ]
     const wb = XLSX.utils.book_new()
@@ -605,6 +728,15 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
           >
             📥 匯出
           </button>
+          {Object.keys(salesByCustomer).length > 0 && (
+            <button
+              onClick={handleGenerateDrafts}
+              className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 text-sm font-semibold hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+              title="依本月銷售自動產生草稿清單"
+            >
+              📋 建立本月清單
+            </button>
+          )}
           <button
             onClick={() => { setEditItem(null); setShowForm(true) }}
             className="ml-1 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
@@ -625,7 +757,8 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
             onSubmit={handleSave}
             onCancel={cancelForm}
             stores={allStores}
-            salesByCustomer={salesByCustomer}
+            allRows={allRows}
+            currentMonth={currentMonth}
           />
         </div>
       )}
@@ -650,7 +783,12 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
                 key={customer}
                 type="button"
                 onClick={() => {
-                  setEditItem({ store: customer, amount: Math.round(amt) })
+                  setEditItem({
+                    store: customer,
+                    amount: Math.round(amt),
+                    billingStart: monthStart(currentMonth),
+                    billingEnd: monthEnd(currentMonth),
+                  })
                   setShowForm(true)
                 }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-600 rounded-xl text-sm hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors shadow-sm group"
@@ -972,7 +1110,12 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
                     return (
                       <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${isOverdue ? 'bg-red-50/60 dark:bg-red-900/10' : ''}`}>
                         <td className="px-4 py-3 font-semibold text-gray-700 dark:text-gray-200">{item.store}</td>
-                        <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">{item.invoiceNo}</td>
+                        <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">
+                          {item.invoiceNo
+                            ? item.invoiceNo
+                            : <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">草稿</span>
+                          }
+                        </td>
                         <td className="px-4 py-3 text-center">
                           {(() => {
                             const t = INVOICE_TYPES.find(x => x.value === item.invoiceType)
@@ -1086,7 +1229,10 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-bold text-gray-700 dark:text-gray-200">{item.store}</p>
-                        <p className="text-xs font-mono text-gray-400 dark:text-gray-500">{item.invoiceNo}</p>
+                        {item.invoiceNo
+                          ? <p className="text-xs font-mono text-gray-400 dark:text-gray-500">{item.invoiceNo}</p>
+                          : <p className="text-xs text-amber-500 dark:text-amber-400 font-semibold">草稿（未填發票號碼）</p>
+                        }
                         <div className="flex gap-1.5 mt-1 flex-wrap">
                           {(() => {
                             const t = INVOICE_TYPES.find(x => x.value === item.invoiceType)
