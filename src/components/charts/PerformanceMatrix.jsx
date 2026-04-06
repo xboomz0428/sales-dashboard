@@ -187,7 +187,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
                       <g>
                         <circle cx={cx} cy={cy} r={r} fill={q?.color || '#9ca3af'} fillOpacity={0.7} stroke={q?.color || '#9ca3af'} strokeWidth={1.5} />
                         {r >= 12 && (
-                          <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="white" fontWeight={700}>
+                          <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize={13} fill="white" fontWeight={700}>
                             {payload.name?.slice(0, 4)}
                           </text>
                         )}

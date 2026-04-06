@@ -142,10 +142,10 @@ function SankeyView({ sourceNodes, targetNodes, links, leftLabel, rightLabel }) 
           return (
             <g key={node.id}>
               <rect x={LEFT_X} y={pos.y} width={NODE_W} height={Math.max(pos.h, 6)} fill={color} rx={3} />
-              <text x={LEFT_X - 10} y={pos.cy - 6} textAnchor="end" dominantBaseline="middle" fontSize={13} fill="#374151" fontWeight={700}>
+              <text x={LEFT_X - 10} y={pos.cy - 6} textAnchor="end" dominantBaseline="middle" fontSize={15} fill="#374151" fontWeight={700}>
                 {trunc(node.id, 10)}
               </text>
-              <text x={LEFT_X - 10} y={pos.cy + 8} textAnchor="end" dominantBaseline="middle" fontSize={10} fill="#9ca3af">
+              <text x={LEFT_X - 10} y={pos.cy + 8} textAnchor="end" dominantBaseline="middle" fontSize={13} fill="#9ca3af">
                 {fmtV(node.value)}
               </text>
             </g>
@@ -160,10 +160,10 @@ function SankeyView({ sourceNodes, targetNodes, links, leftLabel, rightLabel }) 
           return (
             <g key={node.id}>
               <rect x={RIGHT_X} y={pos.y} width={NODE_W} height={Math.max(pos.h, 6)} fill={color} rx={3} />
-              <text x={RIGHT_X + NODE_W + 10} y={pos.cy - 6} textAnchor="start" dominantBaseline="middle" fontSize={12} fill="#374151" fontWeight={700}>
+              <text x={RIGHT_X + NODE_W + 10} y={pos.cy - 6} textAnchor="start" dominantBaseline="middle" fontSize={14} fill="#374151" fontWeight={700}>
                 {trunc(node.id, 12)}
               </text>
-              <text x={RIGHT_X + NODE_W + 10} y={pos.cy + 8} textAnchor="start" dominantBaseline="middle" fontSize={10} fill="#9ca3af">
+              <text x={RIGHT_X + NODE_W + 10} y={pos.cy + 8} textAnchor="start" dominantBaseline="middle" fontSize={13} fill="#9ca3af">
                 {fmtV(node.value)}
               </text>
             </g>
@@ -171,10 +171,10 @@ function SankeyView({ sourceNodes, targetNodes, links, leftLabel, rightLabel }) 
         })}
 
         {/* Column headers */}
-        <text x={LEFT_X + NODE_W / 2} y={9} textAnchor="middle" fontSize={11} fill="#6b7280" fontWeight={700}>
+        <text x={LEFT_X + NODE_W / 2} y={9} textAnchor="middle" fontSize={13} fill="#6b7280" fontWeight={700}>
           {leftLabel}
         </text>
-        <text x={RIGHT_X + NODE_W / 2} y={9} textAnchor="middle" fontSize={11} fill="#6b7280" fontWeight={700}>
+        <text x={RIGHT_X + NODE_W / 2} y={9} textAnchor="middle" fontSize={13} fill="#6b7280" fontWeight={700}>
           {rightLabel}
         </text>
       </svg>
@@ -277,11 +277,11 @@ function TreeView({ data }) {
               {/* Top accent strip */}
               <rect x={node.x} y={node.y} width={NODE_W} height={6} fill="rgba(255,255,255,0.25)" rx={10} />
               <text x={node.x + NODE_W / 2} y={node.y + NODE_H / 2 - 7}
-                textAnchor="middle" dominantBaseline="middle" fontSize={13} fill="white" fontWeight={700}>
+                textAnchor="middle" dominantBaseline="middle" fontSize={15} fill="white" fontWeight={700}>
                 {trunc(node.name, 8)}
               </text>
               <text x={node.x + NODE_W / 2} y={node.y + NODE_H / 2 + 9}
-                textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="rgba(255,255,255,0.82)">
+                textAnchor="middle" dominantBaseline="middle" fontSize={13} fill="rgba(255,255,255,0.82)">
                 {fmtV(node.value)}
               </text>
             </g>
@@ -307,11 +307,11 @@ function TreeView({ data }) {
               <rect x={node.x + 5} y={node.y + CHILD_H - 7} width={barW} height={4}
                 fill={color + '88'} rx={2} />
               <text x={node.x + CHILD_W / 2} y={node.y + 17}
-                textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#374151" fontWeight={600}>
+                textAnchor="middle" dominantBaseline="middle" fontSize={13} fill="#374151" fontWeight={600}>
                 {trunc(node.name, 8)}
               </text>
               <text x={node.x + CHILD_W / 2} y={node.y + 31}
-                textAnchor="middle" dominantBaseline="middle" fontSize={9} fill="#6b7280">
+                textAnchor="middle" dominantBaseline="middle" fontSize={12} fill="#6b7280">
                 {fmtV(node.value)}
               </text>
             </g>

@@ -186,7 +186,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
                 margin={{ top: 10, right: 20, left: 10, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                <XAxis type="number" tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 12 }} />
+                <XAxis type="number" tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 14 }} />
                 <YAxis type="category" dataKey="label" tick={{ fontSize: 13, fontWeight: 600 }} width={80} />
                 <Tooltip content={<CustomTooltip metric={metric} />} />
                 <Legend wrapperStyle={{ fontSize: 13 }} />
@@ -353,7 +353,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
                 <PolarAngleAxis dataKey="quarter" tick={{ fontSize: 14, fontWeight: 700, fill: '#6b7280' }} />
                 <PolarRadiusAxis
                   tickFormatter={v => fmtVal(v, metric)}
-                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  tick={{ fontSize: 13, fill: '#9ca3af' }}
                   axisLine={false}
                 />
                 {years.map((year, i) => (
@@ -580,7 +580,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={chartData} barCategoryGap="20%" barGap={2} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="month" tick={{ fontSize: 14 }} />
                 <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
                 <Tooltip content={<CustomTooltip metric={metric} />} />
                 <Legend wrapperStyle={{ fontSize: 13 }} />

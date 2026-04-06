@@ -37,8 +37,8 @@ export const TAB_DEFS = [
 export const ROLE_TABS_DEFAULT = {
   admin:   null,
   manager: ['summary','performance','comparison','trend','product','customer',
-             'channel','brand','heatmap','table','costs','goals','alerts',
-             'health','forecast','flow','backup'],
+             'channel','brand','heatmap','table','expenses','invoice','goals','alerts',
+             'health','forecast','flow','line-notify','backup'],
   viewer:  ['summary','performance','comparison','trend','product','customer',
              'channel','brand','heatmap','table','health','forecast','flow'],
 }
@@ -48,9 +48,9 @@ export const ROLE_TABS = ROLE_TABS_DEFAULT
 
 // 各角色功能權限
 export const ROLE_PERMS = {
-  admin:   { editCosts: true,  editGoals: true,  uploadData: true,  manageUsers: true  },
-  manager: { editCosts: true,  editGoals: true,  uploadData: true,  manageUsers: false },
-  viewer:  { editCosts: false, editGoals: false, uploadData: false, manageUsers: false },
+  admin:   { editCosts: true,  viewCosts: true,  editGoals: true,  uploadData: true,  manageUsers: true  },
+  manager: { editCosts: false, viewCosts: false, editGoals: true,  uploadData: true,  manageUsers: false },
+  viewer:  { editCosts: false, viewCosts: false, editGoals: false, uploadData: false, manageUsers: false },
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────

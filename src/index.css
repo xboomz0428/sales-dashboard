@@ -29,6 +29,47 @@
   svg text {
     font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', -apple-system, sans-serif !important;
   }
+
+  /* ── 老花眼友善：圖表所有文字最小 14px ─────────────────────────────────────
+     Recharts 軸標籤、圖例、Tooltip 統一放大，無論手機或桌面 ── */
+
+  /* 軸標籤（XAxis / YAxis ticks）*/
+  .recharts-cartesian-axis-tick text,
+  .recharts-cartesian-axis-tick-value tspan {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+  /* Polar / Radar 軸標籤 */
+  .recharts-polar-angle-axis-tick text,
+  .recharts-polar-radius-axis-tick text {
+    font-size: 13px !important;
+  }
+  /* 圖例文字 */
+  .recharts-legend-item-text {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+  }
+  /* 軸與圖表內標籤（label / LabelList）*/
+  .recharts-label tspan,
+  .recharts-label-list text {
+    font-size: 14px !important;
+  }
+  /* Tooltip 標題 */
+  .recharts-tooltip-label {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+  /* Tooltip 每一項數值 */
+  .recharts-tooltip-item-name,
+  .recharts-tooltip-item-value,
+  .recharts-tooltip-item-separator {
+    font-size: 14px !important;
+  }
+  /* 散點圖 / 泡泡圖軸標籤 */
+  .recharts-scatter-symbol text {
+    font-size: 13px !important;
+  }
+
   table { border-collapse: collapse; }
   th { font-weight: 700; font-size: 0.9rem; }
 

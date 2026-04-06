@@ -27,6 +27,10 @@ import CustomerHealthPanel from './components/CustomerHealthPanel'
 import SalesForecast from './components/SalesForecast'
 import ExecutiveSummary from './components/ExecutiveSummary'
 import ProductCostManager from './components/ProductCostManager'
+import MonthlyExpenseManager from './components/MonthlyExpenseManager'
+import InvoiceReconciliation from './components/InvoiceReconciliation'
+import DashboardReminders from './components/DashboardReminders'
+import LineNotifyPanel from './components/LineNotifyPanel'
 import FlowDiagram from './components/charts/FlowDiagram'
 import UserManagement from './components/auth/UserManagement'
 import DataBackupPanel from './components/DataBackupPanel'
@@ -44,14 +48,23 @@ const TABS = [
   { id: 'heatmap',     label: '熱力圖',   icon: '🗓️' },
   { id: 'table',       label: '資料表格', icon: '📋' },
   { id: 'costs',       label: '商品成本', icon: '💲' },
+  { id: 'expenses',    label: '月費用',   icon: '💰' },
+  { id: 'invoice',     label: '發票對帳', icon: '🧾' },
   { id: 'goals',       label: '目標管理', icon: '🏆' },
   { id: 'alerts',      label: '預警中心', icon: '🔔' },
   { id: 'health',      label: '客戶健康', icon: '💊' },
   { id: 'forecast',    label: '預測分析', icon: '🔮' },
   { id: 'flow',        label: '流程架構', icon: '🗺️' },
+  { id: 'line-notify', label: 'LINE 通知', icon: '💬' },
   { id: 'backup',      label: '資料備份',   icon: '💾' },
   { id: 'users',       label: '使用者管理', icon: '👤' },
   { id: 'database',    label: '資料庫狀態', icon: '🗄️' },
+]
+
+const TAB_GROUPS = [
+  { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','table'] },
+  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['costs','expenses','invoice','goals','alerts','health','forecast'] },
+  { id: 'tools',    label: '工具', icon: '🔧', tabs: ['flow','line-notify','backup','users','database'] },
 ]
 
 const DEFAULT_FILTERS = {
@@ -106,6 +119,12 @@ function AppDashboard() {
   const [productCosts, setProductCosts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('product_costs')) || {} } catch { return {} }
   })
+  const [monthlyExpenses, setMonthlyExpenses] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('monthly_expenses')) || {} } catch { return {} }
+  })
+  const [invoiceRecords, setInvoiceRecords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('invoice_records')) || {} } catch { return {} }
+  })
   const [showHistory, setShowHistory] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
 
@@ -152,8 +171,48 @@ function AppDashboard() {
   const fileInputRef = useRef(null)
   const tabBarRef = useRef(null)
 
+  const saveMonthlyExpenses = useCallback((month, items) => {
+    setMonthlyExpenses(prev => {
+      const next = { ...prev, [month]: items }
+      localStorage.setItem('monthly_expenses', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  const saveInvoiceRecords = useCallback((month, items) => {
+    setInvoiceRecords(prev => {
+      const next = { ...prev, [month]: items }
+      localStorage.setItem('invoice_records', JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   // ── 角色控制可見 Tab ──────────────────────────────────────────────────────
   const visibleTabs = allowedTabs ? TABS.filter(t => allowedTabs.includes(t.id)) : TABS
+
+  // ── Tab 分組導覽 ──────────────────────────────────────────────────────────
+  const activeGroup = useMemo(() => {
+    for (const g of TAB_GROUPS) {
+      if (g.tabs.includes(activeTab)) return g.id
+    }
+    return TAB_GROUPS[0].id
+  }, [activeTab])
+
+  const handleGroupChange = useCallback((groupId) => {
+    const group = TAB_GROUPS.find(g => g.id === groupId)
+    if (!group) return
+    // 切換到該群組時，選第一個此角色可見的 tab
+    const visibleIds = new Set(visibleTabs.map(t => t.id))
+    const first = group.tabs.find(id => visibleIds.has(id))
+    if (first) handleTabChange(first)
+  }, [visibleTabs, handleTabChange])
+
+  const groupTabs = useMemo(() => {
+    const group = TAB_GROUPS.find(g => g.id === activeGroup)
+    if (!group) return visibleTabs
+    const groupIds = new Set(group.tabs)
+    return visibleTabs.filter(t => groupIds.has(t.id))
+  }, [activeGroup, visibleTabs])
 
   // Scroll active tab into view on mobile
   useEffect(() => {
@@ -363,7 +422,7 @@ function AppDashboard() {
   }, [pdfSalesData])
 
   // 資料尚未載入且非特殊 tab 時的空狀態 flag
-  const noDataTabs = ['users', 'backup', 'database']
+  const noDataTabs = ['users', 'backup', 'database', 'expenses', 'invoice', 'line-notify']
   const showEmptyState = !meta && !noDataTabs.includes(activeTab)
 
   return (
@@ -641,13 +700,44 @@ function AppDashboard() {
           <SummaryCards
             summary={summary} metric={filters.metric} trendData={trendData}
             productData={productData} customerData={customerData}
-            customerByChannelTop={customerByChannelTop} costs={productCosts}
+            customerByChannelTop={customerByChannelTop} costs={perms.viewCosts ? productCosts : {}}
           />
         )}
 
-        {/* Tabs */}
+        {/* 待辦提醒列 */}
+        <DashboardReminders
+          invoiceRecords={invoiceRecords}
+          monthlyExpenses={monthlyExpenses}
+          allRows={visibleRows}
+          onNavigate={(tab) => { handleTabChange(tab) }}
+        />
+
+        {/* Tab 群組選擇列 */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-2 sm:px-4 flex-shrink-0 gap-1">
+          {TAB_GROUPS.map(group => {
+            const visibleIds = new Set(visibleTabs.map(t => t.id))
+            const hasAny = group.tabs.some(id => visibleIds.has(id))
+            if (!hasAny) return null
+            const isActive = activeGroup === group.id
+            return (
+              <button key={group.id}
+                onClick={() => handleGroupChange(group.id)}
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                  isActive
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-800/60'
+                }`}
+              >
+                <span className="text-base sm:text-sm">{group.icon}</span>
+                <span>{group.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Sub-tabs（只顯示當前群組的 tab）*/}
         <div ref={tabBarRef} className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth">
-          {visibleTabs.map(tab => (
+          {groupTabs.map(tab => (
             <button key={tab.id}
               data-tab-active={activeTab === tab.id}
               onClick={() => handleTabChange(tab.id)}
@@ -741,12 +831,25 @@ function AppDashboard() {
           {activeTab === 'table' && meta && (
             <DataTable rows={filtered} />
           )}
-          {activeTab === 'costs' && (
+          {activeTab === 'costs' && perms.viewCosts && (
             <ProductCostManager
               products={meta?.products || []}
               costs={productCosts}
               onUpdateCost={updateProductCost}
               onUpdateMany={updateManyProductCosts}
+            />
+          )}
+          {activeTab === 'expenses' && (
+            <MonthlyExpenseManager
+              expenses={monthlyExpenses}
+              onSave={saveMonthlyExpenses}
+            />
+          )}
+          {activeTab === 'invoice' && (
+            <InvoiceReconciliation
+              invoices={invoiceRecords}
+              onSave={saveInvoiceRecords}
+              allRows={visibleRows}
             />
           )}
           {activeTab === 'goals' && meta && (
@@ -773,6 +876,16 @@ function AppDashboard() {
             <div data-pdf-section data-pdf-title="流程架構">
               <FlowDiagram flowData={flowData} structureData={structureData} />
             </div>
+          )}
+          {activeTab === 'line-notify' && (
+            <LineNotifyPanel
+              salesData={{
+                summary, trendData, productData, customerData, brandData,
+                channelData, channelTypeData, filters,
+              }}
+              invoiceRecords={invoiceRecords}
+              allRows={visibleRows}
+            />
           )}
           {activeTab === 'backup' && (
             <DataBackupPanel

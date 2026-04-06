@@ -177,18 +177,18 @@ function BrandChannelChart({ brandChannelData, metric }) {
   const barLabel = (ch) => ({ x, y, width, index }) => {
     if (!top3ByChannel[ch]?.has(index)) return null
     const v = chartData[index]?.[ch]; if (!v) return null
-    return <text key={`bl${ch}${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(v)}</text>
+    return <text key={`bl${ch}${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={13} fill="#6b7280">{fmtY(v)}</text>
   }
   const stackLabel = ({ x, y, width, index }) => {
     if (!top3Totals.has(index)) return null
     const total = activeChannelList.reduce((s, ch) => s + (chartData[index]?.[ch] || 0), 0)
     if (!total) return null
-    return <text key={`sl${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(total)}</text>
+    return <text key={`sl${index}`} x={(x||0)+(width||0)/2} y={(y||0)-4} textAnchor="middle" fontSize={13} fill="#6b7280">{fmtY(total)}</text>
   }
   const areaLabel = (ch) => ({ x, y, index }) => {
     if (!top3ByChannel[ch]?.has(index)) return null
     const v = chartData[index]?.[ch]; if (!v) return null
-    return <text key={`al${ch}${index}`} x={x} y={(y||0)-9} textAnchor="middle" fontSize={11} fill="#6b7280">{fmtY(v)}</text>
+    return <text key={`al${ch}${index}`} x={x} y={(y||0)-9} textAnchor="middle" fontSize={13} fill="#6b7280">{fmtY(v)}</text>
   }
 
   return (
