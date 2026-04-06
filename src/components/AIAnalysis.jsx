@@ -440,8 +440,13 @@ function SectionContent({ lines, theme }) {
       if (listType !== 'ul') flushList(i); listType = 'ul'; listItems.push(line.slice(2))
     } else if (/^\d+\. /.test(line)) {
       if (listType !== 'ol') flushList(i); listType = 'ol'; listItems.push(line.replace(/^\d+\. /, ''))
-    } else if (line.startsWith('---')) {
-      flushList(i); elements.push(<hr key={`hr-${i}`} className="border-gray-200 dark:border-gray-600 my-3" />)
+    } else if (/^-{3,}$/.test(line.trim())) {
+      // 只在上一個元素不是 hr 時才渲染，避免連續 --- 堆疊
+      flushList(i)
+      const last = elements[elements.length - 1]
+      if (!last || last.type !== 'hr') {
+        elements.push(<hr key={`hr-${i}`} className="border-gray-200 dark:border-gray-600 my-3" />)
+      }
     } else if (line.trim() === '') {
       flushList(i)
     } else {

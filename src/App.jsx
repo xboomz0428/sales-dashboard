@@ -30,6 +30,7 @@ import ExecutiveSummary from './components/ExecutiveSummary'
 import ProductCostManager from './components/ProductCostManager'
 import MonthlyExpenseManager from './components/MonthlyExpenseManager'
 import InvoiceReconciliation from './components/InvoiceReconciliation'
+import ToolsPanel from './components/ToolsPanel'
 import DashboardReminders from './components/DashboardReminders'
 import LineNotifyPanel from './components/LineNotifyPanel'
 import FlowDiagram from './components/charts/FlowDiagram'
@@ -58,6 +59,7 @@ const TABS = [
   { id: 'flow',        label: '流程架構', icon: '🗺️' },
   { id: 'line-notify', label: 'LINE 通知', icon: '💬' },
   { id: 'backup',      label: '資料備份',   icon: '💾' },
+  { id: 'tools',       label: '小工具',     icon: '🔧' },
   { id: 'users',       label: '使用者管理', icon: '👤' },
   { id: 'database',    label: '資料庫狀態', icon: '🗄️' },
 ]
@@ -886,6 +888,7 @@ function AppDashboard() {
               onRestore={handleRestoreBackup}
             />
           )}
+          {activeTab === 'tools' && <ToolsPanel />}
           {activeTab === 'users' && (
             <UserManagement currentUserId={user?.id} />
           )}
