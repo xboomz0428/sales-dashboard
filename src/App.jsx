@@ -67,7 +67,7 @@ const TABS = [
 const TAB_GROUPS = [
   { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','table'] },
   { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['costs','expenses','invoice','goals','alerts','health','forecast'] },
-  { id: 'tools',    label: '工具', icon: '🔧', tabs: ['flow','line-notify','backup','users','database'] },
+  { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
 
 const DEFAULT_FILTERS = {
