@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, PieChart, Pie, Cell,
@@ -356,8 +357,11 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+  const [filterInvoiceType, setFilterInvoiceType] = useState('all')
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('all')
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('issueDate')
+  const [sortDir, setSortDir] = useState('asc')
 
   // 當月發票列表（從 invoices[YYYY-MM] 取得）
   const monthItems = useMemo(() => invoices[currentMonth] || [], [invoices, currentMonth])
@@ -393,6 +397,8 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
   const displayed = useMemo(() => {
     let list = [...monthItems]
     if (filterStatus !== 'all') list = list.filter(r => r.status === filterStatus)
+    if (filterInvoiceType !== 'all') list = list.filter(r => r.invoiceType === filterInvoiceType)
+    if (filterPaymentMethod !== 'all') list = list.filter(r => r.paymentMethod === filterPaymentMethod)
     if (search.trim()) {
       const q = search.toLowerCase()
       list = list.filter(r =>
@@ -401,11 +407,19 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
         r.note?.toLowerCase().includes(q)
       )
     }
-    if (sortBy === 'issueDate') list.sort((a, b) => a.issueDate.localeCompare(b.issueDate))
-    else if (sortBy === 'amount') list.sort((a, b) => b.amount - a.amount)
-    else if (sortBy === 'store') list.sort((a, b) => a.store.localeCompare(b.store, 'zh-TW'))
+    const dir = sortDir === 'asc' ? 1 : -1
+    if (sortBy === 'issueDate') list.sort((a, b) => dir * a.issueDate.localeCompare(b.issueDate))
+    else if (sortBy === 'amount') list.sort((a, b) => dir * (a.amount - b.amount))
+    else if (sortBy === 'store') list.sort((a, b) => dir * a.store.localeCompare(b.store, 'zh-TW'))
+    else if (sortBy === 'dueDate') {
+      list.sort((a, b) => {
+        const da = calcDueDate(a.issueDate, a.paymentTerm) || ''
+        const db = calcDueDate(b.issueDate, b.paymentTerm) || ''
+        return dir * da.localeCompare(db)
+      })
+    }
     return list
-  }, [monthItems, filterStatus, search, sortBy])
+  }, [monthItems, filterStatus, filterInvoiceType, filterPaymentMethod, search, sortBy, sortDir])
 
   // ── KPI 統計 ──────────────────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -512,6 +526,50 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
 
   const cancelForm = () => { setShowForm(false); setEditItem(null) }
 
+  // ── XLSX 匯出 ──────────────────────────────────────────────────────────────
+  const handleExportXLSX = useCallback(() => {
+    const statusLabel = s => STATUSES[s]?.label || s
+    const invoiceTypeLabel = v => INVOICE_TYPES.find(x => x.value === v)?.label || v
+    const paymentMethodLabel = v => PAYMENT_METHODS.find(x => x.value === v)?.label || v
+
+    // 匯出全部月份
+    const allItems = Object.entries(invoices)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .flatMap(([month, items]) => items.map(r => {
+        const due = calcDueDate(r.issueDate, r.paymentTerm)
+        const days = r.status !== 'confirmed' ? daysFromToday(due) : null
+        return {
+          '月份': month,
+          '店家名稱': r.store,
+          '發票號碼': r.invoiceNo,
+          '發票類型': invoiceTypeLabel(r.invoiceType),
+          '付款方式': paymentMethodLabel(r.paymentMethod),
+          '月結天數': r.paymentTerm || '',
+          '發票開立日期': r.issueDate,
+          '到期日': due || '',
+          '剩餘天數': days != null ? days : '',
+          '發票金額': r.amount,
+          '對帳狀態': statusLabel(r.status),
+          '入帳日期': r.confirmedAt || '',
+          '入帳金額': r.confirmedAmount ?? '',
+          '金額差異': r.confirmedAmount != null ? r.confirmedAmount - r.amount : '',
+          '備註': r.note || '',
+        }
+      }))
+
+    if (!allItems.length) { alert('目前沒有發票資料可匯出'); return }
+
+    const ws = XLSX.utils.json_to_sheet(allItems)
+    // 設定欄位寬度
+    ws['!cols'] = [
+      {wch:10},{wch:18},{wch:16},{wch:10},{wch:8},{wch:8},
+      {wch:13},{wch:13},{wch:10},{wch:12},{wch:10},{wch:13},{wch:12},{wch:10},{wch:24},
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '發票對帳記錄')
+    XLSX.writeFile(wb, `發票對帳_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }, [invoices])
+
   const diffAmount = (item) => {
     if (item.confirmedAmount == null) return null
     return item.confirmedAmount - item.amount
@@ -541,8 +599,15 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
             ›
           </button>
           <button
+            onClick={handleExportXLSX}
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="匯出全部月份 XLSX"
+          >
+            📥 匯出
+          </button>
+          <button
             onClick={() => { setEditItem(null); setShowForm(true) }}
-            className="ml-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+            className="ml-1 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
           >
             ＋ 新增發票
           </button>
@@ -795,32 +860,73 @@ export default function InvoiceReconciliation({ invoices = {}, onSave, allRows =
       )}
 
       {/* 篩選列 */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <input
-          type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="搜尋店家、發票號碼、備註…"
-          className="flex-1 px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-base focus:outline-none focus:border-blue-400 bg-white dark:bg-gray-700 dark:text-gray-200"
-        />
-        {/* 狀態篩選 */}
-        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl flex-shrink-0 flex-wrap">
-          <button onClick={() => setFilterStatus('all')}
-            className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all ${filterStatus === 'all' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
-            全部
+      <div className="flex flex-col gap-2">
+        {/* 第一行：搜尋 + 排序 */}
+        <div className="flex gap-2 flex-wrap">
+          <input
+            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="搜尋店家、發票號碼、備註…"
+            className="flex-1 min-w-[180px] px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-base focus:outline-none focus:border-blue-400 bg-white dark:bg-gray-700 dark:text-gray-200"
+          />
+          {/* 排序欄位 */}
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none">
+            <option value="issueDate">開立日期</option>
+            <option value="dueDate">到期日</option>
+            <option value="amount">金額</option>
+            <option value="store">店家</option>
+          </select>
+          {/* 排序方向 */}
+          <button
+            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-semibold min-w-[60px] text-center"
+            title={sortDir === 'asc' ? '目前升冪，點擊改降冪' : '目前降冪，點擊改升冪'}
+          >
+            {sortDir === 'asc' ? '↑ 升冪' : '↓ 降冪'}
           </button>
-          {Object.entries(STATUSES).map(([k, s]) => (
-            <button key={k} onClick={() => setFilterStatus(k)}
-              className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${filterStatus === k ? 'bg-white dark:bg-gray-600 shadow-sm ' + s.color.split(' ').slice(2).join(' ') : 'text-gray-500 dark:text-gray-400'}`}>
-              {s.label}
-            </button>
-          ))}
         </div>
-        {/* 排序 */}
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 dark:text-gray-200 focus:outline-none">
-          <option value="issueDate">依日期排序</option>
-          <option value="amount">依金額排序</option>
-          <option value="store">依店家排序</option>
-        </select>
+        {/* 第二行：狀態 + 類型 + 付款方式 */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* 狀態篩選 */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl flex-shrink-0 flex-wrap">
+            <button onClick={() => setFilterStatus('all')}
+              className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all ${filterStatus === 'all' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              全部
+            </button>
+            {Object.entries(STATUSES).map(([k, s]) => (
+              <button key={k} onClick={() => setFilterStatus(k)}
+                className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${filterStatus === k ? 'bg-white dark:bg-gray-600 shadow-sm ' + s.color.split(' ').slice(2).join(' ') : 'text-gray-500 dark:text-gray-400'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {/* 發票類型篩選 */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl flex-shrink-0">
+            <button onClick={() => setFilterInvoiceType('all')}
+              className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all ${filterInvoiceType === 'all' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              所有類型
+            </button>
+            {INVOICE_TYPES.map(({ value, label, icon }) => (
+              <button key={value} onClick={() => setFilterInvoiceType(value)}
+                className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${filterInvoiceType === value ? 'bg-white dark:bg-gray-600 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+          {/* 付款方式篩選 */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl flex-shrink-0 flex-wrap">
+            <button onClick={() => setFilterPaymentMethod('all')}
+              className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all ${filterPaymentMethod === 'all' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              所有付款
+            </button>
+            {PAYMENT_METHODS.map(({ value, label, icon }) => (
+              <button key={value} onClick={() => setFilterPaymentMethod(value)}
+                className={`px-2.5 py-1 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${filterPaymentMethod === value ? 'bg-white dark:bg-gray-600 text-violet-700 dark:text-violet-300 shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* 發票列表 */}

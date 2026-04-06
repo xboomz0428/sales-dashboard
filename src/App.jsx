@@ -190,6 +190,12 @@ function AppDashboard() {
   // ── 角色控制可見 Tab ──────────────────────────────────────────────────────
   const visibleTabs = allowedTabs ? TABS.filter(t => allowedTabs.includes(t.id)) : TABS
 
+  // Close mobile panel on tab change
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTab(tabId)
+    if (window.innerWidth < 768) setPanelOpen(false)
+  }, [])
+
   // ── Tab 分組導覽 ──────────────────────────────────────────────────────────
   const activeGroup = useMemo(() => {
     for (const g of TAB_GROUPS) {
@@ -231,12 +237,6 @@ function AppDashboard() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
-
-  // Close mobile panel on tab change
-  const handleTabChange = useCallback((tabId) => {
-    setActiveTab(tabId)
-    if (window.innerWidth < 768) setPanelOpen(false)
   }, [])
 
   const handleFileLoaded = useCallback(async (file) => {

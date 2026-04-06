@@ -84,7 +84,22 @@ export function buildAIPayload({ summary, productData, brandData, channelData, c
   return JSON.stringify(data, null, 2)
 }
 
-export function buildPrompt(dataJson, analysisType) {
+export function buildFilterContext(filters) {
+  if (!filters) return ''
+  const parts = []
+  if (filters.dateRange) parts.push(`日期範圍：${filters.dateRange.start} ～ ${filters.dateRange.end}`)
+  else if (filters.years?.length) parts.push(`年份：${filters.years.join('、')} 年`)
+  if (filters.months?.length) parts.push(`月份：${filters.months.map(m => m + '月').join('、')}`)
+  if (filters.brands?.length) parts.push(`品牌：${filters.brands.join('、')}`)
+  if (filters.channels?.length) parts.push(`通路：${filters.channels.join('、')}`)
+  if (filters.channelTypes?.length) parts.push(`通路類型：${filters.channelTypes.join('、')}`)
+  if (filters.customers?.length) parts.push(`客戶：${filters.customers.join('、')}`)
+  if (filters.products?.length) parts.push(`商品：${filters.products.join('、')}`)
+  if (!parts.length) return ''
+  return `⚠️ **重要：本次分析為篩選後的子集資料，並非全部銷售資料。**\n篩選條件：${parts.join('；')}\n請勿宣稱「整體市場」或「所有資料」，應以「在此篩選範圍內」為前提進行分析。\n\n`
+}
+
+export function buildPrompt(dataJson, analysisType, filters) {
   const typePrompts = {
     comprehensive: `請針對以下所有面向進行完整分析，每個章節都要有具體數字支撐：
 1. **整體銷售績效評估**（含趨勢分析、成長幅度）
@@ -142,7 +157,8 @@ export function buildPrompt(dataJson, analysisType) {
 6. 風險評估與應對措施`,
   }
 
-  return `你是一個由四位頂尖專家組成的商業顧問團隊，請整合以下視角進行分析，**必須用繁體中文**回答。所有建議必須有數據支撐，嚴禁空泛通用建議：
+  const filterCtx = buildFilterContext(filters)
+  return `${filterCtx}你是一個由四位頂尖專家組成的商業顧問團隊，請整合以下視角進行分析，**必須用繁體中文**回答。所有建議必須有數據支撐，嚴禁空泛通用建議：
 
 ## 專家團隊視角
 - 🏢 **企業管理專家**：策略規劃、資源配置、組織效能、KPI管理

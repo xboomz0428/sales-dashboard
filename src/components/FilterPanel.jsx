@@ -102,15 +102,24 @@ function detectQuickMode(dateRange) {
 export default function FilterPanel({ meta, filters, onChange, allRows = [], open = true, onToggle }) {
   const { years, channels, channelTypes, brands: rawBrands, customers = [], products = [] } = meta
 
-  // 品牌依銷售總額降冪排序
+  // 依已選年份過濾資料列，作為品牌 / 商品 / 通路選項的來源
+  const yearFilteredRows = useMemo(() => {
+    if (!filters.years?.length || !allRows.length) return allRows
+    const yearSet = new Set(filters.years.map(String))
+    return allRows.filter(r => yearSet.has(String(r.year)))
+  }, [allRows, filters.years])
+
+  // 品牌依選定年份銷售總額降冪排序，且只顯示該年份有銷售的品牌
   const brands = useMemo(() => {
-    if (!allRows.length) return rawBrands
+    if (!yearFilteredRows.length) return rawBrands
     const totals = {}
-    for (const r of allRows) {
+    for (const r of yearFilteredRows) {
       if (r.brand) totals[r.brand] = (totals[r.brand] || 0) + (r.subtotal || 0)
     }
-    return [...rawBrands].sort((a, b) => (totals[b] || 0) - (totals[a] || 0))
-  }, [rawBrands, allRows])
+    const available = [...new Set(yearFilteredRows.map(r => r.brand).filter(Boolean))]
+    return available.sort((a, b) => (totals[b] || 0) - (totals[a] || 0))
+  }, [rawBrands, yearFilteredRows])
+
   const [showCustomDate, setShowCustomDate] = useState(false)
   const quickMode = detectQuickMode(filters.dateRange)
 
@@ -122,22 +131,25 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
     (filters.customers?.length || 0)
 
   const availableProducts = useMemo(() => {
-    if (!filters.brands.length || !allRows.length) return products
-    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
-    return [...new Set(brandRows.map(r => r.product).filter(Boolean))].sort()
-  }, [filters.brands, allRows, products])
+    const src = yearFilteredRows.length ? yearFilteredRows : allRows
+    if (!src.length) return products
+    const baseRows = filters.brands.length ? src.filter(r => filters.brands.includes(r.brand)) : src
+    return [...new Set(baseRows.map(r => r.product).filter(Boolean))].sort()
+  }, [filters.brands, allRows, yearFilteredRows, products])
 
   const availableChannels = useMemo(() => {
-    if (!filters.brands.length || !allRows.length) return channels
-    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
-    return [...new Set(brandRows.map(r => r.channel).filter(Boolean))].sort()
-  }, [filters.brands, allRows, channels])
+    const src = yearFilteredRows.length ? yearFilteredRows : allRows
+    if (!src.length) return channels
+    const baseRows = filters.brands.length ? src.filter(r => filters.brands.includes(r.brand)) : src
+    return [...new Set(baseRows.map(r => r.channel).filter(Boolean))].sort()
+  }, [filters.brands, allRows, yearFilteredRows, channels])
 
   const availableChannelTypes = useMemo(() => {
-    if (!filters.brands.length || !allRows.length) return channelTypes
-    const brandRows = allRows.filter(r => filters.brands.includes(r.brand))
-    return [...new Set(brandRows.map(r => r.channelType).filter(Boolean))].sort()
-  }, [filters.brands, allRows, channelTypes])
+    const src = yearFilteredRows.length ? yearFilteredRows : allRows
+    if (!src.length) return channelTypes
+    const baseRows = filters.brands.length ? src.filter(r => filters.brands.includes(r.brand)) : src
+    return [...new Set(baseRows.map(r => r.channelType).filter(Boolean))].sort()
+  }, [filters.brands, allRows, yearFilteredRows, channelTypes])
 
   const set = (key, clearDateRange = false) => (val) =>
     onChange({ ...filters, [key]: val, ...(clearDateRange ? { dateRange: null } : {}) })

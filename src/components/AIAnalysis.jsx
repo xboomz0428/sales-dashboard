@@ -660,7 +660,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
 
     // 建立原始 prompt 並儲存到 ref（供手動繼續使用）
     const dataJson = buildAIPayload(salesData)
-    const originalPrompt = buildPrompt(dataJson, analysisType)
+    const originalPrompt = buildPrompt(dataJson, analysisType, salesData.filters)
     originalPromptRef.current = originalPrompt
 
     // 單輪串流，回傳 finishReason
