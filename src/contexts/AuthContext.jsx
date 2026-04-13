@@ -2,17 +2,16 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase, supabaseAdmin, supabaseReady } from '../config/supabase'
 
 // ─── 角色定義 ────────────────────────────────────────────────────────────────
-// admin   : 全部功能 + 使用者管理
-// manager : 全部分析功能（含成本、目標、預警）
-// viewer  : 唯讀瀏覽（分析圖表，不可編輯成本 / 目標）
 export const ROLES = {
   admin:   { label: '系統管理員', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
   manager: { label: '管理者',     badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
   viewer:  { label: '檢視者',     badge: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
 }
 
-// 所有可設定的功能區塊（不含 users/backup，這兩個固定依角色控制）
+// 所有可設定的功能區塊（依主功能分組）
+// backup/tools/users/database 固定依角色控制，不放入此列表
 export const TAB_DEFS = [
+  // 分析
   { id: 'summary',     label: '老闆視角',  group: '分析' },
   { id: 'performance', label: '績效矩陣',  group: '分析' },
   { id: 'comparison',  label: '對比分析',  group: '分析' },
@@ -23,17 +22,21 @@ export const TAB_DEFS = [
   { id: 'brand',       label: '品牌分析',  group: '分析' },
   { id: 'heatmap',     label: '熱力圖',    group: '分析' },
   { id: 'table',       label: '資料表格',  group: '分析' },
+  // 管理
   { id: 'costs',       label: '商品成本',  group: '管理' },
+  { id: 'expenses',    label: '月費用管理', group: '管理' },
+  { id: 'invoice',     label: '發票對帳',  group: '管理' },
   { id: 'goals',       label: '目標管理',  group: '管理' },
   { id: 'alerts',      label: '預警中心',  group: '管理' },
+  // 進階
   { id: 'health',      label: '客戶健康',  group: '進階' },
   { id: 'forecast',    label: '預測分析',  group: '進階' },
   { id: 'flow',        label: '流程架構',  group: '進階' },
+  // 工具
+  { id: 'line-notify', label: 'LINE 通知', group: '工具' },
 ]
 
 // 預設角色可見 Tab（作為 DB 尚未設定時的 fallback）
-// backup：admin + manager 可見（固定，不由 DB 設定）
-// users ：admin 可見（固定）
 export const ROLE_TABS_DEFAULT = {
   admin:   null,
   manager: ['summary','performance','comparison','trend','product','customer',
@@ -57,13 +60,13 @@ export const ROLE_PERMS = {
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user,          setUser]          = useState(null)   // Supabase User 物件
-  const [role,          setRole]          = useState(null)   // 'admin' | 'manager' | 'viewer'
-  const [loading,       setLoading]       = useState(true)
-  const [authError,     setAuthError]     = useState(null)
-  const [dbPermissions, setDbPermissions] = useState(null)   // { manager: { allowed_tabs, data_years }, viewer: { ... } }
+  const [user,            setUser]            = useState(null)
+  const [role,            setRole]            = useState(null)
+  const [loading,         setLoading]         = useState(true)
+  const [authError,       setAuthError]       = useState(null)
+  const [dbPermissions,   setDbPermissions]   = useState(null)   // { manager: {...}, viewer: {...} }
+  const [userPermissions, setUserPermissions] = useState(null)   // 個人權限覆蓋
 
-  // ── 示範模式（Supabase 未設定時） ────────────────────────────────────────
   const demoMode = !supabaseReady
 
   // ── 從 DB 載入角色可見 Tab 設定 ──────────────────────────────────────────
@@ -81,9 +84,24 @@ export function AuthProvider({ children }) {
     } catch { /* 靜默失敗，使用預設值 */ }
   }, [])
 
+  // ── 從 DB 載入個人權限覆蓋 ───────────────────────────────────────────────
+  const fetchUserPermissions = useCallback(async (uid) => {
+    if (!supabaseReady || !uid) return
+    try {
+      const client = supabaseAdmin || supabase
+      const { data } = await client
+        .from('user_permissions')
+        .select('allowed_tabs, data_years')
+        .eq('user_id', uid)
+        .maybeSingle()
+      setUserPermissions(data
+        ? { allowed_tabs: data.allowed_tabs, data_years: data.data_years ?? null }
+        : null
+      )
+    } catch { setUserPermissions(null) }
+  }, [])
+
   // ── 監聽 Supabase 會話變化 ───────────────────────────────────────────────
-  // Supabase v2: onAuthStateChange 訂閱後會立即以 INITIAL_SESSION 事件
-  // 回傳目前會話，不需另外呼叫 getSession()，避免重複觸發 fetchRole。
   useEffect(() => {
     if (!supabaseReady) {
       setLoading(false)
@@ -97,15 +115,17 @@ export function AuthProvider({ children }) {
         if (session?.user) {
           setUser(session.user)
           await fetchRole(session.user.id)
+          await fetchUserPermissions(session.user.id)
         } else {
           setUser(null)
           setRole(null)
+          setUserPermissions(null)
           setLoading(false)
         }
       }
     )
     return () => subscription.unsubscribe()
-  }, [fetchRolePermissions])
+  }, [fetchRolePermissions, fetchUserPermissions])
 
   // ── 檢查系統是否已有 admin ────────────────────────────────────────────────
   async function hasAnyAdmin() {
@@ -122,7 +142,6 @@ export function AuthProvider({ children }) {
   // ── 從 user_roles 資料表取得角色 ─────────────────────────────────────────
   async function fetchRole(uid) {
     try {
-      // 優先用 admin client 讀取（繞過 RLS），確保能讀到自己的角色
       const readClient = supabaseAdmin || supabase
       const { data, error } = await readClient
         .from('user_roles')
@@ -133,14 +152,10 @@ export function AuthProvider({ children }) {
       if (error) throw error
 
       if (data?.role) {
-        // 已有角色：若為 viewer 且系統沒有任何 admin，自動升級為 admin
         if (data.role === 'viewer') {
           const noAdmin = !(await hasAnyAdmin())
           if (noAdmin) {
-            await readClient
-              .from('user_roles')
-              .update({ role: 'admin' })
-              .eq('id', uid)
+            await readClient.from('user_roles').update({ role: 'admin' }).eq('id', uid)
             setRole('admin')
             setLoading(false)
             return
@@ -148,7 +163,6 @@ export function AuthProvider({ children }) {
         }
         setRole(data.role)
       } else {
-        // 全新使用者：若系統無 admin，成為 admin；否則設為 viewer
         const noAdmin = !(await hasAnyAdmin())
         const newRole = noAdmin ? 'admin' : 'viewer'
         await readClient
@@ -168,7 +182,6 @@ export function AuthProvider({ children }) {
     setAuthError(null)
 
     if (demoMode) {
-      // 示範模式：依帳號決定角色
       const demoRoles = {
         'admin@demo.com':   'admin',
         'manager@demo.com': 'manager',
@@ -184,10 +197,10 @@ export function AuthProvider({ children }) {
 
     if (error) {
       const msg = {
-        'Invalid login credentials':         '帳號或密碼錯誤',
-        'Email not confirmed':               '請先至信箱驗證帳號',
-        'Too many requests':                 '登入失敗次數過多，請稍後再試',
-        'User not found':                    '找不到此帳號',
+        'Invalid login credentials': '帳號或密碼錯誤',
+        'Email not confirmed':       '請先至信箱驗證帳號',
+        'Too many requests':         '登入失敗次數過多，請稍後再試',
+        'User not found':            '找不到此帳號',
       }[error.message] || error.message || '登入失敗，請確認帳號密碼'
       setAuthError(msg)
       return { success: false, error: msg }
@@ -201,22 +214,28 @@ export function AuthProvider({ children }) {
     if (supabaseReady) await supabase.auth.signOut()
     setUser(null)
     setRole(null)
+    setUserPermissions(null)
   }
 
   const perms    = role ? ROLE_PERMS[role] : {}
   const roleInfo = role ? ROLES[role]      : null
 
-  // 動態 allowedTabs：優先使用 DB 設定，fallback 至預設值
-  // admin 永遠是 null（全部可見）
+  // 權限優先序：個人設定 > 角色設定 > 預設值
+  // admin 永遠看全部（null）
   const allowedTabs = role
     ? (role === 'admin'
         ? null
-        : (dbPermissions?.[role]?.allowed_tabs ?? ROLE_TABS_DEFAULT[role]))
+        : (userPermissions?.allowed_tabs         // 1. 個人設定
+            ?? dbPermissions?.[role]?.allowed_tabs // 2. 角色設定
+            ?? ROLE_TABS_DEFAULT[role]))            // 3. 預設值
     : []
 
-  // 資料年限：admin 永遠不限制（null），其他角色從 DB 取得
   const dataYearsLimit = role
-    ? (role === 'admin' ? null : (dbPermissions?.[role]?.data_years ?? null))
+    ? (role === 'admin'
+        ? null
+        : (userPermissions !== null
+            ? userPermissions.data_years           // 1. 個人設定
+            : (dbPermissions?.[role]?.data_years ?? null))) // 2. 角色設定
     : null
 
   const value = {
@@ -226,6 +245,7 @@ export function AuthProvider({ children }) {
     isLoggedIn: !!user,
     roleInfo,
     refreshPermissions: fetchRolePermissions,
+    refreshUserPermissions: (uid) => fetchUserPermissions(uid ?? user?.id),
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

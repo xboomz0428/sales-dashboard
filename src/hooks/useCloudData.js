@@ -2,34 +2,119 @@
  * useCloudData  ─  Supabase 版
  * ─────────────────────────────────────────────────────────────────────────────
  * 雲端資料同步：
- *   • 銷售 Excel → Supabase Storage bucket: sales-files
+ *   • 銷售資料   → Supabase DB 資料表: sales_data（主要儲存）
+ *   • 銷售 Excel → Supabase Storage bucket: sales-files（備份）
  *   • 產品成本   → Supabase DB 資料表: user_costs
- *   • 登入後自動下載歷史檔案並重新解析，無需重新上傳
  *
- * 若 Supabase 未設定（示範模式），全部降級為 localStorage。
+ * 登入後優先從 sales_data 資料表讀取，無需重新解析 Excel 檔案。
+ * 上傳新檔時，依 _key 去重：重複則跳過，新資料才寫入。
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase, supabaseAdmin, supabaseReady } from '../config/supabase'
 import { processExcelFile } from '../utils/dataProcessor'
 
-// Storage 讀取用 admin client（繞過 RLS），若無則降級至 anon client
-// 上傳仍用 anon client（以使用者身份）
-const storageReader = supabaseAdmin || supabase
-
+const storageReader  = supabaseAdmin || supabase
 const STORAGE_BUCKET = 'sales-files'
-const SHARED_FOLDER  = 'shared'          // 所有帳號共用的資料夾
-const LS_COSTS = 'product_costs'
+const SHARED_FOLDER  = 'shared'
+const LS_COSTS       = 'product_costs'
+const DB_TABLE       = 'sales_data'
+const DB_PAGE_SIZE   = 1000   // Supabase 每次最多回傳筆數
+const DB_BATCH_SIZE  = 500    // upsert 每批筆數
 
-// ─── 工具：共用資料夾路徑 ────────────────────────────────────────────────────
 const sharedPath = (filename) =>
   filename ? `${SHARED_FOLDER}/${filename}` : SHARED_FOLDER
+
+// ─── 資料列欄位轉換（camelCase ↔ snake_case）───────────────────────────────
+function rowToDb(r) {
+  return {
+    _key:          r._key,
+    date:          r.date,
+    year_month:    r.yearMonth,
+    year:          r.year,
+    month:         r.month,
+    channel:       r.channel       ?? '',
+    channel_type:  r.channelType   ?? '',
+    brand:         r.brand         ?? '',
+    agent_type:    r.agentType     ?? '',
+    product:       r.product       ?? '',
+    order_id:      r.orderId       ?? '',
+    customer:      r.customer      ?? '',
+    quantity:      r.quantity      ?? 0,
+    subtotal:      r.subtotal      ?? 0,
+    total:         r.total         ?? 0,
+    discount_rate: r.discountRate  ?? 0,
+  }
+}
+
+function rowFromDb(r) {
+  return {
+    date:         r.date,
+    yearMonth:    r.year_month,
+    year:         r.year,
+    month:        r.month,
+    channel:      r.channel      ?? '',
+    channelType:  r.channel_type ?? '',
+    brand:        r.brand        ?? '',
+    agentType:    r.agent_type   ?? '',
+    product:      r.product      ?? '',
+    orderId:      r.order_id     ?? '',
+    customer:     r.customer     ?? '',
+    quantity:     r.quantity     ?? 0,
+    subtotal:     r.subtotal     ?? 0,
+    total:        r.total        ?? 0,
+    discountRate: r.discount_rate ?? 0,
+    _key:         r._key,
+  }
+}
+
+// ─── 從 DB 讀取所有銷售資料（分頁） ─────────────────────────────────────────
+async function loadRowsFromDb() {
+  const client = supabaseAdmin || supabase
+  const allRows = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await client
+      .from(DB_TABLE)
+      .select('_key,date,year_month,year,month,channel,channel_type,brand,agent_type,product,order_id,customer,quantity,subtotal,total,discount_rate')
+      .range(from, from + DB_PAGE_SIZE - 1)
+      .order('date', { ascending: true })
+
+    if (error) throw error
+    if (!data?.length) break
+
+    for (const r of data) allRows.push(rowFromDb(r))
+    if (data.length < DB_PAGE_SIZE) break
+    from += DB_PAGE_SIZE
+  }
+
+  return allRows
+}
+
+// ─── 批次 upsert 至 DB（_key 重複則跳過，不更新）──────────────────────────
+async function upsertRowsToDb(rows) {
+  if (!rows?.length) return { inserted: 0 }
+  const client = supabaseAdmin || supabase
+  let totalInserted = 0
+
+  for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
+    const chunk = rows.slice(i, i + DB_BATCH_SIZE).map(rowToDb)
+    const { error } = await client
+      .from(DB_TABLE)
+      .upsert(chunk, { onConflict: '_key', ignoreDuplicates: true })
+    if (error) throw error
+    totalInserted += chunk.length
+  }
+
+  return { inserted: totalInserted }
+}
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   const [syncing,      setSyncing]      = useState(false)
   const [syncStatus,   setSyncStatus]   = useState('')
-  const [uploadErrors, setUploadErrors] = useState([])   // 每個檔案的上傳錯誤
-  const [cloudFiles,   setCloudFiles]   = useState([])   // { name, path }
+  const [uploadErrors, setUploadErrors] = useState([])
+  const [cloudFiles,   setCloudFiles]   = useState([])
 
   const onDataLoadedRef  = useRef(onDataLoaded)
   const onCostsLoadedRef = useRef(onCostsLoaded)
@@ -43,16 +128,34 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       loadCloudFiles()
       loadCosts(user.id)
     }
-    // 示範模式：成本已在 localStorage，不需額外動作
   }, [user?.id])
 
-  // ── JSON 快取檔名（避免重複解析大型 .xls 造成 stack overflow）────────────
   const jsonCacheName = (fileName) => fileName + '.rows.json'
 
-  // ── 從 Supabase Storage 載入共用銷售檔案 ────────────────────────────────
+  // ── 主要資料載入：優先從 DB，再 fallback Storage ─────────────────────────
   async function loadCloudFiles() {
     try {
       setSyncing(true)
+
+      // ① 嘗試從 DB 讀取
+      if (supabaseReady) {
+        setSyncStatus('從資料庫讀取銷售資料…')
+        try {
+          const dbRows = await loadRowsFromDb()
+          if (dbRows.length > 0) {
+            setSyncStatus(`✓ 已從資料庫載入 ${dbRows.length.toLocaleString()} 筆資料`)
+            setTimeout(() => setSyncStatus(''), 4000)
+            onDataLoadedRef.current?.(dbRows, [])
+            setSyncing(false)
+            return
+          }
+        } catch (dbErr) {
+          // DB 讀取失敗（可能是資料表尚未建立）→ fallback 到 Storage
+          console.warn('[loadCloudFiles] DB 讀取失敗，改用 Storage:', dbErr.message)
+        }
+      }
+
+      // ② fallback：從 Storage 載入（並在成功後將資料同步至 DB）
       setSyncStatus('讀取雲端檔案清單…')
 
       const { data: files, error } = await storageReader.storage
@@ -69,7 +172,6 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         setSyncing(false); setSyncStatus(''); return
       }
 
-      // 分類：Excel 檔 vs JSON 快取檔
       const jsonCacheSet = new Set(
         validFiles.filter(f => f.name.endsWith('.rows.json')).map(f => f.name)
       )
@@ -83,12 +185,11 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
 
       for (let i = 0; i < excelFiles.length; i++) {
         const f = excelFiles[i]
-        setSyncStatus(`正在載入 ${f.name}（${i + 1}/${excelFiles.length}）…`)
+        setSyncStatus(`載入 ${f.name}（${i + 1}/${excelFiles.length}）…`)
         try {
           const cacheFile = jsonCacheName(f.name)
 
           if (jsonCacheSet.has(cacheFile)) {
-            // ✅ 優先從 JSON 快取載入（不需重新解析 Excel，避免 stack overflow）
             const { data: blob, error: dlErr } = await storageReader.storage
               .from(STORAGE_BUCKET).download(sharedPath(cacheFile))
             if (dlErr) throw new Error(dlErr.message)
@@ -97,7 +198,6 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
             for (const r of rows) allRows.push(r)
             loadedFileNames.push(f.name)
           } else {
-            // 無快取，解析原始 Excel
             const { data: blob, error: dlErr } = await storageReader.storage
               .from(STORAGE_BUCKET).download(sharedPath(f.name))
             if (dlErr) throw new Error(dlErr.message || '下載失敗')
@@ -114,31 +214,35 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         }
       }
 
+      if (allRows.length) {
+        onDataLoadedRef.current?.(allRows, loadedFileNames)
+
+        // 將 Storage 資料同步至 DB（背景執行，不阻塞 UI）
+        upsertRowsToDb(allRows).catch(e =>
+          console.warn('[loadCloudFiles] 同步至 DB 失敗:', e.message)
+        )
+      }
+
       if (failedFiles.length) {
         const failMsg = failedFiles.map(f => `${f.name}（${f.reason}）`).join('、')
         setSyncStatus(`⚠️ ${failedFiles.length} 個檔案載入失敗：${failMsg}`)
         setTimeout(() => setSyncStatus(''), 10000)
-      }
-
-      if (allRows.length && onDataLoadedRef.current) {
-        if (!failedFiles.length) {
-          setSyncStatus(`✓ 已從雲端載入 ${allRows.length.toLocaleString()} 筆資料（${loadedFileNames.length} 個檔案）`)
-          setTimeout(() => setSyncStatus(''), 4000)
-        }
-        onDataLoadedRef.current(allRows, loadedFileNames)
-      } else if (!allRows.length) {
+      } else if (allRows.length) {
+        setSyncStatus(`✓ 已從雲端載入 ${allRows.length.toLocaleString()} 筆資料`)
+        setTimeout(() => setSyncStatus(''), 4000)
+      } else {
         setSyncStatus('⚠️ 雲端有檔案但全部無法解析，請重新上傳')
         setTimeout(() => setSyncStatus(''), 8000)
       }
     } catch (e) {
-      setSyncStatus(`⚠️ 雲端資料載入失敗：${e.message || '請確認網路連線'}`)
+      setSyncStatus(`⚠️ 資料載入失敗：${e.message || '請確認網路連線'}`)
       setTimeout(() => setSyncStatus(''), 6000)
     } finally {
       setSyncing(false)
     }
   }
 
-  // ── 從 Supabase DB 載入成本，同步至 localStorage 並通知 App ────────────
+  // ── 載入成本 ─────────────────────────────────────────────────────────────
   async function loadCosts(uid) {
     try {
       const { data, error } = await supabase
@@ -150,13 +254,12 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       if (error) throw error
       if (data?.costs && Object.keys(data.costs).length > 0) {
         localStorage.setItem(LS_COSTS, JSON.stringify(data.costs))
-        // 透過 callback 通知 App.jsx 更新 productCosts state
         onCostsLoadedRef.current?.(data.costs)
       }
     } catch { /* 靜默失敗，保留本地成本 */ }
   }
 
-  // ── 上傳銷售 Excel 至 Storage ────────────────────────────────────────────
+  // ── 上傳銷售 Excel：Storage + DB 同時寫入 ───────────────────────────────
   const uploadSalesFile = useCallback(async (file, rows) => {
     if (!user) return
 
@@ -166,44 +269,49 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       return
     }
 
-    // 先清除此檔案的舊錯誤
     setUploadErrors(prev => prev.filter(e => e.name !== file.name))
 
     try {
       setSyncing(true)
       setSyncStatus(`正在上傳 ${file.name}…`)
 
+      // ① 寫入 DB（主要儲存）─ 重複 _key 自動跳過
+      let dbMsg = ''
+      if (rows?.length) {
+        try {
+          setSyncStatus(`寫入資料庫（${rows.length.toLocaleString()} 筆）…`)
+          await upsertRowsToDb(rows)
+          dbMsg = `DB ✓`
+        } catch (dbErr) {
+          console.warn('[uploadSalesFile] DB 寫入失敗:', dbErr.message)
+          dbMsg = `DB 失敗`
+        }
+      }
+
+      // ② 上傳至 Storage（備份）
       const path = sharedPath(file.name)
-      const { error } = await storageReader.storage
+      const { error: storageErr } = await storageReader.storage
         .from(STORAGE_BUCKET)
         .upload(path, file, { upsert: true })
 
-      if (error) throw error
+      if (!storageErr) {
+        setCloudFiles(prev => {
+          const filtered = prev.filter(f => f.name !== file.name)
+          return [...filtered, { name: file.name, path }]
+        })
 
-      // 上傳後立即列出確認檔案存在
-      const { data: listed } = await storageReader.storage
-        .from(STORAGE_BUCKET)
-        .list(SHARED_FOLDER, { limit: 10, search: file.name })
-      if (!listed?.find(f => f.name === file.name)) {
-        throw new Error('上傳後無法確認存在，請重試')
+        // 同時存 JSON 快取
+        if (rows?.length) {
+          try {
+            const jsonBlob = new Blob([JSON.stringify(rows)], { type: 'application/json' })
+            await storageReader.storage
+              .from(STORAGE_BUCKET)
+              .upload(sharedPath(jsonCacheName(file.name)), jsonBlob, { upsert: true })
+          } catch { /* JSON 快取失敗不影響主流程 */ }
+        }
       }
 
-      setCloudFiles(prev => {
-        const filtered = prev.filter(f => f.name !== file.name)
-        return [...filtered, { name: file.name, path }]
-      })
-
-      // 同時存 JSON 快取（下次登入直接讀 JSON，不再解析 Excel，避免大型 .xls stack overflow）
-      if (rows?.length) {
-        try {
-          const jsonBlob = new Blob([JSON.stringify(rows)], { type: 'application/json' })
-          await storageReader.storage
-            .from(STORAGE_BUCKET)
-            .upload(sharedPath(jsonCacheName(file.name)), jsonBlob, { upsert: true })
-        } catch { /* JSON 快取失敗不影響主流程 */ }
-      }
-
-      setSyncStatus(`✓ ${file.name} 已同步至雲端`)
+      setSyncStatus(`✓ ${file.name} 已同步（${dbMsg}）`)
       setTimeout(() => setSyncStatus(''), 3000)
     } catch (e) {
       const rawMsg = e.message || '請確認網路連線'
@@ -213,13 +321,12 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setUploadErrors(prev => [...prev.filter(x => x.name !== file.name), { name: file.name, reason: errMsg }])
       setSyncStatus(`⚠️ ${file.name} 上傳失敗`)
       setTimeout(() => setSyncStatus(''), 5000)
-      console.error('[uploadSalesFile]', file.name, e)
     } finally {
       setSyncing(false)
     }
   }, [user])
 
-  // ── 刪除雲端檔案 ─────────────────────────────────────────────────────────
+  // ── 刪除雲端檔案（Storage，DB 資料保留） ────────────────────────────────
   const deleteCloudFile = useCallback(async (fileName) => {
     if (!user || !supabaseReady) return
     const paths = [sharedPath(fileName), sharedPath(jsonCacheName(fileName))]
@@ -227,7 +334,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
     setCloudFiles(prev => prev.filter(f => f.name !== fileName))
   }, [user])
 
-  // ── 儲存成本（localStorage + Supabase DB） ───────────────────────────────
+  // ── 儲存成本 ─────────────────────────────────────────────────────────────
   const saveCosts = useCallback(async (costs) => {
     localStorage.setItem(LS_COSTS, JSON.stringify(costs))
     if (!user || !supabaseReady) return
@@ -238,10 +345,10 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
           { user_id: user.id, costs, updated_at: new Date().toISOString() },
           { onConflict: 'user_id' }
         )
-    } catch { /* 靜默失敗，本地已存 */ }
+    } catch { /* 靜默失敗 */ }
   }, [user])
 
-  // ── 依指定路徑重新下載並解析檔案（備份還原用）──────────────────────────
+  // ── 依指定路徑還原（備份還原用） ─────────────────────────────────────────
   const loadSpecificFiles = useCallback(async (filePaths) => {
     if (!filePaths?.length || !supabaseReady) return { rows: [], fileNames: [] }
 
