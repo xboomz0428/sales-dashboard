@@ -593,21 +593,71 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
 /* ═══════════════════════════════════════════════════════════════
    HTML → 智慧分頁 Canvases（表格列感知，自動重複表頭）
 ═══════════════════════════════════════════════════════════════ */
-const _SCALE = 1.8
-const _FONT = `system-ui,-apple-system,"Microsoft JhengHei","PingFang TC",sans-serif`
+// 使用整數倍縮放，避免次像素捨入造成模糊
+const _SCALE = 2
+// 字型：明確指定系統 CJK 字型，避免 Web Font 尚未載入就截圖
+const _FONT = `"Microsoft JhengHei","PingFang TC","Noto Sans TC",Arial,sans-serif`
+
+// 使用隱藏 wrapper 而非 fixed 定位，避免 layout 偏移
+let _hiddenRoot = null
+function _getHiddenRoot() {
+  if (_hiddenRoot && document.body.contains(_hiddenRoot)) return _hiddenRoot
+  _hiddenRoot = document.createElement('div')
+  _hiddenRoot.style.cssText = `
+    position:absolute;top:0;left:0;
+    width:0;height:0;overflow:hidden;
+    visibility:hidden;pointer-events:none;
+    z-index:-1;
+  `
+  document.body.appendChild(_hiddenRoot)
+  return _hiddenRoot
+}
 
 function _makeDiv(html, width, pad = '20px 24px') {
   const d = document.createElement('div')
-  d.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;background:white;padding:${pad};z-index:-9999;box-sizing:border-box;font-family:${_FONT}`
+  d.style.cssText = `
+    position:absolute;top:0;left:0;
+    width:${width}px;background:white;padding:${pad};
+    box-sizing:border-box;font-family:${_FONT};
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  `
   d.innerHTML = html
   return d
 }
 
 async function _renderToCanvas(div, width) {
+  // 等待所有字型載入完成再截圖，防止字型切換造成文字失真
+  if (document.fonts?.ready) await document.fonts.ready
+
   return html2canvas(div, {
-    scale: _SCALE, backgroundColor: '#ffffff', useCORS: true,
-    logging: false, scrollX: 0, scrollY: 0,
-    width, height: div.scrollHeight, windowWidth: width,
+    scale: _SCALE,
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    // 修正：不依賴 window.scroll，直接取元素位置
+    x: 0,
+    y: 0,
+    scrollX: 0,
+    scrollY: 0,
+    width,
+    height: div.scrollHeight,
+    windowWidth: width,
+    windowHeight: div.scrollHeight,
+    // 在複製的文件中強制指定字型，確保 canvas 內文字與 div 一致
+    onclone: (clonedDoc) => {
+      const s = clonedDoc.createElement('style')
+      s.textContent = `
+        * {
+          font-family: "Microsoft JhengHei","PingFang TC","Noto Sans TC",Arial,sans-serif !important;
+          -webkit-font-smoothing: antialiased !important;
+          text-rendering: optimizeLegibility !important;
+          letter-spacing: 0 !important;
+        }
+      `
+      clonedDoc.head.appendChild(s)
+    },
   })
 }
 
@@ -620,11 +670,28 @@ async function htmlToPagedCanvases(html, width = 750) {
   const PAGE_PX = Math.round(width * 1.414)   // A4 直式比例
 
   /* ── 1. 量測元素位置 ── */
+  const root = _getHiddenRoot()
   const div = _makeDiv(html, width)
-  document.body.appendChild(div)
+  // 使用 visibility:hidden 的容器掛載，避免 fixed 定位的座標問題
+  root.style.width = `${width}px`
+  root.style.height = 'auto'
+  root.style.overflow = 'visible'
+  root.style.visibility = 'hidden'
+  root.appendChild(div)
   await _waitLayout()
 
-  const divTop = div.getBoundingClientRect().top
+  // 使用 offsetTop/offsetHeight 計算元素相對於 div 頂部的位置
+  // 比 getBoundingClientRect 更穩定，不受 viewport scroll 影響
+  function _relBottom(el) {
+    let top = 0
+    let node = el
+    while (node && node !== div) {
+      top += node.offsetTop || 0
+      node = node.offsetParent
+    }
+    return top + (el.offsetHeight || 0)
+  }
+
   const totalH = div.scrollHeight
 
   // 收集所有 <tr> 的底部位置（safe break points）
@@ -634,37 +701,40 @@ async function htmlToPagedCanvases(html, width = 750) {
   div.querySelectorAll('table').forEach((tbl, ti) => {
     const tid = `t${ti}`
     const thead = tbl.querySelector('thead')
-    const tblR = tbl.getBoundingClientRect()
 
     tableData[tid] = {
       theadHTML: thead ? thead.outerHTML : null,
       theadH: thead ? Math.round(thead.getBoundingClientRect().height) : 0,
-      bottom: Math.round(tblR.bottom - divTop),
+      bottom: Math.round(_relBottom(tbl)),
     }
 
     tbl.querySelectorAll('tbody tr').forEach(row => {
-      rowBreaks.push({ y: Math.round(row.getBoundingClientRect().bottom - divTop), tid })
+      rowBreaks.push({ y: Math.round(_relBottom(row)), tid })
     })
   })
 
   // 非表格區塊底部也作為 break point
   div.querySelectorAll('p, li, h3, h4').forEach(el => {
-    rowBreaks.push({ y: Math.round(el.getBoundingClientRect().bottom - divTop), tid: null })
+    rowBreaks.push({ y: Math.round(_relBottom(el)), tid: null })
   })
   // SVG 圖表底部（避免圖表被截斷）
   div.querySelectorAll('svg').forEach(el => {
-    rowBreaks.push({ y: Math.round(el.getBoundingClientRect().bottom - divTop), tid: null })
+    rowBreaks.push({ y: Math.round(_relBottom(el)), tid: null })
   })
   // 各 section 卡片底部（最粗粒度的安全分頁點）
   Array.from(div.children).forEach(child => {
-    rowBreaks.push({ y: Math.round(child.getBoundingClientRect().bottom - divTop), tid: null })
+    rowBreaks.push({ y: Math.round(_relBottom(child)), tid: null })
   })
 
   rowBreaks.sort((a, b) => a.y - b.y)
 
   /* ── 2. 渲染完整 canvas ── */
   const fullCanvas = await _renderToCanvas(div, width)
-  document.body.removeChild(div)
+  root.removeChild(div)
+  // 還原 root 為收納狀態
+  root.style.height = '0'
+  root.style.overflow = 'hidden'
+  root.style.visibility = 'hidden'
 
   /* ── 3. 智慧分頁 ── */
   const pages = []
@@ -709,10 +779,17 @@ async function htmlToPagedCanvases(html, width = 750) {
     if (tInfo?.theadHTML) {
       const theadHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">${tInfo.theadHTML}</table>`
       const theadDiv = _makeDiv(theadHTML, width, '0 24px')
-      document.body.appendChild(theadDiv)
+      const troot = _getHiddenRoot()
+      troot.style.width = `${width}px`
+      troot.style.height = 'auto'
+      troot.style.overflow = 'visible'
+      troot.style.visibility = 'hidden'
+      troot.appendChild(theadDiv)
       await _waitLayout()
       theadCanvas = await _renderToCanvas(theadDiv, width)
-      document.body.removeChild(theadDiv)
+      troot.removeChild(theadDiv)
+      troot.style.height = '0'
+      troot.style.overflow = 'hidden'
     }
 
     const theadPx = theadCanvas ? theadCanvas.height : 0
@@ -753,11 +830,18 @@ async function htmlToPagedCanvases(html, width = 750) {
 
 /* 向後相容：單一 canvas（部分內部流程仍使用） */
 async function htmlToCanvas(html, width = 820) {
+  const root = _getHiddenRoot()
   const div = _makeDiv(html, width)
-  document.body.appendChild(div)
+  root.style.width = `${width}px`
+  root.style.height = 'auto'
+  root.style.overflow = 'visible'
+  root.style.visibility = 'hidden'
+  root.appendChild(div)
   await _waitLayout()
   const canvas = await _renderToCanvas(div, width)
-  document.body.removeChild(div)
+  root.removeChild(div)
+  root.style.height = '0'
+  root.style.overflow = 'hidden'
   return canvas
 }
 
@@ -777,7 +861,8 @@ function buildPDF(canvases, footerText = '') {
   let curY = margin  // 當前頁已用到的 Y 位置
 
   for (const canvas of canvases) {
-    const imgData = canvas.toDataURL('image/jpeg', 0.93)
+    // 使用 PNG 保留文字像素精度；檔案略大但消除 JPEG 壓縮雜訊
+    const imgData = canvas.toDataURL('image/png')
     const ratio = canvas.width / canvas.height
     let w = availW, h = w / ratio
     if (h > availH) { h = availH; w = h * ratio }
