@@ -12,22 +12,31 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
       <div className="flex items-center justify-between mb-1.5">
         <label className="font-bold text-base text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</label>
         {!allSelected && (
-          <button onClick={() => onChange([])} className="text-base text-blue-500 hover:text-blue-400">清除</button>
+          <button onClick={() => onChange([])} className="text-base transition-colors" style={{color:'var(--mint-500)'}}
+            onMouseEnter={e=>e.currentTarget.style.color='var(--mint-700)'}
+            onMouseLeave={e=>e.currentTarget.style.color='var(--mint-500)'}>清除</button>
         )}
       </div>
       <div className={`flex flex-wrap ${expanded ? 'gap-2' : 'gap-1.5'}`}>
         {options.map(opt => {
           const val = typeof opt === 'object' ? opt.value : opt
           const lbl = typeof opt === 'object' ? opt.label : opt
+          const isActive = selected.includes(val)
           return (
             <button key={val} onClick={() => toggle(val)}
-              className={`rounded-md border transition-all min-h-[40px] ${
+              className={`rounded-[var(--r-sm)] border transition-all min-h-[40px] ${
                 expanded ? 'px-4 py-2 text-base font-medium' : 'px-2.5 py-1.5 text-base'
               } ${
-                selected.includes(val)
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400'
-              }`}>{lbl}</button>
+                isActive
+                  ? 'text-white shadow-sm'
+                  : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'
+              }`}
+              style={isActive
+                ? {background:'var(--mint-500)',borderColor:'var(--mint-500)'}
+                : {}}
+              onMouseEnter={e=>{ if(!isActive) { e.currentTarget.style.borderColor='var(--mint-400)'; e.currentTarget.style.color='var(--mint-600)' } }}
+              onMouseLeave={e=>{ if(!isActive) { e.currentTarget.style.borderColor=''; e.currentTarget.style.color='' } }}
+            >{lbl}</button>
           )
         })}
       </div>
@@ -49,7 +58,9 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
       <div className="flex items-center justify-between mb-1.5">
         <label className="font-bold text-base text-gray-400 dark:text-gray-500 uppercase tracking-wider">{label}</label>
         {selected.length > 0 && (
-          <button onClick={() => onChange([])} className="text-base text-blue-500 hover:text-blue-400">
+          <button onClick={() => onChange([])} className="text-base transition-colors" style={{color:'var(--mint-500)'}}
+            onMouseEnter={e=>e.currentTarget.style.color='var(--mint-700)'}
+            onMouseLeave={e=>e.currentTarget.style.color='var(--mint-500)'}>
             清除 ({selected.length})
           </button>
         )}
@@ -57,24 +68,29 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
       <input
         type="text" value={q} onChange={e => setQ(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-200 dark:border-gray-600 rounded-lg mb-1.5 focus:outline-none focus:border-blue-400 bg-gray-50 dark:bg-gray-700 text-base px-3 py-2.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+        className="w-full border border-gray-200 dark:border-gray-600 rounded-[var(--r-sm)] mb-1.5 focus:outline-none bg-gray-50 dark:bg-gray-700 text-base px-3 py-2.5 text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 transition-all"
+        style={{'--tw-ring-color':'var(--mint-400)'}}
+        onFocus={e=>e.target.style.borderColor='var(--mint-400)'}
+        onBlur={e=>e.target.style.borderColor=''}
       />
-      <div className={`overflow-y-auto rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 transition-all ${
+      <div className={`overflow-y-auto rounded-[var(--r-sm)] border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 transition-all ${
         expanded ? 'max-h-64 space-y-1 p-2' : 'max-h-44 space-y-0.5 p-1.5'
       }`}>
         {shown.length === 0 ? (
           <p className="text-base text-gray-400 dark:text-gray-500 px-2 py-1">無結果</p>
         ) : shown.map(opt => (
-          <label key={opt} className={`flex items-center rounded cursor-pointer transition-colors min-h-[44px] ${
+          <label key={opt} className={`flex items-center rounded-[var(--r-sm)] cursor-pointer transition-colors min-h-[44px] ${
             expanded ? 'gap-3 px-3 py-2.5' : 'gap-2 px-2 py-2'
-          } ${selSet.has(opt) ? 'bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-white dark:hover:bg-gray-600'}`}>
+          } ${selSet.has(opt) ? '' : 'hover:bg-white dark:hover:bg-gray-600'}`}
+          style={selSet.has(opt) ? {background:'var(--mint-50)'} : {}}>
             <input
               type="checkbox" checked={selSet.has(opt)} onChange={() => toggle(opt)}
-              className="accent-blue-600 flex-shrink-0 w-5 h-5"
+              className="flex-shrink-0 w-5 h-5"
+              style={{accentColor:'var(--mint-500)'}}
             />
             <span className={`truncate text-base ${
-              selSet.has(opt) ? 'text-blue-700 dark:text-blue-400 font-semibold' : 'text-gray-700 dark:text-gray-300'
-            }`}>{opt}</span>
+              selSet.has(opt) ? 'font-semibold dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'
+            }`} style={selSet.has(opt) ? {color:'var(--mint-700)'} : {}}>{opt}</span>
           </label>
         ))}
         {options.length > 60 && (
@@ -184,19 +200,21 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
 
   return (
     <div
-      className="flex-shrink-0 h-full bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden shadow-sm"
-      style={{ width: panelWidth, maxWidth: 'calc(100vw - 16px)', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
+      className="flex-shrink-0 h-full bg-white dark:bg-gray-900 flex flex-col overflow-hidden"
+      style={{ width: panelWidth, maxWidth: 'calc(100vw - 16px)', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', borderRight:'1px solid var(--line)', boxShadow:'var(--shadow-sm)' }}
     >
       {/* Collapsed state */}
       {!open && (
         <button
           onClick={onToggle}
           title="展開篩選"
-          className="w-full flex flex-col items-center py-4 gap-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex-1"
+          className="w-full flex flex-col items-center py-4 gap-2 text-gray-400 dark:text-gray-500 dark:hover:bg-emerald-900/20 transition-colors flex-1"
+          onMouseEnter={e=>{e.currentTarget.style.color='var(--mint-600)';e.currentTarget.style.background='var(--mint-50)'}}
+          onMouseLeave={e=>{e.currentTarget.style.color='';e.currentTarget.style.background=''}}
         >
           <span className="text-lg">▶</span>
           {activeFilterCount > 0 && (
-            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+            <span className="w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center" style={{background:'var(--mint-500)'}}>
               {activeFilterCount > 9 ? '9+' : activeFilterCount}
             </span>
           )}
@@ -207,7 +225,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
       {/* Expanded state */}
       {open && (
         <>
-          <div className="px-4 py-3.5 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-indigo-600 flex-shrink-0">
+          <div className="px-4 py-3.5 border-b dark:border-gray-700 flex-shrink-0" style={{borderBottomColor:'var(--line)',background:'linear-gradient(135deg,var(--mint-500),var(--mint-600))'}}>
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-white">篩選條件</h2>
               <div className="flex items-center gap-2">
@@ -223,16 +241,19 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
                 >◀</button>
               </div>
             </div>
-            <p className="text-base text-blue-100 mt-0.5">
+            <p className="text-base mt-0.5" style={{color:'rgba(255,255,255,0.8)'}}>
               {isExpanded ? '品牌/產品篩選中，面板已放大' : '點選條件以篩選資料'}
             </p>
           </div>
 
           {/* Mobile close button (sticky at top) */}
-          <div className="md:hidden px-4 py-2 flex justify-end bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <div className="md:hidden px-4 py-2 flex justify-end bg-white dark:bg-gray-900 border-b dark:border-gray-700 flex-shrink-0" style={{borderBottomColor:'var(--line)'}}>
             <button
               onClick={onToggle}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-base font-semibold rounded-xl shadow-sm active:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-5 py-2.5 text-white text-base font-semibold rounded-[var(--r-md)] shadow-sm transition-colors"
+              style={{background:'var(--mint-500)'}}
+              onMouseEnter={e=>e.currentTarget.style.background='var(--mint-600)'}
+              onMouseLeave={e=>e.currentTarget.style.background='var(--mint-500)'}
             >
               ✓ 套用篩選
             </button>
@@ -242,14 +263,16 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             {/* Metric */}
             <div className="mb-4">
               <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">分析指標</label>
-              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-[var(--r-sm)]">
                 {[{ v: 'subtotal', l: '銷售金額' }, { v: 'quantity', l: '銷售數量' }].map(({ v, l }) => (
                   <button key={v} onClick={() => onChange({ ...filters, metric: v })}
-                    className={`text-base py-2 rounded-md transition-all font-medium ${
+                    className={`text-base py-2 rounded-[8px] transition-all font-medium ${
                       filters.metric === v
-                        ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 shadow-sm'
+                        ? 'bg-white dark:bg-gray-700 shadow-sm'
                         : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}>{l}</button>
+                    }`}
+                    style={filters.metric === v ? {color:'var(--mint-700)'} : {}}
+                  >{l}</button>
                 ))}
               </div>
             </div>
@@ -258,14 +281,21 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             <div className="mb-4">
               <label className="text-base font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-1.5">時間週期</label>
               <div className="grid grid-cols-3 gap-1">
-                {QUICK_BTNS.map(({ v, l }) => (
-                  <button key={v} onClick={() => setQuick(v)}
-                    className={`text-base py-2 rounded-md border transition-all ${
-                      quickMode === v
-                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-400 dark:hover:border-blue-500'
-                    }`}>{l}</button>
-                ))}
+                {QUICK_BTNS.map(({ v, l }) => {
+                  const isActive = quickMode === v
+                  return (
+                    <button key={v} onClick={() => setQuick(v)}
+                      className={`text-base py-2 rounded-[var(--r-sm)] border transition-all ${
+                        isActive
+                          ? 'text-white shadow-sm'
+                          : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'
+                      }`}
+                      style={isActive ? {background:'var(--mint-500)',borderColor:'var(--mint-500)'} : {}}
+                      onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.borderColor='var(--mint-400)' }}
+                      onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.borderColor='' }}
+                    >{l}</button>
+                  )
+                })}
               </div>
               {(showCustomDate || quickMode === 'custom') && (
                 <div className="mt-2 space-y-1.5">
@@ -279,14 +309,17 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
                           dateRange: { ...filters.dateRange, [idx === 0 ? 'start' : 'end']: e.target.value },
                           years: [], months: []
                         })}
-                        className="w-full text-base px-2.5 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-400 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        className="w-full text-base px-2.5 py-2 border border-gray-200 dark:border-gray-600 rounded-[var(--r-sm)] focus:outline-none bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        onFocus={e=>e.target.style.borderColor='var(--mint-400)'}
+                        onBlur={e=>e.target.style.borderColor=''}
                       />
                     </div>
                   ))}
                 </div>
               )}
               {filters.dateRange && (
-                <p className="text-base text-blue-600 dark:text-blue-400 mt-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                <p className="text-base dark:text-emerald-400 mt-1 dark:bg-emerald-900/20 px-2 py-1 rounded-[var(--r-sm)]"
+                  style={{color:'var(--mint-600)',background:'var(--mint-50)'}}>
                   {filters.dateRange.start} ~ {filters.dateRange.end}
                 </p>
               )}
@@ -310,7 +343,8 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
 
             <button
               onClick={() => onChange({ years: [], months: [], channels: [], channelTypes: [], brands: [], customers: [], products: [], dateRange: null, metric: filters.metric })}
-              className="w-full text-base py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 mt-2 transition-colors"
+              className="w-full text-base py-2.5 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 mt-2 transition-colors"
+              style={{borderRadius:'var(--r-sm)'}}
             >重置所有篩選</button>
           </div>
         </>

@@ -71,19 +71,34 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
     return { grossProfit: profit, grossMargin: covSales > 0 ? profit / covSales : 0 }
   }, [productData, costs, hasCostData])
 
+  // 新版 Design Token 色系
   const kpiCards = [
-    vis('totalSales') && { id: 'totalSales', label: '總銷售金額', value: `NT$ ${fmt(totalSales)}`, sub: fmtInt(totalSales) + ' 元', from: 'from-blue-500', to: 'to-blue-600', icon: '💰', light: 'bg-blue-50 text-blue-700', darkLight: 'dark:bg-blue-900/30 dark:text-blue-400' },
-    vis('totalQty') && { id: 'totalQty', label: '銷售數量', value: fmtInt(totalQty), sub: '件', from: 'from-emerald-500', to: 'to-teal-600', icon: '📦', light: 'bg-emerald-50 text-emerald-700', darkLight: 'dark:bg-emerald-900/30 dark:text-emerald-400' },
-    vis('orderCount') && { id: 'orderCount', label: '訂單筆數', value: fmtInt(orderCount), sub: '筆', from: 'from-violet-500', to: 'to-purple-600', icon: '🧾', light: 'bg-violet-50 text-violet-700', darkLight: 'dark:bg-violet-900/30 dark:text-violet-400' },
-    vis('customerCount') && { id: 'customerCount', label: '客戶數', value: customerCount > 0 ? fmtInt(customerCount) : '—', sub: customerCount > 0 ? '不重複客戶' : '無客戶欄位', from: 'from-orange-500', to: 'to-amber-500', icon: '👥', light: 'bg-orange-50 text-orange-700', darkLight: 'dark:bg-orange-900/30 dark:text-orange-400' },
-    vis('productCount') && { id: 'productCount', label: '品項數', value: productCount > 0 ? fmtInt(productCount) : '—', sub: productCount > 0 ? '不重複品項' : '無產品欄位', from: 'from-pink-500', to: 'to-rose-600', icon: '🏷️', light: 'bg-pink-50 text-pink-700', darkLight: 'dark:bg-pink-900/30 dark:text-pink-400' },
-    vis('avgDiscount') && { id: 'avgDiscount', label: '平均折扣率', value: avgDiscount > 0 ? Math.round(avgDiscount * 100) + '%' : '無折扣', sub: avgDiscount > 0 ? '平均折扣幅度' : '—', from: 'from-cyan-500', to: 'to-sky-600', icon: '🎯', light: 'bg-cyan-50 text-cyan-700', darkLight: 'dark:bg-cyan-900/30 dark:text-cyan-400' },
-    vis('avgOrderValue') && { id: 'avgOrderValue', label: '平均客單價', value: orderCount > 0 ? `NT$ ${fmt(avgOrderValue)}` : '—', sub: orderCount > 0 ? fmtInt(avgOrderValue) + ' 元 / 筆' : '—', from: 'from-indigo-500', to: 'to-blue-600', icon: '🛒', light: 'bg-indigo-50 text-indigo-700', darkLight: 'dark:bg-indigo-900/30 dark:text-indigo-400' },
-    vis('avgRevenuePerCustomer') && { id: 'avgRevenuePerCustomer', label: '每客銷售額', value: customerCount > 0 ? `NT$ ${fmt(avgRevenuePerCustomer)}` : '—', sub: customerCount > 0 ? fmtInt(avgRevenuePerCustomer) + ' 元 / 客' : '需客戶欄位', from: 'from-teal-500', to: 'to-emerald-600', icon: '👤', light: 'bg-teal-50 text-teal-700', darkLight: 'dark:bg-teal-900/30 dark:text-teal-400' },
-    vis('topProduct') && { id: 'topProduct', label: '最暢銷商品', value: topProductByRevenue?.name || '—', sub: topProductByRevenue ? `NT$ ${fmt(topProductByRevenue.subtotal)}` : '無產品資料', from: 'from-purple-500', to: 'to-violet-600', icon: '⭐', light: 'bg-purple-50 text-purple-700', darkLight: 'dark:bg-purple-900/30 dark:text-purple-400', truncateValue: true },
-    vis('topCustomer') && { id: 'topCustomer', label: '最大客戶', value: topCustomerByRevenue?.name || '—', sub: topCustomerByRevenue ? `NT$ ${fmt(topCustomerByRevenue.subtotal)}` : '無客戶資料', from: 'from-amber-500', to: 'to-orange-500', icon: '🏆', light: 'bg-amber-50 text-amber-700', darkLight: 'dark:bg-amber-900/30 dark:text-amber-400', truncateValue: true },
-    (hasCostData && vis('grossProfit')) && { id: 'grossProfit', label: '總毛利', value: `NT$ ${fmt(Math.abs(grossProfit))}`, sub: fmtInt(grossProfit) + ' 元', from: grossProfit >= 0 ? 'from-emerald-500' : 'from-red-500', to: grossProfit >= 0 ? 'to-green-600' : 'to-red-600', icon: '💹', light: grossProfit >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700', darkLight: grossProfit >= 0 ? 'dark:bg-emerald-900/30 dark:text-emerald-400' : 'dark:bg-red-900/30 dark:text-red-400' },
-    (hasCostData && vis('grossMargin')) && { id: 'grossMargin', label: '毛利率', value: `${Math.round(grossMargin * 100)}%`, sub: '已設定成本之商品', from: grossMargin >= 0.2 ? 'from-emerald-500' : 'from-yellow-400', to: grossMargin >= 0.2 ? 'to-green-600' : 'to-amber-500', icon: '📊', light: grossMargin >= 0.2 ? 'bg-emerald-50 text-emerald-700' : 'bg-yellow-50 text-yellow-700', darkLight: grossMargin >= 0.2 ? 'dark:bg-emerald-900/30 dark:text-emerald-400' : 'dark:bg-yellow-900/30 dark:text-yellow-400' },
+    vis('totalSales') && { id: 'totalSales', label: '總銷售金額', value: `NT$ ${fmt(totalSales)}`, sub: fmtInt(totalSales) + ' 元', icon: '💰',
+      barStyle: {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'}, iconBg: {background:'var(--mint-50)',color:'var(--mint-700)'} },
+    vis('totalQty') && { id: 'totalQty', label: '銷售數量', value: fmtInt(totalQty), sub: '件', icon: '📦',
+      barStyle: {background:'linear-gradient(90deg,var(--sky-300),var(--sky-500))'}, iconBg: {background:'var(--sky-100)',color:'var(--sky-500)'} },
+    vis('orderCount') && { id: 'orderCount', label: '訂單筆數', value: fmtInt(orderCount), sub: '筆', icon: '🧾',
+      barStyle: {background:'linear-gradient(90deg,var(--lilac-300),var(--lilac-500))'}, iconBg: {background:'var(--lilac-100)',color:'var(--lilac-500)'} },
+    vis('customerCount') && { id: 'customerCount', label: '客戶數', value: customerCount > 0 ? fmtInt(customerCount) : '—', sub: customerCount > 0 ? '不重複客戶' : '無客戶欄位', icon: '👥',
+      barStyle: {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'}, iconBg: {background:'var(--peach-100)',color:'var(--peach-500)'} },
+    vis('productCount') && { id: 'productCount', label: '品項數', value: productCount > 0 ? fmtInt(productCount) : '—', sub: productCount > 0 ? '不重複品項' : '無產品欄位', icon: '🏷️',
+      barStyle: {background:'linear-gradient(90deg,var(--coral-300),var(--coral-500))'}, iconBg: {background:'var(--coral-100)',color:'var(--coral-500)'} },
+    vis('avgDiscount') && { id: 'avgDiscount', label: '平均折扣率', value: avgDiscount > 0 ? Math.round(avgDiscount * 100) + '%' : '無折扣', sub: avgDiscount > 0 ? '平均折扣幅度' : '—', icon: '🎯',
+      barStyle: {background:'linear-gradient(90deg,var(--sky-300),var(--sky-500))'}, iconBg: {background:'var(--sky-100)',color:'var(--sky-500)'} },
+    vis('avgOrderValue') && { id: 'avgOrderValue', label: '平均客單價', value: orderCount > 0 ? `NT$ ${fmt(avgOrderValue)}` : '—', sub: orderCount > 0 ? fmtInt(avgOrderValue) + ' 元 / 筆' : '—', icon: '🛒',
+      barStyle: {background:'linear-gradient(90deg,var(--mint-300),var(--mint-500))'}, iconBg: {background:'var(--mint-50)',color:'var(--mint-600)'} },
+    vis('avgRevenuePerCustomer') && { id: 'avgRevenuePerCustomer', label: '每客銷售額', value: customerCount > 0 ? `NT$ ${fmt(avgRevenuePerCustomer)}` : '—', sub: customerCount > 0 ? fmtInt(avgRevenuePerCustomer) + ' 元 / 客' : '需客戶欄位', icon: '👤',
+      barStyle: {background:'linear-gradient(90deg,var(--mint-200),var(--mint-400))'}, iconBg: {background:'var(--mint-50)',color:'var(--mint-600)'} },
+    vis('topProduct') && { id: 'topProduct', label: '最暢銷商品', value: topProductByRevenue?.name || '—', sub: topProductByRevenue ? `NT$ ${fmt(topProductByRevenue.subtotal)}` : '無產品資料', icon: '⭐',
+      barStyle: {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'}, iconBg: {background:'var(--peach-100)',color:'var(--peach-500)'}, truncateValue: true },
+    vis('topCustomer') && { id: 'topCustomer', label: '最大客戶', value: topCustomerByRevenue?.name || '—', sub: topCustomerByRevenue ? `NT$ ${fmt(topCustomerByRevenue.subtotal)}` : '無客戶資料', icon: '🏆',
+      barStyle: {background:'linear-gradient(90deg,var(--coral-300),var(--coral-500))'}, iconBg: {background:'var(--coral-100)',color:'var(--coral-500)'}, truncateValue: true },
+    (hasCostData && vis('grossProfit')) && { id: 'grossProfit', label: '總毛利', value: `NT$ ${fmt(Math.abs(grossProfit))}`, sub: fmtInt(grossProfit) + ' 元', icon: '💹',
+      barStyle: grossProfit >= 0 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : {background:'linear-gradient(90deg,#f87171,#ef4444)'},
+      iconBg: grossProfit >= 0 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'#fee2e2',color:'#dc2626'} },
+    (hasCostData && vis('grossMargin')) && { id: 'grossMargin', label: '毛利率', value: `${Math.round(grossMargin * 100)}%`, sub: '已設定成本之商品', icon: '📊',
+      barStyle: grossMargin >= 0.2 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'},
+      iconBg: grossMargin >= 0.2 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'var(--peach-100)',color:'var(--peach-500)'} },
   ].filter(Boolean)
 
   const peakMonth = trendData.length > 0 ? trendData.reduce((a, b) => a.subtotal >= b.subtotal ? a : b) : null
@@ -103,7 +118,10 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
       <div className="flex items-center justify-end">
         <button
           onClick={() => setShowSettings(true)}
-          className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 transition-colors px-2.5 py-1 rounded-lg hover:bg-[var(--mint-50)] dark:hover:bg-emerald-900/20"
+          style={{'--hover-color':'var(--mint-600)'}}
+          onMouseEnter={e=>e.currentTarget.style.color='var(--mint-600)'}
+          onMouseLeave={e=>e.currentTarget.style.color=''}
         >
           ⚙️ 自訂卡片
         </button>
@@ -113,12 +131,13 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
       {kpiCards.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3">
           {kpiCards.map(card => (
-            <div key={card.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-              <div className={`h-1 bg-gradient-to-r ${card.from} ${card.to}`} />
+            <div key={card.id} className="bg-white dark:bg-gray-800 dark:border-gray-700 overflow-hidden transition-shadow hover:shadow-md"
+              style={{borderRadius:'var(--r-md)',border:'1px solid var(--line)',boxShadow:'var(--shadow-xs)'}}>
+              <div className="h-1" style={card.barStyle} />
               <div className="p-3 sm:p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm sm:text-base font-semibold text-gray-500 dark:text-gray-400 leading-tight">{card.label}</span>
-                  <span className={`text-base sm:text-lg rounded-lg px-1.5 py-0.5 ${card.light} ${card.darkLight}`}>{card.icon}</span>
+                  <span className="text-base sm:text-lg rounded-[8px] px-1.5 py-0.5 dark:bg-gray-700 dark:text-gray-300" style={card.iconBg}>{card.icon}</span>
                 </div>
                 {card.truncateValue ? (
                   <div className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight truncate mt-1" title={card.value}>

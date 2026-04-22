@@ -416,7 +416,7 @@ function AppDashboard() {
   const showEmptyState = !meta && !noDataTabs.includes(activeTab)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen overflow-hidden dark:bg-gray-950" style={{background:'var(--bg)'}}>
 
       {/* Mobile backdrop overlay — 只在有資料且側欄打開時顯示 */}
       {panelOpen && meta && (
@@ -443,7 +443,7 @@ function AppDashboard() {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-3 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 shadow-sm gap-2">
+        <header className="dark:bg-gray-900 border-b dark:border-gray-700 px-3 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 gap-2 sticky top-0 z-10 backdrop-blur-md" style={{background:'rgba(251,250,247,0.92)', borderBottomColor:'var(--line)'}}>
           <div className="flex items-center gap-2 min-w-0">
             {/* Mobile hamburger */}
             <button
@@ -456,7 +456,7 @@ function AppDashboard() {
               </svg>
             </button>
 
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-sm flex-shrink-0">S</div>
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-[10px] flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,var(--mint-400),var(--mint-500))',boxShadow:'0 4px 10px rgba(31,180,115,.25)'}}>S</div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">銷售數據分析系統</h1>
@@ -482,7 +482,10 @@ function AppDashboard() {
             {perms.uploadData && (
               <>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="text-sm px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm">
+                  className="text-sm px-2.5 py-1.5 rounded-[10px] text-white transition-colors flex items-center gap-1 shadow-sm font-medium"
+                  style={{background:'var(--mint-500)'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='var(--mint-600)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='var(--mint-500)'}>
                   <span className="text-base leading-none">＋</span>
                   <span className="hidden sm:inline">新增檔案</span>
                 </button>
@@ -622,7 +625,7 @@ function AppDashboard() {
 
         {/* Upload history panel */}
         {showHistory && (
-          <div className="mx-3 sm:mx-4 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 flex-shrink-0 shadow-sm overflow-x-auto">
+          <div className="mx-3 sm:mx-4 mt-2 bg-white dark:bg-gray-800 dark:border-gray-700 rounded-[var(--r-md)] p-3 flex-shrink-0 shadow-sm overflow-x-auto" style={{border:'1px solid var(--line)',boxShadow:'var(--shadow-sm)'}}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-gray-600 dark:text-gray-300">上傳記錄</span>
@@ -671,10 +674,11 @@ function AppDashboard() {
 
         {/* KPI Cards toggle bar — 只在有資料時顯示 */}
         {meta && (
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b dark:border-gray-700 dark:bg-gray-900 flex-shrink-0" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
             <button
               onClick={() => setDashboardOpen(v => !v)}
-              className="flex items-center gap-2 text-base sm:text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors min-h-[40px]"
+              className="flex items-center gap-2 text-base sm:text-sm font-semibold dark:text-gray-300 transition-colors min-h-[40px]"
+              style={{color:'var(--ink-700)'}}
             >
               <span className={`transition-transform duration-200 text-2xl sm:text-sm leading-none ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
               {dashboardOpen ? '收折儀表板' : '展開儀表板'}
@@ -703,7 +707,7 @@ function AppDashboard() {
         />
 
         {/* Tab 群組選擇列 */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-2 sm:px-4 flex-shrink-0 gap-1">
+        <div className="flex border-b dark:border-gray-700 dark:bg-gray-900 px-2 sm:px-4 flex-shrink-0 gap-1" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
           {TAB_GROUPS.map(group => {
             const visibleIds = new Set(visibleTabs.map(t => t.id))
             const hasAny = group.tabs.some(id => visibleIds.has(id))
@@ -714,9 +718,10 @@ function AppDashboard() {
                 onClick={() => handleGroupChange(group.id)}
                 className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base font-semibold border-b-2 transition-colors whitespace-nowrap ${
                   isActive
-                    ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800'
-                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-800/60'
+                    ? 'border-transparent bg-white dark:bg-gray-800 dark:text-emerald-400 rounded-t-lg'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/60 dark:hover:bg-gray-800/60'
                 }`}
+                style={isActive ? {color:'var(--mint-700)'} : {}}
               >
                 <span className="text-base sm:text-sm">{group.icon}</span>
                 <span>{group.label}</span>
@@ -726,7 +731,7 @@ function AppDashboard() {
         </div>
 
         {/* Sub-tabs（只顯示當前群組的 tab）*/}
-        <div ref={tabBarRef} className="flex border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth">
+        <div ref={tabBarRef} className="flex border-b dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth" style={{borderBottomColor:'var(--line)'}}>
           {groupTabs.map(tab => (
             <button key={tab.id}
               data-tab-active={activeTab === tab.id}
@@ -735,9 +740,10 @@ function AppDashboard() {
                 px-2.5 sm:px-4 py-2 sm:py-3 min-h-[60px] sm:min-h-0 min-w-[54px] sm:min-w-0
                 text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  ? 'dark:text-emerald-400 dark:border-emerald-400'
                   : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}>
+              }`}
+              style={activeTab === tab.id ? {color:'var(--mint-600)',borderBottomColor:'var(--mint-500)'} : {}}>
               <span className="text-2xl sm:text-base leading-none">{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden text-xs leading-tight max-w-[54px] text-center break-keep">{tab.label}</span>
@@ -747,8 +753,8 @@ function AppDashboard() {
         </div>
 
         {/* Chart area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe" ref={chartAreaRef}
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe dark:bg-gray-950" ref={chartAreaRef}
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', background:'var(--bg)' }}>
 
           {/* 尚無資料空狀態 */}
           {showEmptyState && (
@@ -760,7 +766,10 @@ function AppDashboard() {
               </p>
               {perms.uploadData && (
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-2">
+                  className="px-5 py-2.5 text-white text-sm font-semibold rounded-[12px] transition-colors shadow-sm flex items-center gap-2"
+                  style={{background:'var(--mint-500)'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='var(--mint-600)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='var(--mint-500)'}>
                   📤 上傳資料檔案
                 </button>
               )}

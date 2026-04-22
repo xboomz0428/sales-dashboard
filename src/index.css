@@ -2,6 +2,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =====================================================
+   設計 Token — 活潑清爽、淺色、柔和色塊
+   ===================================================== */
+:root {
+  /* Brand — Mint */
+  --mint-50:  #ecfbf4;
+  --mint-100: #d4f5e5;
+  --mint-200: #a9ebcb;
+  --mint-300: #76dcad;
+  --mint-400: #46c98e;
+  --mint-500: #1fb473;
+  --mint-600: #179560;
+  --mint-700: #10744a;
+
+  /* Coral */
+  --coral-100: #ffe6de;
+  --coral-300: #ffa58a;
+  --coral-500: #ff7557;
+
+  /* Sky */
+  --sky-100: #e0f2fe;
+  --sky-300: #81d4fa;
+  --sky-500: #2eb7f0;
+
+  /* Peach */
+  --peach-100: #fff1d6;
+  --peach-300: #ffcd7a;
+  --peach-500: #ffa322;
+
+  /* Lilac */
+  --lilac-100: #ece4fb;
+  --lilac-300: #b9a1f0;
+  --lilac-500: #8764e0;
+
+  /* Neutrals — warm off-white */
+  --bg:        #fbfaf7;
+  --bg-card:   #ffffff;
+  --bg-muted:  #f4f2ec;
+  --bg-subtle: #faf8f3;
+
+  --ink-900: #1a1f1c;
+  --ink-700: #3a4540;
+  --ink-500: #6b7671;
+  --ink-400: #8d968f;
+  --ink-300: #b3baaf;
+  --ink-200: #d7dad1;
+  --ink-100: #ebede6;
+
+  --line:        #e8e9e1;
+  --line-strong: #d5d7cb;
+
+  /* Radii */
+  --r-sm:   10px;
+  --r-md:   16px;
+  --r-lg:   22px;
+  --r-xl:   28px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(20,40,30,.04);
+  --shadow-sm: 0 2px 8px rgba(20,40,30,.05), 0 1px 2px rgba(20,40,30,.04);
+  --shadow-md: 0 8px 24px rgba(20,40,30,.06), 0 2px 6px rgba(20,40,30,.04);
+  --shadow-lg: 0 18px 40px rgba(20,40,30,.10);
+
+  /* Motion */
+  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --t-fast:   160ms;
+  --t-med:    280ms;
+}
+
 @layer base {
   html {
     font-size: 16px;
@@ -11,10 +81,10 @@
     padding-right: env(safe-area-inset-right);
   }
   body {
-    font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
-    color: #1f2937;
-    background: #f9fafb;
+    color: var(--ink-900);
+    background: var(--bg);
     /* Prevent overscroll bounce on iOS */
     overscroll-behavior: none;
   }
@@ -102,16 +172,42 @@
 
 @layer components {
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm;
+    @apply bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-sm;
+    border-color: var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
   }
   .btn-tab {
     @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all;
   }
   .btn-tab-active {
-    @apply bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 shadow-sm;
+    @apply bg-white dark:bg-gray-700 shadow-sm;
+    color: var(--mint-700);
   }
   .btn-tab-inactive {
     @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
+  }
+
+  /* Chip — pill-shaped filter button */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-2 text-sm border transition-all rounded-full;
+    border-color: var(--line);
+    color: var(--ink-700);
+    background: var(--bg-card);
+    min-height: 38px;
+  }
+  .chip:hover {
+    border-color: var(--ink-300);
+  }
+  .chip.chip-active {
+    background: var(--ink-900);
+    color: #fff;
+    border-color: var(--ink-900);
+  }
+  .chip.chip-mint {
+    background: var(--mint-500);
+    color: #fff;
+    border-color: var(--mint-500);
   }
 }
 
