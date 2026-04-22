@@ -601,6 +601,7 @@ function HistoryPanel({ history, onLoad, onClear, onDelete }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, user }) {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('google_ai_studio_api_key') || '')
+  const [aiModel, setAiModel] = useState(() => localStorage.getItem('google_ai_model') || 'gemini-2.5-flash')
   const [analysisType, setAnalysisType] = useState('comprehensive')
   const [streaming, setStreaming] = useState(false)
   const [output, setOutput] = useState('')
@@ -648,6 +649,11 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     localStorage.setItem('google_ai_studio_api_key', k)
   }
 
+  function saveModel(m) {
+    setAiModel(m)
+    localStorage.setItem('google_ai_model', m)
+  }
+
   async function handleAnalyze() {
     if (!apiKey.trim()) { setError('請輸入 Google AI Studio API Key'); return }
     setError('')
@@ -673,6 +679,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     const runOnce = (messages) => new Promise((resolve) => {
       streamAnalysis({
         apiKey: apiKey.trim(),
+        model: aiModel,
         messages,
         onChunk: (text) => {
           if (abortRef.current) return
@@ -761,6 +768,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     const runOnce = (messages) => new Promise((resolve) => {
       streamAnalysis({
         apiKey: apiKey.trim(),
+        model: aiModel,
         messages,
         onChunk: (text) => {
           if (abortRef.current) return
@@ -882,165 +890,220 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onClose} />
+    <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 flex flex-col"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-3xl bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-
-        {/* ── Header ── */}
-        <div className={`bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0`}
-          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">🤖</div>
-            <div>
-              <h2 className="text-base font-black text-white">AI 智慧分析</h2>
-              <p className="text-sm text-white/70">四位頂尖商業顧問 · Gemini 2.0 Flash</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab(v => v === 'chart' ? 'analysis' : 'chart')}
-              className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'chart' ? 'bg-white text-violet-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
-            >
-              📊 圖表
-            </button>
-            <button
-              onClick={() => setActiveTab(v => v === 'history' ? 'analysis' : 'history')}
-              className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'history' ? 'bg-white text-blue-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
-            >
-              📂 歷史
-              {history.length > 0 && (
-                <span className="bg-white/30 rounded-full px-1.5 text-sm font-bold">{history.length}</span>
-              )}
-            </button>
-            <button onClick={onClose} className="w-10 h-10 rounded-lg bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center font-bold transition-colors text-lg">✕</button>
+      {/* ── Header ── */}
+      <div className={`bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} px-4 sm:px-6 py-3 flex items-center justify-between flex-shrink-0`}
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-xl">🤖</div>
+          <div>
+            <h2 className="text-base font-black text-white">AI 智慧分析</h2>
+            <p className="text-xs text-white/70">四位頂尖商業顧問 · {aiModel}</p>
           </div>
         </div>
-
-        {/* ── Chart tab ── */}
-        {activeTab === 'chart' ? (
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">資料圖表總覽</h3>
-              <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">依當前篩選條件即時生成，可切換圖表類型</p>
-            </div>
-            <AIChartDashboard salesData={salesData} />
-          </div>
-        ) : activeTab === 'history' ? (
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
-            {dbLoading && (
-              <div className="flex items-center gap-2 text-sm text-blue-500 dark:text-blue-400 mb-3">
-                <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                從資料庫載入記錄...
-              </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTab(v => v === 'chart' ? 'analysis' : 'chart')}
+            className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'chart' ? 'bg-white text-violet-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
+          >
+            📊 圖表
+          </button>
+          <button
+            onClick={() => setActiveTab(v => v === 'history' ? 'analysis' : 'history')}
+            className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'history' ? 'bg-white text-blue-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
+          >
+            📂 歷史
+            {history.length > 0 && (
+              <span className="bg-white/30 rounded-full px-1.5 text-sm font-bold">{history.length}</span>
             )}
-            <HistoryPanel
-              history={history}
-              onLoad={(item) => {
-                setOutput(item.content)
-                setCurrentType(item.type)
-                setSaveStatus(item.fromDb ? 'saved:db' : (item.savedPath ? `saved:${item.savedPath}` : ''))
-                setActiveTab('analysis')
-              }}
-              onClear={handleClearHistory}
-              onDelete={handleDeleteHistoryItem}
-            />
-          </div>
-        ) : activeTab === 'analysis' ? (
-          <>
-            {/* ── Config section ── */}
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0 space-y-3 bg-gradient-to-b from-gray-50/80 dark:from-gray-800/80 to-white dark:to-gray-900">
+          </button>
+          <button onClick={onClose} className="w-9 h-9 rounded-lg bg-white/20 hover:bg-white/30 active:bg-white/40 text-white flex items-center justify-center font-bold transition-colors text-lg">✕</button>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* ── Left sidebar: config ── */}
+        {activeTab === 'analysis' && (
+          <div className="w-80 flex-shrink-0 border-r border-gray-100 dark:border-gray-700 flex flex-col bg-gray-50/80 dark:bg-gray-800/60 overflow-y-auto">
+            <div className="p-4 space-y-4">
+
               {/* API Key */}
               <div>
-                <label className="block text-sm font-bold text-gray-400 dark:text-gray-500 mb-1 uppercase tracking-wider">Google AI Studio API Key</label>
+                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1 uppercase tracking-wider">API Key</label>
                 <div className="relative">
                   <input
                     type={showKey ? 'text' : 'password'}
                     value={apiKey}
                     onChange={e => saveKey(e.target.value)}
                     placeholder="AIza..."
-                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono bg-white pr-14"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 font-mono bg-white pr-12"
                   />
                   <button onClick={() => setShowKey(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
                     {showKey ? '隱藏' : '顯示'}
                   </button>
                 </div>
               </div>
 
+              {/* Model */}
+              <div>
+                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1 uppercase tracking-wider">模型</label>
+                <select
+                  value={aiModel}
+                  onChange={e => saveModel(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                >
+                  <option value="gemini-2.5-flash">2.5 Flash（推薦）</option>
+                  <option value="gemini-2.5-pro">2.5 Pro</option>
+                  <option value="gemini-2.0-flash">2.0 Flash</option>
+                  <option value="gemini-2.0-flash-lite">2.0 Flash Lite</option>
+                </select>
+              </div>
+
               {/* Analysis type */}
               <div>
-                <label className="block text-sm font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">分析類型</label>
-                <div className="grid grid-cols-4 gap-1.5">
+                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">分析類型</label>
+                <div className="grid grid-cols-2 gap-1.5">
                   {ANALYSIS_TYPES.map(t => (
                     <button key={t.value} onClick={() => setAnalysisType(t.value)}
-                      className={`text-left px-2.5 py-2 rounded-xl border text-sm transition-all ${
+                      className={`text-left px-2.5 py-2.5 rounded-xl border text-sm transition-all ${
                         analysisType === t.value
                           ? `bg-gradient-to-br ${t.color} text-white border-transparent shadow-sm`
                           : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-blue-200 dark:hover:border-blue-600 hover:bg-blue-50/30 dark:hover:bg-blue-900/20'
                       }`}>
                       <div className="font-bold">{t.label}</div>
-                      <div className={`text-sm mt-0.5 leading-tight ${analysisType === t.value ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'}`}>{t.desc}</div>
+                      <div className={`text-xs mt-0.5 leading-tight ${analysisType === t.value ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'}`}>{t.desc}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Action row */}
-              <div className="flex gap-2">
+              {/* Action buttons */}
+              <div className="space-y-2">
                 {streaming ? (
                   <button onClick={handleStop}
-                    className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
+                    className="w-full py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2">
                     <span className="animate-pulse">⬛</span> 停止生成
                   </button>
                 ) : (
                   <button onClick={handleAnalyze} disabled={!apiKey.trim()}
-                    className={`flex-1 py-2.5 bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} disabled:from-gray-300 disabled:to-gray-300 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md`}>
+                    className={`w-full py-2.5 bg-gradient-to-r ${typeInfo?.color || 'from-blue-600 to-indigo-600'} disabled:from-gray-300 disabled:to-gray-300 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md`}>
                     🚀 開始 AI 分析
                   </button>
                 )}
                 {output && !streaming && (
                   <button onClick={() => { setOutput(''); setSaveStatus('') }}
-                    className="px-3 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-xl transition-colors">
-                    清除
+                    className="w-full py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl transition-colors">
+                    清除結果
                   </button>
                 )}
               </div>
 
               {error && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl px-4 py-2.5 text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl px-3 py-2.5 text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
                   <span className="flex-shrink-0">⚠️</span><span>{error}</span>
                 </div>
               )}
-            </div>
 
-            {/* ── Output area ── */}
-            <div ref={outputRef} className="flex-1 overflow-y-auto px-6 py-5">
+              {/* Export actions (shown when output exists) */}
+              {output && !streaming && (
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                  <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">匯出</p>
+                  <SaveStatusBadge />
+                  {canManualContinue && (
+                    <button
+                      onClick={handleManualContinue}
+                      className="w-full text-sm px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      title="若分析報告未完整，點此繼續生成剩餘內容"
+                    >
+                      ▶ 繼續生成
+                    </button>
+                  )}
+                  <button
+                    onClick={() => downloadMD(output, makeFilename(currentType))}
+                    className="w-full text-sm px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-200 rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    ⬇️ 下載 .md
+                  </button>
+                  <button
+                    onClick={handleExportAIPDF}
+                    disabled={exportingPDF}
+                    className="w-full text-sm px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                  >
+                    📄 AI 報告 PDF
+                  </button>
+                  {onExportFullPDF && (
+                    <button
+                      onClick={handleExportFullPDF}
+                      disabled={exportingPDF}
+                      className="w-full text-sm px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+                    >
+                      📊 完整報告 PDF
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Right main content ── */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {activeTab === 'chart' ? (
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">資料圖表總覽</h3>
+                <p className="text-base text-gray-400 dark:text-gray-500 mt-0.5">依當前篩選條件即時生成，可切換圖表類型</p>
+              </div>
+              <AIChartDashboard salesData={salesData} />
+            </div>
+          ) : activeTab === 'history' ? (
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {dbLoading && (
+                <div className="flex items-center gap-2 text-sm text-blue-500 dark:text-blue-400 mb-3">
+                  <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  從資料庫載入記錄...
+                </div>
+              )}
+              <HistoryPanel
+                history={history}
+                onLoad={(item) => {
+                  setOutput(item.content)
+                  setCurrentType(item.type)
+                  setSaveStatus(item.fromDb ? 'saved:db' : (item.savedPath ? `saved:${item.savedPath}` : ''))
+                  setActiveTab('analysis')
+                }}
+                onClear={handleClearHistory}
+                onDelete={handleDeleteHistoryItem}
+              />
+            </div>
+          ) : (
+            <div ref={outputRef} className="flex-1 overflow-y-auto px-8 py-6">
               {!output && !streaming && (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
-                  <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${typeInfo?.color || 'from-blue-600 to-indigo-600'} flex items-center justify-center text-4xl shadow-lg`}>
+                  <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${typeInfo?.color || 'from-blue-600 to-indigo-600'} flex items-center justify-center text-5xl shadow-lg`}>
                     🤖
                   </div>
                   <div>
-                    <p className="text-base font-bold text-gray-700 dark:text-gray-200">AI 分析就緒</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">選擇分析類型後點擊「開始 AI 分析」</p>
-                    <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">分析結果將自動儲存至 <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-gray-400 dark:text-gray-500">AI_data/</code> 資料夾</p>
+                    <p className="text-xl font-bold text-gray-700 dark:text-gray-200">AI 分析就緒</p>
+                    <p className="text-base text-gray-400 dark:text-gray-500 mt-1">從左側選擇分析類型後點擊「開始 AI 分析」</p>
                   </div>
-                  <div className="flex flex-wrap justify-center gap-1.5 pt-2">
+                  <div className="flex flex-wrap justify-center gap-2 pt-2">
                     {['🏢 企業管理專家', '📊 市場分析專家', '🎯 產品PM', '🔬 研發評估'].map(e => (
-                      <span key={e} className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">{e}</span>
+                      <span key={e} className="text-sm px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium">{e}</span>
                     ))}
                   </div>
                 </div>
               )}
 
               {streaming && !output && (
-                <div className="flex flex-col items-center justify-center h-32 gap-3 mt-8">
-                  <div className={`w-10 h-10 border-4 border-t-transparent rounded-full animate-spin ${currentTypeInfo ? 'border-blue-500' : 'border-blue-500'}`} />
-                  <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">AI 正在分析中，請稍候...</p>
+                <div className="flex flex-col items-center justify-center h-48 gap-3 mt-8">
+                  <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-base text-blue-600 dark:text-blue-400 font-medium">AI 正在分析中，請稍候...</p>
                 </div>
               )}
 
@@ -1060,52 +1123,9 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
                 </>
               )}
             </div>
-
-            {/* ── Footer actions ── */}
-            {output && !streaming && (
-              <div className="px-6 py-3.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 flex-shrink-0">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <SaveStatusBadge />
-                  <div className="flex gap-2 ml-auto flex-wrap">
-                    {/* 手動繼續按鈕：內容看起來不完整時點擊 */}
-                    {canManualContinue && (
-                      <button
-                        onClick={handleManualContinue}
-                        className="text-xs px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
-                        title="若分析報告未完整，點此繼續生成剩餘內容"
-                      >
-                        ▶ 繼續生成
-                      </button>
-                    )}
-                    <button
-                      onClick={() => downloadMD(output, makeFilename(currentType))}
-                      className="text-xs px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm"
-                    >
-                      ⬇️ 下載 .md
-                    </button>
-                    <button
-                      onClick={handleExportAIPDF}
-                      disabled={exportingPDF}
-                      className="text-xs px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-60"
-                    >
-                      📄 AI 報告 PDF
-                    </button>
-                    {onExportFullPDF && (
-                      <button
-                        onClick={handleExportFullPDF}
-                        disabled={exportingPDF}
-                        className="text-xs px-3 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-60"
-                      >
-                        📊 完整報告 PDF
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        ) : null}
+          )}
+        </div>
       </div>
-    </>
+    </div>
   )
 }

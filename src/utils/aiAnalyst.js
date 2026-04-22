@@ -185,14 +185,15 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 }
 
 /* messages: 多輪對話陣列 [{ role, parts }]；若只傳 prompt 則自動包裝 */
-export async function streamAnalysis({ apiKey, prompt, messages, onChunk, onDone, onError }) {
+export async function streamAnalysis({ apiKey, model, prompt, messages, onChunk, onDone, onError }) {
   const CHUNK_TIMEOUT_MS = 30000  // 30 秒沒有新 chunk 視為卡住
   const abortCtrl = new AbortController()
+  const modelId = model || 'gemini-2.5-flash'
 
   try {
     const contents = messages ?? [{ role: 'user', parts: [{ text: prompt }] }]
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

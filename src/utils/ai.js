@@ -16,7 +16,7 @@ export async function callClaude(prompt, maxTokens = 1000) {
   const apiKey = getStoredApiKey()
   if (!apiKey) throw new Error('NO_API_KEY')
 
-  const model = 'gemini-2.0-flash'
+  const model = 'gemini-2.5-flash'
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
 
   const resp = await fetch(url, {
