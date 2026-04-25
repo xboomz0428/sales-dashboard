@@ -215,11 +215,13 @@ function GoalEditorModal({ byYear, goals, brandData, channelData, onSave, onClos
   }))
   const [loading, setLoading] = useState(false)
   const [aiNote, setAiNote] = useState('')
+  const [aiDirty, setAiDirty] = useState(false)
 
-  const setA = (year, field, v) => setDraft(d => ({ ...d, annual: { ...d.annual, [year]: { ...d.annual[year], [field]: Number(v) || 0 } } }))
-  const setL = (key, field, v) => setDraft(d => ({ ...d, longTerm: { ...d.longTerm, [key]: { ...d.longTerm[key], [field]: Number(v) || 0 } } }))
-  const setDim = (dimKey, name, v) => setDraft(d => ({ ...d, [dimKey]: { ...d[dimKey], [name]: { ...(d[dimKey][name] || {}), subtotal: Number(v) || 0 } } }))
-  const setKpi = (k, v) => setDraft(d => ({ ...d, kpis: { ...d.kpis, [k]: Number(v) || 0 } }))
+  const markDirty = () => { if (aiNote) setAiDirty(true) }
+  const setA = (year, field, v) => { markDirty(); setDraft(d => ({ ...d, annual: { ...d.annual, [year]: { ...d.annual[year], [field]: Number(v) || 0 } } })) }
+  const setL = (key, field, v) => { markDirty(); setDraft(d => ({ ...d, longTerm: { ...d.longTerm, [key]: { ...d.longTerm[key], [field]: Number(v) || 0 } } })) }
+  const setDim = (dimKey, name, v) => { markDirty(); setDraft(d => ({ ...d, [dimKey]: { ...d[dimKey], [name]: { ...(d[dimKey][name] || {}), subtotal: Number(v) || 0 } } })) }
+  const setKpi = (k, v) => { markDirty(); setDraft(d => ({ ...d, kpis: { ...d.kpis, [k]: Number(v) || 0 } })) }
 
   const generateWithAI = async () => {
     setLoading(true)
@@ -268,6 +270,7 @@ ${growthRates || '資料不足'}
       const text = await callClaude(prompt, 1200)
       const json = extractJSON(text)
       setAiNote(`📊 ${json.analysis || ''}（建議 CAGR：${json.cagr || '—'}%）`)
+      setAiDirty(false)
       setDraft(d => {
         const annual = { ...d.annual }
         nextYears.forEach(y => { if (json.annual?.[y]) annual[y] = { subtotal: json.annual[y].subtotal || 0, quantity: json.annual[y].quantity || 0 } })
@@ -309,7 +312,9 @@ ${growthRates || '資料不足'}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-base font-bold text-blue-800 dark:text-blue-300">🤖 AI 智能建議</p>
-              <p className="text-sm text-blue-400 dark:text-blue-500">{aiNote || '根據歷史數據自動計算合理成長目標'}</p>
+              <p className={`text-sm ${aiDirty ? 'text-amber-500 dark:text-amber-400' : 'text-blue-400 dark:text-blue-500'}`}>
+                {aiDirty ? '⚠️ 已手動修改，AI 建議已失效' : (aiNote || '根據歷史數據自動計算合理成長目標')}
+              </p>
             </div>
             <button onClick={generateWithAI} disabled={loading}
               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2">

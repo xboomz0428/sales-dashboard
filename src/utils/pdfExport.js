@@ -621,6 +621,7 @@ function _makeDiv(html, width, pad = '20px 24px') {
     box-sizing:border-box;font-family:${_FONT};
     -webkit-font-smoothing:antialiased;
     text-rendering:optimizeLegibility;
+    visibility:visible;
   `
   d.innerHTML = html
   return d
@@ -654,6 +655,7 @@ async function _renderToCanvas(div, width) {
           -webkit-font-smoothing: antialiased !important;
           text-rendering: optimizeLegibility !important;
           letter-spacing: 0 !important;
+          visibility: visible !important;
         }
       `
       clonedDoc.head.appendChild(s)
