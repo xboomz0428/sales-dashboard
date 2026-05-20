@@ -98,18 +98,34 @@ function MultiYearMonthlyChart({ trendData, comparisonData, metric }) {
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null
+    const monthEntry = chartData.find(d => d.month === label) || {}
+    const sorted = [...payload].sort((a, b) => years.indexOf(String(a.name)) - years.indexOf(String(b.name)))
     return (
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[160px]">
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[200px]">
         <p className="font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1.5 mb-1.5">{label}</p>
-        {[...payload].sort((a, b) => (b.value || 0) - (a.value || 0)).map((e, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: e.stroke || e.fill }} />
-              {e.name}
-            </span>
-            <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtY(e.value)}</span>
-          </div>
-        ))}
+        {sorted.map((e, i) => {
+          const yearIdx = years.indexOf(String(e.name))
+          const prevYear = yearIdx > 0 ? years[yearIdx - 1] : null
+          const prevVal = prevYear != null ? (monthEntry[prevYear] || 0) : null
+          const curVal = e.value || 0
+          const pct = prevVal > 0 ? (curVal - prevVal) / prevVal * 100 : null
+          return (
+            <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+              <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: e.stroke || e.fill }} />
+                {e.name}
+              </span>
+              <div className="text-right">
+                <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtY(curVal)}</span>
+                {pct != null && (
+                  <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                    {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -147,7 +163,7 @@ function MultiYearMonthlyChart({ trendData, comparisonData, metric }) {
               <Tooltip content={<CustomTooltip />} />
               {years.map((y, i) => (
                 <Line key={y} type="monotone" dataKey={y} stroke={YEAR_COLORS[i % YEAR_COLORS.length]}
-                  strokeWidth={2.5} dot={{ r: 3, stroke: '#fff', strokeWidth: 1.5 }} activeDot={{ r: 6 }} connectNulls />
+                  strokeWidth={2.5} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} connectNulls />
               ))}
             </LineChart>
           ) : (
@@ -551,24 +567,40 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                       <YAxis tickFormatter={fmtM} tick={{ fontSize: 11 }} width={48} />
                       <Tooltip content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null
+                        const monthEntry = multiYearMonthData.find(d => d.month === label) || {}
+                        const chronoSorted = [...payload].sort((a, b) => activeSelectedYears.indexOf(String(a.name)) - activeSelectedYears.indexOf(String(b.name)))
                         return (
-                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[150px]">
+                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[200px]">
                             <p className="font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1.5 mb-1.5">{label}</p>
-                            {[...payload].sort((a, b) => (b.value || 0) - (a.value || 0)).map((e, i) => (
-                              <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-                                <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: e.stroke }} />
-                                  {e.name} 年
-                                </span>
-                                <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(e.value)}</span>
-                              </div>
-                            ))}
+                            {chronoSorted.map((e, i) => {
+                              const yIdx = activeSelectedYears.indexOf(String(e.name))
+                              const prevYear = yIdx > 0 ? activeSelectedYears[yIdx - 1] : null
+                              const prevVal = prevYear != null ? (monthEntry[prevYear] || 0) : null
+                              const curVal = e.value || 0
+                              const pct = prevVal > 0 ? (curVal - prevVal) / prevVal * 100 : null
+                              return (
+                                <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+                                  <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: e.stroke }} />
+                                    {e.name} 年
+                                  </span>
+                                  <div className="text-right">
+                                    <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(curVal)}</span>
+                                    {pct != null && (
+                                      <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         )
                       }} />
                       {activeSelectedYears.map((y, i) => (
                         <Line key={y} type="monotone" dataKey={y} name={y} stroke={YEAR_COLORS[i % YEAR_COLORS.length]}
-                          strokeWidth={2} dot={{ r: 3, stroke: '#fff', strokeWidth: 1.5 }} activeDot={{ r: 5 }} connectNulls />
+                          strokeWidth={2} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} connectNulls />
                       ))}
                     </LineChart>
                   ) : (
@@ -578,18 +610,34 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                       <YAxis tickFormatter={fmtM} tick={{ fontSize: 11 }} width={48} />
                       <Tooltip content={({ active, payload, label }) => {
                         if (!active || !payload?.length) return null
+                        const monthEntry = multiYearMonthData.find(d => d.month === label) || {}
+                        const chronoSorted = [...payload].sort((a, b) => activeSelectedYears.indexOf(String(a.name)) - activeSelectedYears.indexOf(String(b.name)))
                         return (
-                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[150px]">
+                          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-sm min-w-[200px]">
                             <p className="font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1.5 mb-1.5">{label}</p>
-                            {[...payload].sort((a, b) => (b.value || 0) - (a.value || 0)).map((e, i) => (
-                              <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-                                <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                                  <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: e.fill }} />
-                                  {e.name} 年
-                                </span>
-                                <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(e.value)}</span>
-                              </div>
-                            ))}
+                            {chronoSorted.map((e, i) => {
+                              const yIdx = activeSelectedYears.indexOf(String(e.name))
+                              const prevYear = yIdx > 0 ? activeSelectedYears[yIdx - 1] : null
+                              const prevVal = prevYear != null ? (monthEntry[prevYear] || 0) : null
+                              const curVal = e.value || 0
+                              const pct = prevVal > 0 ? (curVal - prevVal) / prevVal * 100 : null
+                              return (
+                                <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+                                  <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: e.fill }} />
+                                    {e.name} 年
+                                  </span>
+                                  <div className="text-right">
+                                    <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(curVal)}</span>
+                                    {pct != null && (
+                                      <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         )
                       }} />
