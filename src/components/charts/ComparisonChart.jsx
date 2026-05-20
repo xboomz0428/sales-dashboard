@@ -135,6 +135,53 @@ function ChartStyleSelector({ options, value, onChange }) {
   )
 }
 
+// ─── Average Growth Helpers ───────────────────────────────────────────────────
+function calcSimpleAvgGrowth(rows, metric) {
+  const growths = []
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i - 1][metric] > 0)
+      growths.push((rows[i][metric] - rows[i - 1][metric]) / rows[i - 1][metric] * 100)
+  }
+  if (!growths.length) return null
+  return growths.reduce((s, g) => s + g, 0) / growths.length
+}
+
+function calcCAGR(rows, metric) {
+  if (rows.length < 2) return null
+  const first = rows[0][metric], last = rows[rows.length - 1][metric]
+  if (!first || first <= 0) return null
+  const n = rows.length - 1
+  return (Math.pow(last / first, 1 / n) - 1) * 100
+}
+
+function AvgGrowthSummary({ label, avgGrowth, cagr, periods }) {
+  if (avgGrowth == null && cagr == null) return null
+  const up = avgGrowth != null ? avgGrowth >= 0 : cagr >= 0
+  const colorCls = up
+    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400'
+    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700/50 text-red-700 dark:text-red-400'
+  return (
+    <div className={`flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border mb-4 ${colorCls}`}>
+      <span className="text-sm font-bold">{label}</span>
+      {avgGrowth != null && (
+        <span className="flex items-center gap-1.5 text-sm">
+          <span className="font-semibold opacity-70">平均年增率</span>
+          <span className="font-black text-base">{avgGrowth >= 0 ? '▲' : '▼'} {Math.abs(avgGrowth).toFixed(1)}%</span>
+        </span>
+      )}
+      {cagr != null && (
+        <span className="flex items-center gap-1.5 text-sm">
+          <span className="font-semibold opacity-70">CAGR</span>
+          <span className="font-black text-base">{cagr >= 0 ? '▲' : '▼'} {Math.abs(cagr).toFixed(1)}%</span>
+        </span>
+      )}
+      {periods != null && (
+        <span className="text-sm opacity-60">{periods} 個比較期間</span>
+      )}
+    </div>
+  )
+}
+
 // ─── Year Legend Dots ─────────────────────────────────────────────────────────
 function YearLegend({ years }) {
   return (
@@ -169,9 +216,17 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
   if (!yoyRows.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
 
   const maxVal = Math.max(...yoyRows.map(r => r[metric] || 0), 0)
+  const avgGrowth = calcSimpleAvgGrowth(byYear, metric)
+  const cagr = calcCAGR(byYear, metric)
 
   return (
     <div className="space-y-4">
+      <AvgGrowthSummary
+        label="年度整體趨勢"
+        avgGrowth={avgGrowth != null ? Math.round(avgGrowth * 10) / 10 : null}
+        cagr={cagr != null ? Math.round(cagr * 10) / 10 : null}
+        periods={byYear.length > 1 ? byYear.length - 1 : null}
+      />
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <SectionHeader title="年度銷售對比" subtitle="各年度總銷售額及同比成長率" />
 
@@ -321,8 +376,31 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
   // Radar: data needs { quarter, year: value }
   const radarData = chartData
 
+  // Average QoQ growth: for each quarter, compare same quarter across adjacent years
+  const qoqAvgGrowth = (() => {
+    const growths = []
+    for (let qi = 1; qi <= 4; qi++) {
+      years.forEach((year, yi) => {
+        if (yi === 0) return
+        const cur  = byQuarter.find(d => d.year === year && d.quarter === qi)
+        const prev = byQuarter.find(d => d.year === years[yi - 1] && d.quarter === qi)
+        if (cur && prev && prev[metric] > 0)
+          growths.push((cur[metric] - prev[metric]) / prev[metric] * 100)
+      })
+    }
+    return growths.length ? growths.reduce((s, g) => s + g, 0) / growths.length : null
+  })()
+
+  const yoyGrowth = calcSimpleAvgGrowth(byYear, metric)
+
   return (
     <div className="space-y-4">
+      <AvgGrowthSummary
+        label="季度整體趨勢"
+        avgGrowth={qoqAvgGrowth != null ? Math.round(qoqAvgGrowth * 10) / 10 : null}
+        cagr={yoyGrowth != null ? Math.round(yoyGrowth * 10) / 10 : null}
+        periods={byQuarter.length > 0 ? byQuarter.length : null}
+      />
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <SectionHeader title="季度銷售對比" subtitle="各年度 Q1–Q4 季度比較" />
         <YearLegend years={years} />
@@ -511,8 +589,30 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
 
   const maxVal = getMaxValue(chartData, years)
 
+  // Average YoY growth across all months
+  const momAvgGrowth = (() => {
+    const growths = []
+    chartData.forEach(md => {
+      years.forEach((year, yi) => {
+        if (yi === 0) return
+        const cur  = md[year]
+        const prev = md[years[yi - 1]]
+        if (cur != null && prev > 0) growths.push((cur - prev) / prev * 100)
+      })
+    })
+    return growths.length ? growths.reduce((s, g) => s + g, 0) / growths.length : null
+  })()
+
+  const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
+
   return (
     <div className="space-y-4">
+      <AvgGrowthSummary
+        label="月度整體趨勢"
+        avgGrowth={momAvgGrowth != null ? Math.round(momAvgGrowth * 10) / 10 : null}
+        cagr={yoyGrowth2 != null ? Math.round(yoyGrowth2 * 10) / 10 : null}
+        periods={chartData.length > 0 ? `${chartData.length} 月 × ${years.length - 1} 年` : null}
+      />
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <SectionHeader title="月度銷售對比" subtitle="各年度月份銷售走勢比較" />
         <YearLegend years={years} />
