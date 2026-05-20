@@ -385,7 +385,15 @@ function AppDashboard() {
       setNotice(`✓ PDF 匯出完成：${filename}`)
       setTimeout(() => setNotice(null), 5000)
     } catch (e) {
-      setError('PDF 匯出失敗：' + e.message)
+      const isChunk = e?.message?.includes('Failed to fetch dynamically imported module') ||
+                      e?.message?.includes('Importing a module script failed')
+      if (isChunk) {
+        const KEY = '_sdash_chunk_reload'
+        if (!sessionStorage.getItem(KEY)) { sessionStorage.setItem(KEY, '1'); window.location.reload() }
+        else setError('PDF 模組載入失敗（版本已更新），請按 Ctrl+Shift+R 重新整理頁面後再試。')
+      } else {
+        setError('PDF 匯出失敗：' + e.message)
+      }
     } finally {
       setPdfLoading(false)
       setPdfProgress('')
@@ -404,7 +412,15 @@ function AppDashboard() {
       setNotice(`✓ 完整報告 PDF 匯出完成：${filename}`)
       setTimeout(() => setNotice(null), 5000)
     } catch (e) {
-      setError('PDF 匯出失敗：' + e.message)
+      const isChunk = e?.message?.includes('Failed to fetch dynamically imported module') ||
+                      e?.message?.includes('Importing a module script failed')
+      if (isChunk) {
+        const KEY = '_sdash_chunk_reload'
+        if (!sessionStorage.getItem(KEY)) { sessionStorage.setItem(KEY, '1'); window.location.reload() }
+        else setError('PDF 模組載入失敗（版本已更新），請按 Ctrl+Shift+R 重新整理頁面後再試。')
+      } else {
+        setError('PDF 匯出失敗：' + e.message)
+      }
     } finally {
       setPdfLoading(false)
       setPdfProgress('')

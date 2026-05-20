@@ -840,7 +840,23 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     try {
       const { exportAIReportPDF } = await import('../utils/pdfExport')
       await exportAIReportPDF({ content: output, analysisType: currentType })
-    } finally { setExportingPDF(false) }
+    } catch (e) {
+      const isChunk = e?.message?.includes('Failed to fetch dynamically imported module') ||
+                      e?.message?.includes('Importing a module script failed')
+      if (isChunk) {
+        const KEY = '_sdash_chunk_reload'
+        if (!sessionStorage.getItem(KEY)) {
+          sessionStorage.setItem(KEY, '1')
+          window.location.reload()
+        } else {
+          setError('PDF 模組載入失敗（版本已更新），請按 Ctrl+Shift+R 重新整理頁面後再試。')
+        }
+      } else {
+        setError('PDF 匯出失敗：' + e.message)
+      }
+    } finally {
+      setExportingPDF(false)
+    }
   }
 
   async function handleExportFullPDF() {
