@@ -373,7 +373,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
 
 建議請具體可執行，不要泛泛而談。`
 
-      const text = await callClaude(prompt, 1200)
+      const text = await callClaude(prompt, 3000)
       if (!text || !text.trim()) {
         setAiError('AI 未回傳內容，請稍後再試或確認 API Key 是否有效。')
       } else {
@@ -427,6 +427,73 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
           color={yoyStats?.chg >= 0 ? 'green' : 'red'} sub={yoyStats?.yearMonth} />
         <KPICard icon="🏷️" label="產品數" value={summary.productCount?.toLocaleString()} color="amber" />
       </div>
+
+      {/* ── AI 決策摘要（按鈕後顯示，置於年度比對前方）── */}
+      {(aiText || aiError) && (
+        <Section title="🤖 AI 決策摘要 ＋ 行動建議">
+          {aiError ? (
+            <p className="text-red-500 text-base">{aiError}</p>
+          ) : (
+            <div className="space-y-1.5">
+              {aiText.split('\n').map((line, i) => {
+                const t = line.trim()
+                if (!t) return null
+
+                // 標題行：## 或 ###
+                if (/^#{1,3}\s/.test(t)) {
+                  return (
+                    <h3 key={i} className="text-base font-bold text-gray-800 dark:text-gray-100 mt-5 mb-1 border-b border-gray-100 dark:border-gray-700 pb-1">
+                      {t.replace(/^#+\s*/, '')}
+                    </h3>
+                  )
+                }
+
+                // 段落標題：**1. XXX** 或 **XXX**（整行）
+                if (/^\*\*.*\*\*[：:]?\s*$/.test(t) || /^\*\*\d+[\.\、]/.test(t)) {
+                  return (
+                    <p key={i} className="text-base font-bold text-gray-800 dark:text-gray-100 mt-5 mb-1">
+                      {t.replace(/\*\*/g, '')}
+                    </p>
+                  )
+                }
+
+                // 數字列表：1. / 2. …
+                if (/^\d+[\.\、]\s/.test(t)) {
+                  const content = t.replace(/^\d+[\.\、]\s*/, '')
+                  return (
+                    <p key={i} className="text-base font-bold text-indigo-700 dark:text-indigo-400 mt-4 mb-0.5">
+                      {t.replace(/^(\d+[\.\、]\s*)(.*)/, (_, num, rest) => num + rest.replace(/\*\*/g, ''))}
+                    </p>
+                  )
+                }
+
+                // 項目符號：- 或 •
+                if (/^[-•]\s/.test(t)) {
+                  const content = t.replace(/^[-•]\s*/, '')
+                  return (
+                    <div key={i} className="flex gap-2 text-base text-gray-700 dark:text-gray-200 pl-2">
+                      <span className="text-indigo-400 flex-shrink-0 mt-0.5">▸</span>
+                      <span>{content.replace(/\*\*/g, '')}</span>
+                    </div>
+                  )
+                }
+
+                // 一般段落（含 inline **bold** 解析）
+                const segments = t.split(/(\*\*[^*]+\*\*)/)
+                return (
+                  <p key={i} className="text-base leading-relaxed text-gray-700 dark:text-gray-200">
+                    {segments.map((seg, j) =>
+                      seg.startsWith('**') && seg.endsWith('**')
+                        ? <strong key={j} className="text-gray-900 dark:text-gray-100">{seg.slice(2, -2)}</strong>
+                        : seg
+                    )}
+                  </p>
+                )
+              })}
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* ── 年度比對（篩選多年度時顯示）──────────────────────────────── */}
       {comparisonData?.byYear?.length >= 2 && (
@@ -494,26 +561,6 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
       {/* ── 各年月份比對圖（有多年資料時顯示）── */}
       {comparisonData?.byYear?.length >= 2 && (
         <MultiYearMonthlyChart trendData={trendData} comparisonData={comparisonData} metric={metric} />
-      )}
-
-      {/* AI narrative */}
-      {(aiText || aiError) && (
-        <Section title="🤖 AI 決策摘要 ＋ 行動建議">
-          {aiError ? (
-            <p className="text-red-500 text-base">{aiError}</p>
-          ) : (
-            <div className="prose prose-base max-w-none space-y-3">
-              {aiText.split('\n').filter(l => l.trim()).map((line, i) => {
-                const isBold = /^\*\*/.test(line.trim()) || /^\d+\./.test(line.trim())
-                return (
-                  <p key={i} className={`text-base leading-relaxed ${isBold ? 'font-bold text-gray-800 dark:text-gray-100 mt-4 mb-1' : 'text-gray-700 dark:text-gray-200'}`}>
-                    {line.replace(/\*\*/g, '')}
-                  </p>
-                )
-              })}
-            </div>
-          )}
-        </Section>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
