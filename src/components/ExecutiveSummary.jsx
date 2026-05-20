@@ -374,9 +374,16 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
 建議請具體可執行，不要泛泛而談。`
 
       const text = await callClaude(prompt, 1200)
-      setAiText(text)
+      if (!text || !text.trim()) {
+        setAiError('AI 未回傳內容，請稍後再試或確認 API Key 是否有效。')
+      } else {
+        setAiText(text)
+      }
     } catch (e) {
-      setAiError(e.message)
+      const msg = e.message === 'NO_API_KEY'
+        ? '尚未設定 API Key。請點選右上角「🔑」按鈕或至 AI 深度分析頁面輸入 Google AI Studio API Key。'
+        : e.message
+      setAiError(msg)
     }
     setAiLoading(false)
   }

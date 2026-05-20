@@ -1,8 +1,13 @@
 const LS_KEY = 'sdash_google_ai_key'
 
 export function getStoredApiKey() {
-  // 同時支援舊 key 名稱（向下相容）
-  return localStorage.getItem(LS_KEY) || localStorage.getItem('sdash_anthropic_key') || ''
+  // 依序讀取所有已知 key 名稱（向下相容）
+  return (
+    localStorage.getItem(LS_KEY) ||
+    localStorage.getItem('google_ai_studio_api_key') ||
+    localStorage.getItem('sdash_anthropic_key') ||
+    ''
+  )
 }
 
 export function setStoredApiKey(key) {
