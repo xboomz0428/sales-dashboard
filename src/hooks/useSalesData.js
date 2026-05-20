@@ -20,6 +20,19 @@ function applyNonDateFilters(rows, filters) {
   })
 }
 
+// Products with sales within the last 2 years (from most recent date in all rows)
+function computeActiveProducts(rows) {
+  if (!rows?.length) return null
+  const latestDate = rows.reduce((max, r) => (r.date > max ? r.date : max), '')
+  if (!latestDate) return null
+  const cutoff = new Date(latestDate)
+  cutoff.setFullYear(cutoff.getFullYear() - 2)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+  const active = new Set()
+  rows.forEach(r => { if (r.date >= cutoffStr && r.product) active.add(r.product) })
+  return active
+}
+
 export function useSalesData(rows, filters) {
   // Main filtered data
   const filtered = useMemo(() => {
@@ -42,16 +55,21 @@ export function useSalesData(rows, filters) {
 
   const metric = filters.metric
 
+  // Active products: had sales within 2 years of the most recent date in all rows
+  const activeProducts = useMemo(() => computeActiveProducts(rows), [rows])
+
   // KPI Summary
   const summary = useMemo(() => {
     const totalSales = filtered.reduce((s, r) => s + r.subtotal, 0)
     const totalQty = filtered.reduce((s, r) => s + r.quantity, 0)
     const orderCount = filtered.length
-    const avgDiscount = filtered.length > 0 ? filtered.reduce((s, r) => s + r.discountRate, 0) / filtered.length : 0
+    const avgDiscount = (filters.includeDiscount && filtered.length > 0)
+      ? filtered.reduce((s, r) => s + r.discountRate, 0) / filtered.length
+      : 0
     const customerCount = new Set(filtered.map(r => r.customer).filter(Boolean)).size
     const productCount = new Set(filtered.map(r => r.product).filter(Boolean)).size
     return { totalSales, totalQty, orderCount, avgDiscount, customerCount, productCount }
-  }, [filtered])
+  }, [filtered, filters.includeDiscount])
 
   // Trend: overall
   const trendData = useMemo(() => {
@@ -331,11 +349,12 @@ export function useSalesData(rows, filters) {
     return Object.values(map).sort((a, b) => b[metric] - a[metric])
   }, [filtered, metric])
 
-  // Product analysis
+  // Product analysis (excludes products inactive for 2+ years)
   const productData = useMemo(() => {
     const map = {}
     filtered.forEach(row => {
       const key = row.product || '未知產品'
+      if (activeProducts && !activeProducts.has(key)) return
       if (!map[key]) map[key] = { name: key, subtotal: 0, quantity: 0, count: 0, customers: new Set(), channels: new Set() }
       map[key].subtotal += row.subtotal; map[key].quantity += row.quantity; map[key].count++
       if (row.customer) map[key].customers.add(row.customer)
@@ -346,12 +365,15 @@ export function useSalesData(rows, filters) {
       customerCount: d.customers.size, channelCount: d.channels.size,
       avgOrderValue: d.count > 0 ? Math.round(d.subtotal / d.count) : 0,
     })).sort((a, b) => b[metric] - a[metric])
-  }, [filtered, metric])
+  }, [filtered, metric, activeProducts])
 
-  // Product × channel (top 15 products, stacked)
+  // Product × channel (top 15 active products, stacked)
   const productByChannel = useMemo(() => {
     const prodTotals = {}
-    filtered.forEach(r => { if (r.product) prodTotals[r.product] = (prodTotals[r.product] || 0) + r[metric] })
+    filtered.forEach(r => {
+      if (r.product && (!activeProducts || activeProducts.has(r.product)))
+        prodTotals[r.product] = (prodTotals[r.product] || 0) + r[metric]
+    })
     const top15 = Object.entries(prodTotals).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([p]) => p)
     const channelSet = [...new Set(filtered.map(r => r.channel).filter(Boolean))]
     const map = {}
@@ -363,12 +385,15 @@ export function useSalesData(rows, filters) {
       map[key][ch] = (map[key][ch] || 0) + row[metric]
     })
     return { data: top15.map(p => map[p] || { product: p }), series: channelSet }
-  }, [filtered, metric])
+  }, [filtered, metric, activeProducts])
 
-  // Product × customer (top 10 products)
+  // Product × customer (top 10 active products)
   const productCustomerData = useMemo(() => {
     const prodTotals = {}
-    filtered.forEach(r => { if (r.product) prodTotals[r.product] = (prodTotals[r.product] || 0) + r[metric] })
+    filtered.forEach(r => {
+      if (r.product && (!activeProducts || activeProducts.has(r.product)))
+        prodTotals[r.product] = (prodTotals[r.product] || 0) + r[metric]
+    })
     const top10 = Object.entries(prodTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([p]) => p)
     const result = {}
     top10.forEach(prod => {
@@ -380,7 +405,7 @@ export function useSalesData(rows, filters) {
       result[prod] = Object.values(custMap).sort((a, b) => b[metric] - a[metric]).slice(0, 8)
     })
     return result
-  }, [filtered, metric])
+  }, [filtered, metric, activeProducts])
 
   // Customer analysis
   const customerData = useMemo(() => {
@@ -438,11 +463,17 @@ export function useSalesData(rows, filters) {
   const comparisonData = useMemo(() => {
     const yearMap = {}
     filtered.forEach(row => {
-      if (!yearMap[row.year]) yearMap[row.year] = { year: row.year, subtotal: 0, quantity: 0 }
+      if (!yearMap[row.year]) yearMap[row.year] = { year: row.year, subtotal: 0, quantity: 0, orderCount: 0, customers: new Set(), products: new Set() }
       yearMap[row.year].subtotal += row.subtotal
       yearMap[row.year].quantity += row.quantity
+      yearMap[row.year].orderCount++
+      if (row.customer) yearMap[row.year].customers.add(row.customer)
+      if (row.product) yearMap[row.year].products.add(row.product)
     })
-    const byYear = Object.values(yearMap).sort((a, b) => a.year.localeCompare(b.year))
+    const byYear = Object.values(yearMap).map(d => ({
+      year: d.year, subtotal: d.subtotal, quantity: d.quantity,
+      orderCount: d.orderCount, customerCount: d.customers.size, productCount: d.products.size,
+    })).sort((a, b) => a.year.localeCompare(b.year))
 
     const qMap = {}
     filtered.forEach(row => {
@@ -476,7 +507,7 @@ export function useSalesData(rows, filters) {
   }, [filtered, metric])
 
   return {
-    filtered, summary,
+    filtered, summary, activeProducts,
     trendData, trendDataYoY, trendDataMoM,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,

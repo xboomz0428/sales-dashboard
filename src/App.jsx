@@ -74,6 +74,7 @@ const DEFAULT_FILTERS = {
   years: [], months: [], channels: [], channelTypes: [],
   brands: [], customers: [], products: [], dateRange: null,
   metric: 'subtotal',
+  includeDiscount: false,
 }
 
 function buildMeta(rows) {
@@ -784,7 +785,7 @@ function AppDashboard() {
 
           {activeTab === 'summary' && meta && (
             <div data-pdf-section data-pdf-title="執行摘要">
-              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} />
+              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} comparisonData={comparisonData} />
             </div>
           )}
           {activeTab === 'comparison' && meta && (

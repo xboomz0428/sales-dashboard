@@ -43,7 +43,13 @@ function Section({ title, children }) {
   )
 }
 
-export default function ExecutiveSummary({ summary, trendData, productData, customerData, brandData, channelData, metric, allRows, filters }) {
+const fmtPctRaw = (cur, prev) => {
+  if (!prev || prev === 0) return null
+  const pct = (cur - prev) / prev * 100
+  return { pct, label: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%', up: pct >= 0 }
+}
+
+export default function ExecutiveSummary({ summary, trendData, productData, customerData, brandData, channelData, metric, allRows, filters, comparisonData }) {
   const [aiText, setAiText]     = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError]   = useState('')
@@ -229,6 +235,69 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
           color={yoyStats?.chg >= 0 ? 'green' : 'red'} sub={yoyStats?.yearMonth} />
         <KPICard icon="🏷️" label="產品數" value={summary.productCount?.toLocaleString()} color="amber" />
       </div>
+
+      {/* ── 年度比對（篩選多年度時顯示）──────────────────────────────── */}
+      {comparisonData?.byYear?.length >= 2 && (
+        <Section title="📅 年度業績比對">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                  <th className="text-left py-2 pr-4 font-semibold">年度</th>
+                  <th className="text-right py-2 pr-4 font-semibold">{metric === 'subtotal' ? '銷售金額' : '銷售數量'}</th>
+                  <th className="text-right py-2 pr-4 font-semibold">年增率</th>
+                  <th className="text-right py-2 pr-4 font-semibold">訂單數</th>
+                  <th className="text-right py-2 pr-4 font-semibold">客戶數</th>
+                  <th className="text-right py-2 font-semibold">品項數</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonData.byYear.map((row, i) => {
+                  const prev = comparisonData.byYear[i - 1]
+                  const yoy = prev ? fmtPctRaw(row[metric], prev[metric]) : null
+                  return (
+                    <tr key={row.year} className="border-t border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                      <td className="py-3 pr-4 font-bold text-gray-800 dark:text-gray-100">{row.year} 年</td>
+                      <td className="py-3 pr-4 text-right font-mono font-semibold text-gray-800 dark:text-gray-100">{fmtM(row[metric])}</td>
+                      <td className="py-3 pr-4 text-right">
+                        {yoy ? (
+                          <span className={`font-mono font-bold ${yoy.up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                            {yoy.label}
+                          </span>
+                        ) : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                      </td>
+                      <td className="py-3 pr-4 text-right text-gray-600 dark:text-gray-300 font-mono">{row.orderCount?.toLocaleString?.() ?? '—'}</td>
+                      <td className="py-3 pr-4 text-right text-gray-600 dark:text-gray-300 font-mono">{row.customerCount?.toLocaleString?.() ?? '—'}</td>
+                      <td className="py-3 text-right text-gray-600 dark:text-gray-300 font-mono">{row.productCount?.toLocaleString?.() ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* 長條比較圖 */}
+          <div className="mt-4 space-y-2">
+            {(() => {
+              const maxVal = Math.max(...comparisonData.byYear.map(r => r[metric] || 0), 1)
+              const colors = ['#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4']
+              return comparisonData.byYear.map((row, i) => {
+                const pct = maxVal > 0 ? (row[metric] || 0) / maxVal * 100 : 0
+                return (
+                  <div key={row.year} className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-600 dark:text-gray-300 w-14 flex-shrink-0">{row.year}</span>
+                    <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colors[i % colors.length] }} />
+                    </div>
+                    <span className="text-sm font-mono font-semibold text-gray-700 dark:text-gray-200 w-16 text-right flex-shrink-0">
+                      {fmtM(row[metric])}
+                    </span>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+        </Section>
+      )}
 
       {/* AI narrative */}
       {(aiText || aiError) && (

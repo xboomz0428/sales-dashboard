@@ -19,6 +19,14 @@ function useAnomalies(allRows, metric, threshold = 20) {
     const [latestY, latestM] = latestYM.split('-')
     const prevYM = `${parseInt(latestY) - 1}-${latestM}`
 
+    // 超過 2 年未銷售的產品不列入分析
+    const latestDate = allRows.reduce((max, r) => (r.date > max ? r.date : max), '')
+    const cutoff = new Date(latestDate)
+    cutoff.setFullYear(cutoff.getFullYear() - 2)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    const activeProducts = new Set()
+    allRows.forEach(r => { if (r.date >= cutoffStr && r.product) activeProducts.add(r.product) })
+
     const curRows = allRows.filter(r => r.yearMonth === latestYM)
     const prevRows = allRows.filter(r => r.yearMonth === prevYM)
     if (!curRows.length || !prevRows.length) return []
@@ -32,8 +40,14 @@ function useAnomalies(allRows, metric, threshold = 20) {
 
     dims.forEach(({ name, label }) => {
       const curMap = {}, prevMap = {}
-      curRows.forEach(r => { const k = r[name] || '未知'; curMap[k] = (curMap[k] || 0) + r[metric] })
-      prevRows.forEach(r => { const k = r[name] || '未知'; prevMap[k] = (prevMap[k] || 0) + r[metric] })
+      curRows.forEach(r => {
+        if (name === 'product' && !activeProducts.has(r.product)) return
+        const k = r[name] || '未知'; curMap[k] = (curMap[k] || 0) + r[metric]
+      })
+      prevRows.forEach(r => {
+        if (name === 'product' && !activeProducts.has(r.product)) return
+        const k = r[name] || '未知'; prevMap[k] = (prevMap[k] || 0) + r[metric]
+      })
 
       const allKeys = new Set([...Object.keys(curMap), ...Object.keys(prevMap)])
       allKeys.forEach(k => {

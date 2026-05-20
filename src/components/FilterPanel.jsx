@@ -4,9 +4,26 @@ import { getThisMonthRange, getThisQuarterRange, getThisYearRange, getLastMonthR
 const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12']
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 
-function MultiSelect({ label, options, selected, onChange, expanded = false }) {
+const TOP_N = 10
+
+function MultiSelect({ label, options, selected, onChange, expanded = false, collapsible = false }) {
+  const [showAll, setShowAll] = useState(false)
   const allSelected = selected.length === 0
   const toggle = (val) => onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val])
+  const selectedSet = new Set(selected)
+
+  const visibleOptions = useMemo(() => {
+    if (!collapsible || showAll || options.length <= TOP_N) return options
+    const top = options.slice(0, TOP_N)
+    const extras = options.slice(TOP_N).filter(o => {
+      const val = typeof o === 'object' ? o.value : o
+      return selectedSet.has(val)
+    })
+    return [...top, ...extras]
+  }, [options, showAll, collapsible, selectedSet])
+
+  const hiddenCount = collapsible && !showAll ? Math.max(0, options.length - TOP_N - options.slice(TOP_N).filter(o => selectedSet.has(typeof o === 'object' ? o.value : o)).length) : 0
+
   return (
     <div className="mb-4">
       <div className="flex items-center justify-between mb-1.5">
@@ -18,7 +35,7 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
         )}
       </div>
       <div className={`flex flex-wrap ${expanded ? 'gap-2' : 'gap-1.5'}`}>
-        {options.map(opt => {
+        {visibleOptions.map(opt => {
           const val = typeof opt === 'object' ? opt.value : opt
           const lbl = typeof opt === 'object' ? opt.label : opt
           const isActive = selected.includes(val)
@@ -40,18 +57,35 @@ function MultiSelect({ label, options, selected, onChange, expanded = false }) {
           )
         })}
       </div>
+      {collapsible && hiddenCount > 0 && (
+        <button onClick={() => setShowAll(true)}
+          className="mt-1.5 text-base px-2.5 py-1 rounded-[var(--r-sm)] border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[var(--mint-400)] hover:text-[var(--mint-600)] transition-colors w-full text-center">
+          更多資料 （還有 {hiddenCount} 項）
+        </button>
+      )}
+      {collapsible && showAll && options.length > TOP_N && (
+        <button onClick={() => setShowAll(false)}
+          className="mt-1.5 text-base px-2.5 py-1 rounded-[var(--r-sm)] border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[var(--mint-400)] transition-colors w-full text-center">
+          收折
+        </button>
+      )}
     </div>
   )
 }
 
 function SearchableCheckList({ label, options, selected, onChange, placeholder = '搜尋...', expanded = false }) {
   const [q, setQ] = useState('')
-  const shown = useMemo(() => {
-    const filtered = options.filter(o => !q || o.toLowerCase().includes(q.toLowerCase()))
-    return filtered.slice(0, 60)
-  }, [options, q])
+  const [showAll, setShowAll] = useState(false)
   const selSet = new Set(selected)
   const toggle = (v) => onChange(selSet.has(v) ? selected.filter(x => x !== v) : [...selected, v])
+
+  const shown = useMemo(() => {
+    const filtered = options.filter(o => !q || o.toLowerCase().includes(q.toLowerCase()))
+    if (q || showAll) return filtered.slice(0, 60)
+    const top = filtered.slice(0, TOP_N)
+    const extras = filtered.slice(TOP_N).filter(o => selSet.has(o))
+    return [...top, ...extras]
+  }, [options, q, showAll, selSet])
 
   return (
     <div className="mb-4">
@@ -93,10 +127,22 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
             }`} style={selSet.has(opt) ? {color:'var(--mint-700)'} : {}}>{opt}</span>
           </label>
         ))}
-        {options.length > 60 && (
+        {options.length > 60 && q && (
           <p className="text-xs text-gray-400 dark:text-gray-500 px-2 py-1 border-t border-gray-200 dark:border-gray-600">共 {options.length} 項，請搜尋縮小範圍</p>
         )}
       </div>
+      {!q && !showAll && options.length > TOP_N && (
+        <button onClick={() => setShowAll(true)}
+          className="mt-1.5 text-base px-2.5 py-1.5 rounded-[var(--r-sm)] border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-[var(--mint-400)] hover:text-[var(--mint-600)] transition-colors w-full text-center">
+          更多資料（還有 {options.length - TOP_N} 項）
+        </button>
+      )}
+      {!q && showAll && options.length > TOP_N && (
+        <button onClick={() => setShowAll(false)}
+          className="mt-1.5 text-base px-2.5 py-1.5 rounded-[var(--r-sm)] border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 transition-colors w-full text-center">
+          收折
+        </button>
+      )}
     </div>
   )
 }
@@ -328,8 +374,8 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             <MultiSelect label="年份" options={years} selected={filters.years} onChange={set('years', true)} />
             <MultiSelect label="月份" options={MONTHS.map((m, i) => ({ value: m, label: MONTH_LABELS[i] }))} selected={filters.months} onChange={set('months', true)} />
             <MultiSelect label="網路/實體" options={availableChannels} selected={filters.channels} onChange={set('channels')} />
-            {availableChannelTypes.length > 0 && <MultiSelect label="通路類型" options={availableChannelTypes} selected={filters.channelTypes} onChange={set('channelTypes')} />}
-            <MultiSelect label="品牌" options={brands} selected={filters.brands} onChange={set('brands')} expanded={isExpanded} />
+            {availableChannelTypes.length > 0 && <MultiSelect label="通路類型" options={availableChannelTypes} selected={filters.channelTypes} onChange={set('channelTypes')} collapsible />}
+            <MultiSelect label="品牌" options={brands} selected={filters.brands} onChange={set('brands')} expanded={isExpanded} collapsible />
 
             {customers.length > 0 && (
               <SearchableCheckList label="客戶" options={customers} selected={filters.customers || []} onChange={set('customers')} placeholder="搜尋客戶名稱..." expanded={isExpanded} />
@@ -341,8 +387,23 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
               />
             )}
 
+            {/* 折扣設定 */}
+            <div className="mb-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <label className="font-bold text-base text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2">折扣設定</label>
+              <label className="flex items-center gap-3 cursor-pointer min-h-[40px] px-1">
+                <div className="relative flex-shrink-0 w-10 h-6">
+                  <input type="checkbox" className="sr-only peer"
+                    checked={filters.includeDiscount || false}
+                    onChange={e => onChange({ ...filters, includeDiscount: e.target.checked })} />
+                  <div className="w-10 h-6 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-[var(--mint-500)] transition-colors" />
+                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span className="text-base text-gray-600 dark:text-gray-300">計入折扣率（預設不計）</span>
+              </label>
+            </div>
+
             <button
-              onClick={() => onChange({ years: [], months: [], channels: [], channelTypes: [], brands: [], customers: [], products: [], dateRange: null, metric: filters.metric })}
+              onClick={() => onChange({ years: [], months: [], channels: [], channelTypes: [], brands: [], customers: [], products: [], dateRange: null, metric: filters.metric, includeDiscount: false })}
               className="w-full text-base py-2.5 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 mt-2 transition-colors"
               style={{borderRadius:'var(--r-sm)'}}
             >重置所有篩選</button>

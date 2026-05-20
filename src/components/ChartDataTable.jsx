@@ -1,4 +1,22 @@
 import { useState, useMemo } from 'react'
+import * as XLSX from 'xlsx'
+
+function exportTableToExcel(title, columns, data) {
+  const headers = columns.map(c => c.label)
+  const rowData = data.map(row =>
+    columns.map(c => {
+      const v = row[c.key]
+      if (v == null) return ''
+      if (typeof v === 'number') return v
+      if (c.fmt) return c.fmt(v, row)
+      return v
+    })
+  )
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rowData])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31))
+  XLSX.writeFile(wb, `${title}_${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
 
 function fmtNum(v) {
   if (v == null || v === '') return '—'
@@ -45,19 +63,28 @@ export default function ChartDataTable({ title = '數據明細', columns, data, 
 
   return (
     <div className="mt-5 border-t border-gray-100 dark:border-gray-700 pt-4">
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 text-base font-bold text-gray-600 dark:text-gray-300 hover:text-blue-600 mb-3 transition-colors"
-      >
-        <span className={`transition-transform duration-200 text-sm ${open ? 'rotate-90' : ''}`}>▶</span>
-        {title}
-        <span className="text-sm text-gray-400 dark:text-gray-500 font-normal bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{data.length} 筆</span>
-        {sortKey && (
-          <span className="text-sm text-blue-500 font-normal">
-            依「{columns.find(c => c.key === sortKey)?.label ?? sortKey}」{sortDir === 'asc' ? '升冪' : '降冪'}
-          </span>
-        )}
-      </button>
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-2 text-base font-bold text-gray-600 dark:text-gray-300 hover:text-blue-600 transition-colors"
+        >
+          <span className={`transition-transform duration-200 text-sm ${open ? 'rotate-90' : ''}`}>▶</span>
+          {title}
+          <span className="text-sm text-gray-400 dark:text-gray-500 font-normal bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{data.length} 筆</span>
+          {sortKey && (
+            <span className="text-sm text-blue-500 font-normal">
+              依「{columns.find(c => c.key === sortKey)?.label ?? sortKey}」{sortDir === 'asc' ? '升冪' : '降冪'}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => exportTableToExcel(title, columns, sortedData)}
+          className="flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+          title="匯出 Excel"
+        >
+          📥 匯出 Excel
+        </button>
+      </div>
       {open && (
         <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
           <table className="w-full text-base">

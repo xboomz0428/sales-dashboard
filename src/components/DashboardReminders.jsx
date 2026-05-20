@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react'
 import { calcDueDate, daysFromToday } from './InvoiceReconciliation'
 
+const INVOICE_REMINDER_KEY = 'invoice_reminders_enabled'
+export function getInvoiceReminderEnabled() {
+  try { return localStorage.getItem(INVOICE_REMINDER_KEY) === 'true' } catch { return false }
+}
+export function setInvoiceReminderEnabled(val) {
+  try { localStorage.setItem(INVOICE_REMINDER_KEY, val ? 'true' : 'false') } catch { /* ignore */ }
+}
+
 // ─── 提醒引擎 ────────────────────────────────────────────────────────────────
-function buildReminders({ invoiceRecords, monthlyExpenses, allRows }) {
+function buildReminders({ invoiceRecords, monthlyExpenses, allRows, invoiceRemindersEnabled }) {
   const today = new Date()
   const todayStr = today.toISOString().slice(0, 10)
   const day  = today.getDate()
@@ -32,93 +40,95 @@ function buildReminders({ invoiceRecords, monthlyExpenses, allRows }) {
     })
   }
 
-  // ── 2. 發票開立提醒（每月 1～5 日：上月發票）────────────────────────────
-  if (day >= 1 && day <= 5) {
-    const urgent = day >= 4
-    const invoicesThisPeriod = invoiceRecords[prevKey] || []
-    const uninvoicedCount = invoicesThisPeriod.filter(r => !r.invoiceNo).length
-    reminders.push({
-      id: `invoice_issue_${prevKey}`,
-      level: urgent ? 'urgent' : 'warning',
-      icon: '🧾',
-      title: '發票開立截止提醒',
-      message: `${prevYear} 年 ${prevMon} 月發票請於本月 5 日前完成開立`,
-      detail: urgent ? '僅剩不到 2 天，請確認所有發票均已開立！' : `目前已記錄 ${invoicesThisPeriod.length} 張，請於 ${year}/${pad(mon)}/05 前完成`,
-      action: { label: '前往對帳', tab: 'invoice' },
-    })
-  }
-
-  // ── 3. 有銷售但該月尚未建立任何發票記錄──────────────────────────────────
-  const salesMonths = new Set()
-  for (const r of allRows) {
-    if (r.date) salesMonths.add(r.date.slice(0, 7))
-  }
-  const invoiceMonths = new Set(
-    Object.entries(invoiceRecords)
-      .filter(([, items]) => items?.length > 0)
-      .map(([k]) => k)
-  )
-  const missingMonths = [...salesMonths]
-    .filter(m => m < thisMonthKey && !invoiceMonths.has(m))
-    .sort()
-    .slice(-3)   // 最多顯示最近 3 個月
-
-  for (const m of missingMonths) {
-    const [y, mo] = m.split('-')
-    reminders.push({
-      id: `missing_invoice_${m}`,
-      level: 'info',
-      icon: '📋',
-      title: '尚未建立發票記錄',
-      message: `${y} 年 ${parseInt(mo)} 月有銷售資料，但尚未在對帳系統建立任何發票`,
-      detail: '建議確認該月所有發票已開立並記錄，以便對帳追蹤',
-      action: { label: '前往對帳', tab: 'invoice' },
-    })
-  }
-
-  // ── 4. 逾期未入帳發票 ────────────────────────────────────────────────────
-  const allInvoices = Object.values(invoiceRecords).flat()
-  const overdueList = []
-  const warningSoonList = []
-
-  for (const inv of allInvoices) {
-    if (inv.status === 'confirmed') continue   // 已入帳不需提醒
-    const dueDate = calcDueDate(inv.issueDate, inv.paymentTerm)
-    if (!dueDate) continue
-    const days = daysFromToday(dueDate)
-    if (days < 0) {
-      overdueList.push({ ...inv, daysOverdue: Math.abs(days), dueDate })
-    } else if (days <= 7) {
-      warningSoonList.push({ ...inv, daysLeft: days, dueDate })
+  // 以下為發票相關提醒，受「發票提醒」設定控制
+  if (invoiceRemindersEnabled) {
+    // ── 2. 發票開立提醒（每月 1～5 日：上月發票）────────────────────────────
+    if (day >= 1 && day <= 5) {
+      const urgent = day >= 4
+      const invoicesThisPeriod = invoiceRecords[prevKey] || []
+      reminders.push({
+        id: `invoice_issue_${prevKey}`,
+        level: urgent ? 'urgent' : 'warning',
+        icon: '🧾',
+        title: '發票開立截止提醒',
+        message: `${prevYear} 年 ${prevMon} 月發票請於本月 5 日前完成開立`,
+        detail: urgent ? '僅剩不到 2 天，請確認所有發票均已開立！' : `目前已記錄 ${invoicesThisPeriod.length} 張，請於 ${year}/${pad(mon)}/05 前完成`,
+        action: { label: '前往對帳', tab: 'invoice' },
+      })
     }
-  }
 
-  if (overdueList.length > 0) {
-    const totalAmt = overdueList.reduce((s, r) => s + (r.amount || 0), 0)
-    const worst = [...overdueList].sort((a, b) => b.daysOverdue - a.daysOverdue)[0]
-    reminders.push({
-      id: 'overdue_invoices',
-      level: 'urgent',
-      icon: '⚠️',
-      title: `${overdueList.length} 張發票逾期未入帳`,
-      message: `合計 NT$ ${totalAmt.toLocaleString()} 已超過付款期限`,
-      detail: `最長逾期 ${worst.daysOverdue} 天（${worst.store} ${worst.invoiceNo}）`,
-      action: { label: '前往查看', tab: 'invoice' },
-      items: overdueList.slice(0, 5),
-    })
-  }
+    // ── 3. 有銷售但該月尚未建立任何發票記錄──────────────────────────────────
+    const salesMonths = new Set()
+    for (const r of allRows) {
+      if (r.date) salesMonths.add(r.date.slice(0, 7))
+    }
+    const invoiceMonths = new Set(
+      Object.entries(invoiceRecords)
+        .filter(([, items]) => items?.length > 0)
+        .map(([k]) => k)
+    )
+    const missingMonths = [...salesMonths]
+      .filter(m => m < thisMonthKey && !invoiceMonths.has(m))
+      .sort()
+      .slice(-3)
 
-  if (warningSoonList.length > 0) {
-    const totalAmt = warningSoonList.reduce((s, r) => s + (r.amount || 0), 0)
-    reminders.push({
-      id: 'due_soon_invoices',
-      level: 'warning',
-      icon: '⏰',
-      title: `${warningSoonList.length} 張發票即將到期`,
-      message: `合計 NT$ ${totalAmt.toLocaleString()} 將在 7 天內到期`,
-      detail: warningSoonList.map(r => `${r.store}（${r.daysLeft === 0 ? '今日到期' : `還剩 ${r.daysLeft} 天`}）`).join('、'),
-      action: { label: '前往查看', tab: 'invoice' },
-    })
+    for (const m of missingMonths) {
+      const [y, mo] = m.split('-')
+      reminders.push({
+        id: `missing_invoice_${m}`,
+        level: 'info',
+        icon: '📋',
+        title: '尚未建立發票記錄',
+        message: `${y} 年 ${parseInt(mo)} 月有銷售資料，但尚未在對帳系統建立任何發票`,
+        detail: '建議確認該月所有發票已開立並記錄，以便對帳追蹤',
+        action: { label: '前往對帳', tab: 'invoice' },
+      })
+    }
+
+    // ── 4. 逾期未入帳發票 ────────────────────────────────────────────────────
+    const allInvoices = Object.values(invoiceRecords).flat()
+    const overdueList = []
+    const warningSoonList = []
+
+    for (const inv of allInvoices) {
+      if (inv.status === 'confirmed') continue
+      const dueDate = calcDueDate(inv.issueDate, inv.paymentTerm)
+      if (!dueDate) continue
+      const days = daysFromToday(dueDate)
+      if (days < 0) {
+        overdueList.push({ ...inv, daysOverdue: Math.abs(days), dueDate })
+      } else if (days <= 7) {
+        warningSoonList.push({ ...inv, daysLeft: days, dueDate })
+      }
+    }
+
+    if (overdueList.length > 0) {
+      const totalAmt = overdueList.reduce((s, r) => s + (r.amount || 0), 0)
+      const worst = [...overdueList].sort((a, b) => b.daysOverdue - a.daysOverdue)[0]
+      reminders.push({
+        id: 'overdue_invoices',
+        level: 'urgent',
+        icon: '⚠️',
+        title: `${overdueList.length} 張發票逾期未入帳`,
+        message: `合計 NT$ ${totalAmt.toLocaleString()} 已超過付款期限`,
+        detail: `最長逾期 ${worst.daysOverdue} 天（${worst.store} ${worst.invoiceNo}）`,
+        action: { label: '前往查看', tab: 'invoice' },
+        items: overdueList.slice(0, 5),
+      })
+    }
+
+    if (warningSoonList.length > 0) {
+      const totalAmt = warningSoonList.reduce((s, r) => s + (r.amount || 0), 0)
+      reminders.push({
+        id: 'due_soon_invoices',
+        level: 'warning',
+        icon: '⏰',
+        title: `${warningSoonList.length} 張發票即將到期`,
+        message: `合計 NT$ ${totalAmt.toLocaleString()} 將在 7 天內到期`,
+        detail: warningSoonList.map(r => `${r.store}（${r.daysLeft === 0 ? '今日到期' : `還剩 ${r.daysLeft} 天`}）`).join('、'),
+        action: { label: '前往查看', tab: 'invoice' },
+      })
+    }
   }
 
   // 按嚴重度排序：urgent → warning → info
@@ -209,10 +219,11 @@ export default function DashboardReminders({ invoiceRecords = {}, monthlyExpense
     catch { return new Set() }
   })
   const [collapsed, setCollapsed] = useState(false)
+  const [invoiceRemindersEnabled, setInvoiceReminderState] = useState(getInvoiceReminderEnabled)
 
   const reminders = useMemo(
-    () => buildReminders({ invoiceRecords, monthlyExpenses, allRows }),
-    [invoiceRecords, monthlyExpenses, allRows]
+    () => buildReminders({ invoiceRecords, monthlyExpenses, allRows, invoiceRemindersEnabled }),
+    [invoiceRecords, monthlyExpenses, allRows, invoiceRemindersEnabled]
   )
 
   const visible = reminders.filter(r => !dismissed.has(r.id))

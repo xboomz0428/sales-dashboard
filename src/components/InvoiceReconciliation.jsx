@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import * as XLSX from 'xlsx'
+import { getInvoiceReminderEnabled, setInvoiceReminderEnabled } from './DashboardReminders'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, PieChart, Pie, Cell,
@@ -654,6 +655,13 @@ export default function InvoiceReconciliation({
   invoices = {}, onSave, allRows = [],
   billingEntities = [], onSaveBillingEntity, onDeleteBillingEntity,
 }) {
+  const [invoiceRemindersEnabled, setInvoiceReminderState] = useState(getInvoiceReminderEnabled)
+  const toggleInvoiceReminders = () => {
+    const next = !invoiceRemindersEnabled
+    setInvoiceReminderState(next)
+    setInvoiceReminderEnabled(next)
+  }
+
   const [currentMonth, setCurrentMonth] = useState(thisMonth)
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
@@ -1012,6 +1020,18 @@ export default function InvoiceReconciliation({
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
             追蹤發票開立、入帳狀態與金額差異
           </p>
+          {/* 發票提醒設定 */}
+          <label className="inline-flex items-center gap-2 mt-2 cursor-pointer select-none">
+            <div className="relative w-9 h-5 flex-shrink-0">
+              <input type="checkbox" className="sr-only peer"
+                checked={invoiceRemindersEnabled} onChange={toggleInvoiceReminders} />
+              <div className="w-9 h-5 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-500 transition-colors" />
+              <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              待辦列的發票提醒通知（預設關閉）
+            </span>
+          </label>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setCurrentMonth(m => addMonths(m, -1))}
