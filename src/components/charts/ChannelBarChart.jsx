@@ -37,7 +37,7 @@ function CustomTooltip({ active, payload, label }) {
           <span className="flex items-center gap-2 text-base">
             <span className="w-2.5 h-2.5 rounded-full" style={{ background: e.fill || e.color }} />{e.name}
           </span>
-          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{Math.round(e.value || 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -71,7 +71,7 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
   return (
     <ChartCard title={`通路分析 — ${barLabel}`}>
       {(expanded) => {
-        const chartH = expanded ? 'calc(50vh - 60px)' : 300
+        const chartH = expanded ? 'calc(50vh - 60px)' : (typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300)
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">

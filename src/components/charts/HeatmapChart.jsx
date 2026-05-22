@@ -64,6 +64,7 @@ export default function HeatmapChart({ heatmapData, metric }) {
         <span>高</span>
       </div>
 
+      <p className="sm:hidden text-xs text-center text-gray-400 dark:text-gray-500 mb-2">← 左右滑動 →</p>
       <div className="overflow-x-auto">
         <table className="border-collapse" style={{ minWidth: `${months.length * 64 + 140}px` }}>
           <thead>

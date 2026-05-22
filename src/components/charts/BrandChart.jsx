@@ -600,7 +600,7 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
   return (
     <ChartCard title={`品牌分析 — ${label}`}>
       {(expanded) => {
-        const chartH = expanded ? 'calc(60vh - 80px)' : 420
+        const chartH = expanded ? 'calc(60vh - 80px)' : (typeof window !== 'undefined' && window.innerWidth < 640 ? 260 : 420)
         return (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">

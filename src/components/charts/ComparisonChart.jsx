@@ -106,7 +106,7 @@ function CustomTooltip({ active, payload, label, metric }) {
             <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: e.fill || e.stroke }} />
             {e.name}
           </span>
-          <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{(e.value || 0).toLocaleString()}</span>
+          <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{Math.round(e.value || 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -234,7 +234,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
         {chartStyle === 'stacked' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">每年以不同色塊堆疊，直觀比較各年貢獻</p>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <BarChart
                 data={[{ label: metricLabel, ...Object.fromEntries(yoyRows.map(r => [r.year, r[metric]])) }]}
                 layout="vertical"
@@ -257,7 +257,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
         {chartStyle === 'bar' && (
           <>
             <YearLegend years={yoyRows.map(r => r.year)} />
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <BarChart data={yoyRows} barCategoryGap="35%" margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="year" tick={{ fontSize: 14, fontWeight: 600 }} />
@@ -277,7 +277,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
         {chartStyle === 'line' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">折線呈現年度銷售成長趨勢</p>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <LineChart data={yoyRows} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="year" tick={{ fontSize: 14, fontWeight: 600 }} />
@@ -407,7 +407,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
 
         {/* Grouped Bar */}
         {chartStyle === 'grouped' && (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
             <BarChart data={chartData} barCategoryGap="25%" barGap={4} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="quarter" tick={{ fontSize: 14, fontWeight: 600 }} />
@@ -425,7 +425,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
         {chartStyle === 'radar' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">雷達圖呈現各季度銷售分佈，一眼看出各年度強弱季</p>
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 320}>
               <RadarChart data={radarData} outerRadius={110}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="quarter" tick={{ fontSize: 14, fontWeight: 700, fill: '#6b7280' }} />
@@ -452,7 +452,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
         {chartStyle === 'area' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">面積圖呈現季度銷售曲線，填充色幫助區分不同年份</p>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   {years.map((year, i) => (
@@ -619,7 +619,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
 
         {/* Multi-Line */}
         {chartStyle === 'line' && (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
             <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="month" tick={{ fontSize: 13 }} />
@@ -643,7 +643,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
         {chartStyle === 'area' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">面積圖更直觀呈現不同年份的銷售波峰與波谷</p>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <defs>
                   {years.map((year, i) => (
@@ -677,7 +677,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
         {chartStyle === 'bar' && (
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">柱狀圖直接比較各月同期數值</p>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
               <BarChart data={chartData} barCategoryGap="20%" barGap={2} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="month" tick={{ fontSize: 14 }} />

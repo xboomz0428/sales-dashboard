@@ -29,7 +29,7 @@ function CustomTooltip({ active, payload, label }) {
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.stroke || e.fill }} />
             <span className="truncate max-w-[140px]">{e.name}</span>
           </span>
-          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{Math.round(e.value || 0).toLocaleString()}</span>
         </div>
       ))}
       {compEntries.length > 0 && (
@@ -42,7 +42,7 @@ function CustomTooltip({ active, payload, label }) {
                 <span className="w-3 h-0.5 inline-block" style={{ background: e.stroke }} />
                 <span className="truncate max-w-[140px]">{e.name?.replace('▸', '').trim()}</span>
               </span>
-              <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{e.value?.toLocaleString()}</span>
+              <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{Math.round(e.value || 0).toLocaleString()}</span>
             </div>
           ))}
         </>
@@ -100,7 +100,7 @@ export default function TrendChart({ trendData, trendDataYoY, trendDataMoM, tren
   const hasComparison = comparison !== 'none' && groupBy === 'none'
 
   const renderChart = (expanded) => {
-    const h = expanded ? 'calc(100vh - 420px)' : 380
+    const h = expanded ? 'calc(100vh - 420px)' : (typeof window !== 'undefined' && window.innerWidth < 640 ? 220 : 380)
     if (!data.length) return <div className="flex items-center justify-center h-72 text-gray-400 text-base">無資料</div>
     const chartData = (groupBy === 'none' && showTrend) ? dataWithTrend : data
     const xTickProps = getXAxisTickProps(chartData.length, { maxFlat: 18, maxAngle30: 36 })
@@ -166,7 +166,7 @@ export default function TrendChart({ trendData, trendDataYoY, trendDataMoM, tren
     })()
 
     return (
-      <div style={{ height: h, minHeight: 300 }}>
+      <div style={{ height: h, minHeight: typeof window !== 'undefined' && window.innerWidth < 640 ? 180 : 300 }}>
         <ResponsiveContainer width="100%" height="100%">{inner}</ResponsiveContainer>
       </div>
     )

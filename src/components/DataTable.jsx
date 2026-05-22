@@ -78,8 +78,32 @@ export default function DataTable({ rows }) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile card view */}
+      <div className="sm:hidden divide-y divide-gray-50 dark:divide-gray-700">
+        {rows.length === 0 ? (
+          <div className="flex items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm">無資料</div>
+        ) : pageRows.map((row, i) => (
+          <div key={row._key} className="p-3 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-gray-300 dark:text-gray-600">#{(currentPage - 1) * PAGE_SIZE + i + 1}</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{row.date || '—'}</span>
+            </div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{row.customer || '—'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{row.product || '—'}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{row.subtotal ? Math.round(row.subtotal).toLocaleString() : '—'}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-mono">x{(row.quantity || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-x-auto">
         {rows.length === 0 ? (
           <div className="flex items-center justify-center h-40 text-gray-400 dark:text-gray-500 text-sm">無資料</div>
         ) : (

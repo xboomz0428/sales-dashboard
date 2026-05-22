@@ -160,13 +160,13 @@ export default function PerformanceMatrix({ performanceData, metric }) {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         {/* Scatter chart */}
-        <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <div className="hidden sm:block xl:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
           <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">{label}績效散佈圖</h4>
           <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">虛線為中位數分界 · 氣泡大小代表訂單數</p>
           {data.length === 0 ? (
             <div className="flex items-center justify-center h-64 text-gray-400 text-base">無資料</div>
           ) : (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 260 : 400}>
               <ScatterChart margin={{ top: 20, right: 20, bottom: 30, left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="subtotal" name="銷售金額" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false}

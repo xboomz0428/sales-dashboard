@@ -41,7 +41,7 @@ function RankingChart({ customerData, metric }) {
       {/* Bar chart */}
       <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">客戶銷售排行（前30名）</h4>
-        <ResponsiveContainer width="100%" height={520}>
+        <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 280 : 520}>
           <BarChart data={top30} layout="vertical" margin={{ top: 5, right: 80, left: 10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
             <XAxis type="number" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} />

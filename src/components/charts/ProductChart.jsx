@@ -35,7 +35,7 @@ function CustomTooltip({ active, payload, label }) {
       {payload.map((e, i) => (
         <div key={i} className="flex justify-between gap-4 py-0.5">
           <span className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full" style={{ background: e.color || e.fill }} />{e.name}</span>
-          <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
+          <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{Math.round(e.value || 0).toLocaleString()}</span>
         </div>
       ))}
     </div>
@@ -85,7 +85,7 @@ function RankingChart({ data, metric }) {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4">產品排行（前20名）</h4>
-        <ResponsiveContainer width="100%" height={520}>
+        <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 280 : 520}>
           <BarChart data={top20} layout="vertical" margin={{ top: 4, right: labelW, left: 4, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
             <XAxis type="number" tickFormatter={fmtY} tick={{ fontSize: 13, fill: '#9ca3af' }} axisLine={false} />
@@ -100,12 +100,12 @@ function RankingChart({ data, metric }) {
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
         <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4">前8大產品佔比</h4>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 280}>
           <PieChart>
             <Pie data={top8} dataKey={metric} nameKey="name" cx="50%" cy="50%" outerRadius={115} labelLine={false} label={PieLabel}>
               {top8.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
             </Pie>
-            <Tooltip formatter={(v) => v.toLocaleString()} />
+            <Tooltip formatter={(v) => Math.round(v).toLocaleString()} />
             <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ fontSize: 13 }}
               formatter={(v, e) => <span className="text-gray-700 dark:text-gray-300">{v} ({fmtY(e.payload[metric])})</span>} />
           </PieChart>
@@ -149,7 +149,7 @@ function ChannelChart({ productByChannel, metric }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-4">產品 × 通路銷售分布（前15產品，堆疊）</h4>
-      <ResponsiveContainer width="100%" height={500}>
+      <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 260 : 500}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 20, left: 8, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
           <XAxis type="number" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false} />
