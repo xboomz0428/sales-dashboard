@@ -9,8 +9,8 @@ const COLORS = [
 
 function fmtV(v) {
   if (!v) return '0'
-  if (v >= 1e8) return (v / 1e8).toFixed(1) + '億'
-  if (v >= 1e4) return (v / 1e4).toFixed(1) + '萬'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '億'
+  if (v >= 1e4) return (v / 1e4).toFixed(0) + '萬'
   return Math.round(v).toLocaleString()
 }
 

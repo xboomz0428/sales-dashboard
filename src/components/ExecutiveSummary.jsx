@@ -52,7 +52,7 @@ function Section({ title, children }) {
 const fmtPctRaw = (cur, prev) => {
   if (!prev || prev === 0) return null
   const pct = (cur - prev) / prev * 100
-  return { pct, label: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%', up: pct >= 0 }
+  return { pct, label: (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%', up: pct >= 0 }
 }
 
 function MultiYearMonthlyChart({ trendData, comparisonData, metric }) {
@@ -119,7 +119,7 @@ function MultiYearMonthlyChart({ trendData, comparisonData, metric }) {
                 <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtY(curVal)}</span>
                 {pct != null && (
                   <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                    {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                    {pct >= 0 ? '+' : ''}{pct.toFixed(0)}%
                   </span>
                 )}
               </div>
@@ -642,7 +642,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                                     <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(curVal)}</span>
                                     {pct != null && (
                                       <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                        {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                        {pct >= 0 ? '+' : ''}{pct.toFixed(0)}%
                                       </span>
                                     )}
                                   </div>
@@ -685,7 +685,7 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
                                     <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtM(curVal)}</span>
                                     {pct != null && (
                                       <span className={`ml-2 text-xs font-semibold ${pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                                        {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                                        {pct >= 0 ? '+' : ''}{pct.toFixed(0)}%
                                       </span>
                                     )}
                                   </div>

@@ -233,7 +233,7 @@ function GoalEditorModal({ byYear, goals, brandData, channelData, onSave, onClos
       const growthRates = byYear.map((r, i) => {
         if (i === 0) return null
         const prev = byYear[i - 1]
-        return prev.subtotal > 0 ? `  ${r.year}vs${prev.year}：${((r.subtotal - prev.subtotal) / prev.subtotal * 100).toFixed(1)}%` : null
+        return prev.subtotal > 0 ? `  ${r.year}vs${prev.year}：${((r.subtotal - prev.subtotal) / prev.subtotal * 100).toFixed(0)}%` : null
       }).filter(Boolean).join('\n')
 
       const prompt = `你是專業銷售顧問，請根據歷史數據給出合理目標建議。
@@ -681,7 +681,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
               </div>
               {cagr != null && (
                 <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl text-sm text-blue-700 dark:text-blue-400">
-                  <span className="font-bold">歷史 CAGR</span> {cagr.toFixed(1)}% / 年
+                  <span className="font-bold">歷史 CAGR</span> {cagr.toFixed(0)}% / 年
                 </div>
               )}
               <div className="overflow-x-auto">
@@ -825,7 +825,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                       <div>
                         <div className="flex justify-between text-base mb-1.5">
                           <span className="text-gray-500 dark:text-gray-400">目前</span>
-                          <span className="font-bold text-gray-800 dark:text-gray-100">{actual.toFixed(1)}{unit}</span>
+                          <span className="font-bold text-gray-800 dark:text-gray-100">{actual.toFixed(0)}{unit}</span>
                         </div>
                         {tgt > 0 && <ProgressBar value={actual} target={key === 'topChannelMaxPct' ? tgt : actual > tgt ? actual : tgt} />}
                         {tgt > 0 && key === 'topChannelMaxPct' && actual > tgt && (
@@ -904,7 +904,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                             {impliedCAGR != null && (
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 dark:text-gray-400">隱含年複成長</span>
-                                <span className={`font-bold ${textColors[color]}`}>{impliedCAGR.toFixed(1)}% CAGR</span>
+                                <span className={`font-bold ${textColors[color]}`}>{impliedCAGR.toFixed(0)}% CAGR</span>
                               </div>
                             )}
                           </div>

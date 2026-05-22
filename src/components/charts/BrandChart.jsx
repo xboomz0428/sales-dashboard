@@ -321,7 +321,7 @@ function BrandChannelChart({ brandChannelData, metric }) {
             {channelTotals.map(c => {
               const isActive = activeChannels.has(c.ch)
               const color    = CH_COLORS[c.origIdx % CH_COLORS.length]
-              const share    = grandTotal > 0 ? (c.total / grandTotal * 100).toFixed(1) : '0'
+              const share    = grandTotal > 0 ? (c.total / grandTotal * 100).toFixed(0) : '0'
               return (
                 <div key={c.ch} onClick={() => toggleChannel(c.ch)}
                   className={`cursor-pointer select-none rounded-2xl border-2 p-4 transition-all duration-150 ${

@@ -16,8 +16,8 @@ const LS_CAT_KEY = 'expense_custom_categories'
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2) }
 function fmtN(v) {
   if (!v && v !== 0) return '—'
-  if (v >= 1e8) return (v / 1e8).toFixed(1) + '億'
-  if (v >= 1e4) return (v / 1e4).toFixed(1) + '萬'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '億'
+  if (v >= 1e4) return (v / 1e4).toFixed(0) + '萬'
   return v.toLocaleString()
 }
 function getColor(cat, allCats) {
@@ -363,7 +363,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
             <p className="text-2xl font-black mt-1">{fmtN(total)}</p>
             {momChange != null && (
               <p className={`text-xs mt-1 ${momChange > 0 ? 'text-red-200' : 'text-emerald-200'}`}>
-                {momChange > 0 ? '▲' : '▼'} {Math.abs(momChange).toFixed(1)}% 較上月
+                {momChange > 0 ? '▲' : '▼'} {Math.abs(momChange).toFixed(0)}% 較上月
               </p>
             )}
           </div>

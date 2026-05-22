@@ -904,7 +904,7 @@ function EoqCalculator() {
               <p className="text-2xl font-bold">{fmtN(result.eoq, 0)} 個</p>
             </ResultBox>
             <ResultBox title="每年訂購次數" color="green">
-              <p className="text-2xl font-bold">{result.ordersPerYear.toFixed(1)} 次</p>
+              <p className="text-2xl font-bold">{result.ordersPerYear.toFixed(0)} 次</p>
               <p className="text-xs opacity-70 mt-1">每 {result.cycleTimeDays.toFixed(0)} 天訂一次</p>
             </ResultBox>
             <ResultBox title="年總成本最低" color="amber">

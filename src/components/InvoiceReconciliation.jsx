@@ -17,8 +17,8 @@ const STATUSES = {
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2) }
 function fmtN(v) {
   if (v == null || isNaN(v)) return '—'
-  if (v >= 1e8) return (v / 1e8).toFixed(1) + '億'
-  if (v >= 1e4) return (v / 1e4).toFixed(1) + '萬'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '億'
+  if (v >= 1e4) return (v / 1e4).toFixed(0) + '萬'
   return Number(v).toLocaleString()
 }
 function todayStr() { return new Date().toISOString().slice(0, 10) }

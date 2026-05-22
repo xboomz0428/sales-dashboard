@@ -49,26 +49,26 @@ export default function ChartCard({ title, subtitle, children, className = '' })
               {subtitle && <p className="text-sm sm:text-base text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>}
             </div>
             {/* Action buttons — shown on hover */}
-            <div className="flex items-center gap-1.5 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-              {/* Screenshot button */}
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+              {/* Screenshot button — 手機隱藏 */}
               <button
                 onClick={() => setShowCardEditor(true)}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 hover:border-violet-300 dark:hover:border-violet-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400 hover:bg-violet-50 dark:hover:bg-violet-900/30 hover:border-violet-300 dark:hover:border-violet-500 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
                 title="截圖並編輯"
               >
                 <CameraIcon />
                 <span className="hidden lg:inline text-sm">截圖</span>
               </button>
-              {/* Expand button */}
+              {/* Expand button — 手機只顯示圖示 */}
               <button
                 onClick={() => setExpanded(true)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-600 text-sm sm:text-base text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 title="全螢幕顯示 (ESC 關閉)"
               >
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M1 5V1h4M14 5V1h-4M1 10v4h4M14 10v4h-4" />
                 </svg>
-                放大
+                <span className="hidden sm:inline">放大</span>
               </button>
             </div>
           </div>

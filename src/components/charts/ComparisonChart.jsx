@@ -166,13 +166,13 @@ function AvgGrowthSummary({ label, avgGrowth, cagr, periods }) {
       {avgGrowth != null && (
         <span className="flex items-center gap-1.5 text-sm">
           <span className="font-semibold opacity-70">平均年增率</span>
-          <span className="font-black text-base">{avgGrowth >= 0 ? '▲' : '▼'} {Math.abs(avgGrowth).toFixed(1)}%</span>
+          <span className="font-black text-base">{avgGrowth >= 0 ? '▲' : '▼'} {Math.abs(avgGrowth).toFixed(0)}%</span>
         </span>
       )}
       {cagr != null && (
         <span className="flex items-center gap-1.5 text-sm">
           <span className="font-semibold opacity-70">CAGR</span>
-          <span className="font-black text-base">{cagr >= 0 ? '▲' : '▼'} {Math.abs(cagr).toFixed(1)}%</span>
+          <span className="font-black text-base">{cagr >= 0 ? '▲' : '▼'} {Math.abs(cagr).toFixed(0)}%</span>
         </span>
       )}
       {periods != null && (

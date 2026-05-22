@@ -34,7 +34,7 @@ function loadVisibility() {
 }
 
 function fmt(n) {
-  if (n >= 1e8) return (n / 1e8).toFixed(1) + ' 億'
+  if (n >= 1e8) return (n / 1e8).toFixed(0) + ' 億'
   if (n >= 1e4) return (n / 1e4).toFixed(0) + ' 萬'
   return Math.round(n).toLocaleString()
 }
