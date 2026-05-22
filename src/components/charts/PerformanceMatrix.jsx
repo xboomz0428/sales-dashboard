@@ -88,12 +88,12 @@ function QuadrantTable({ items, q, dimension }) {
               <tr key={d.name} className={`border-t border-white/40 ${i % 2 === 0 ? '' : 'bg-white/30 dark:bg-white/5'}`}>
                 <td className={`text-center px-3 py-3 text-base font-medium ${q.text}`}>{i + 1}</td>
                 <td className="px-3 py-3 text-base font-medium text-gray-800 dark:text-gray-200">{d.name}</td>
-                <td className="px-3 py-3 text-right font-mono text-base text-gray-700 dark:text-gray-200">{d.subtotal.toLocaleString()}</td>
-                <td className="px-3 py-3 text-right font-mono text-base text-gray-600 dark:text-gray-300">{d.quantity.toLocaleString()}</td>
-                <td className="px-3 py-3 text-right text-base text-gray-500 dark:text-gray-400">{d.count?.toLocaleString() || '—'}</td>
+                <td className="px-3 py-3 text-right font-mono text-base text-gray-700 dark:text-gray-200">{Math.round(d.subtotal).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-base text-gray-600 dark:text-gray-300">{Math.round(d.quantity).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right text-base text-gray-500 dark:text-gray-400">{d.count != null ? Math.round(d.count).toLocaleString() : '—'}</td>
                 {extraCols.map(col => (
                   <td key={col.key} className={`px-3 py-3 text-right text-base text-gray-500 dark:text-gray-400 ${col.mono ? 'font-mono' : ''}`}>
-                    {d[col.key] != null ? d[col.key].toLocaleString() : '—'}
+                    {d[col.key] != null ? Math.round(d[col.key]).toLocaleString() : '—'}
                   </td>
                 ))}
               </tr>
