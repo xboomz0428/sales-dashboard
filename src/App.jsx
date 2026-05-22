@@ -691,17 +691,18 @@ function AppDashboard() {
 
         {/* KPI Cards toggle bar — 只在有資料時顯示 */}
         {meta && (
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b dark:border-gray-700 dark:bg-gray-900 flex-shrink-0" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 border-b dark:border-gray-700 dark:bg-gray-900 flex-shrink-0" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
             <button
               onClick={() => setDashboardOpen(v => !v)}
-              className="flex items-center gap-2 text-base sm:text-sm font-semibold dark:text-gray-300 transition-colors min-h-[40px]"
+              className="flex items-center gap-1.5 text-sm font-semibold dark:text-gray-300 transition-colors"
               style={{color:'var(--ink-700)'}}
             >
-              <span className={`transition-transform duration-200 text-2xl sm:text-sm leading-none ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
-              {dashboardOpen ? '收折儀表板' : '展開儀表板'}
+              <span className={`transition-transform duration-200 text-sm leading-none ${dashboardOpen ? 'rotate-90' : ''}`}>▶</span>
+              <span className="hidden sm:inline">{dashboardOpen ? '收折儀表板' : '展開儀表板'}</span>
+              <span className="sm:hidden">{dashboardOpen ? '收折 KPI' : '展開 KPI'}</span>
             </button>
             {!dashboardOpen && (
-              <span className="text-sm text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">（KPI 數據已收折）</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">（KPI 數據已收折）</span>
             )}
           </div>
         )}
@@ -723,8 +724,8 @@ function AppDashboard() {
           onNavigate={(tab) => { handleTabChange(tab) }}
         />
 
-        {/* Tab 群組選擇列 */}
-        <div className="flex border-b dark:border-gray-700 dark:bg-gray-900 px-2 sm:px-4 flex-shrink-0 gap-1" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
+        {/* Tab 群組選擇列 — 桌面版顯示，手機版移至底部導覽 */}
+        <div className="hidden md:flex border-b dark:border-gray-700 dark:bg-gray-900 px-2 sm:px-4 flex-shrink-0 gap-1" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
           {TAB_GROUPS.map(group => {
             const visibleIds = new Set(visibleTabs.map(t => t.id))
             const hasAny = group.tabs.some(id => visibleIds.has(id))
@@ -753,25 +754,25 @@ function AppDashboard() {
             <button key={tab.id}
               data-tab-active={activeTab === tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5
-                px-2.5 sm:px-4 py-2 sm:py-3 min-h-[60px] sm:min-h-0 min-w-[54px] sm:min-w-0
+              className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0 sm:gap-1.5
+                px-2 sm:px-4 py-1 sm:py-3 min-h-[44px] sm:min-h-0 min-w-[46px] sm:min-w-0
                 text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'dark:text-emerald-400 dark:border-emerald-400'
                   : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
               style={activeTab === tab.id ? {color:'var(--mint-600)',borderBottomColor:'var(--mint-500)'} : {}}>
-              <span className="text-2xl sm:text-base leading-none">{tab.icon}</span>
+              <span className="text-base sm:text-base leading-none">{tab.icon}</span>
               <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-xs leading-tight max-w-[54px] text-center break-keep">{tab.label}</span>
+              <span className="sm:hidden text-[10px] leading-tight max-w-[46px] text-center break-keep mt-0.5">{tab.label}</span>
               {tab.id === 'alerts' && <AnomalyBadge allRows={visibleRows} metric={filters.metric} />}
             </button>
           ))}
         </div>
 
         {/* Chart area */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe dark:bg-gray-950" ref={chartAreaRef}
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))', background:'var(--bg)' }}>
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 pb-24 md:pb-4 dark:bg-gray-950" ref={chartAreaRef}
+          style={{ background:'var(--bg)' }}>
 
           {/* 尚無資料空狀態 */}
           {showEmptyState && (
@@ -922,6 +923,30 @@ function AppDashboard() {
             <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={visibleRows} />
           )}
         </div>
+      </div>
+
+      {/* 手機底部群組導覽列 */}
+      <div
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex bg-white dark:bg-gray-900 border-t dark:border-gray-700"
+        style={{borderTopColor:'var(--line)', paddingBottom:'env(safe-area-inset-bottom,0px)'}}
+      >
+        {TAB_GROUPS.map(group => {
+          const visibleIds = new Set(visibleTabs.map(t => t.id))
+          const hasAny = group.tabs.some(id => visibleIds.has(id))
+          if (!hasAny) return null
+          const isActive = activeGroup === group.id
+          return (
+            <button key={group.id}
+              onClick={() => handleGroupChange(group.id)}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
+                isActive ? '' : 'text-gray-400 dark:text-gray-500'
+              }`}
+              style={isActive ? {color:'var(--mint-600)'} : {}}>
+              <span className="text-xl leading-none">{group.icon}</span>
+              <span className="text-[11px] font-semibold">{group.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       <GlobalSearch

@@ -218,7 +218,7 @@ export default function DashboardReminders({ invoiceRecords = {}, monthlyExpense
     try { return new Set(JSON.parse(sessionStorage.getItem('dismissed_reminders') || '[]')) }
     catch { return new Set() }
   })
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
   const [invoiceRemindersEnabled, setInvoiceReminderState] = useState(getInvoiceReminderEnabled)
 
   const reminders = useMemo(
