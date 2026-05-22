@@ -171,6 +171,7 @@ function AppDashboard() {
   const [keyModalOpen, setKeyModalOpen] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
+  const [moreOpen, setMoreOpen] = useState(false)
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
   const tabBarRef = useRef(null)
@@ -476,7 +477,10 @@ function AppDashboard() {
             <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-[10px] flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,var(--mint-400),var(--mint-500))',boxShadow:'0 4px 10px rgba(31,180,115,.25)'}}>S</div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">銷售數據分析系統</h1>
+                <h1 className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-tight">
+                  <span className="sm:hidden">銷售分析</span>
+                  <span className="hidden sm:inline">銷售數據分析系統</span>
+                </h1>
                 {roleInfo && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full sm:hidden ${roleInfo.badge}`}>{roleInfo.label}</span>}
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-tight">
@@ -486,32 +490,91 @@ function AppDashboard() {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            {loading && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+            {loading && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />}
 
-            {/* Upload history — hidden on mobile (except admin) */}
+            {/* ── 手機版右側：只留上傳 + 更多選單 ── */}
+            {perms.uploadData && (
+              <button onClick={() => fileInputRef.current?.click()}
+                className="sm:hidden flex items-center justify-center w-8 h-8 rounded-[10px] text-white shadow-sm font-bold text-lg flex-shrink-0"
+                style={{background:'var(--mint-500)'}}>
+                ＋
+              </button>
+            )}
+
+            <div className="sm:hidden relative flex-shrink-0">
+              <button onClick={() => setMoreOpen(v => !v)}
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-base font-bold tracking-widest">
+                ···
+              </button>
+              {moreOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 py-2 overflow-hidden">
+                    {role !== 'viewer' && (
+                      <button onClick={() => { setAiOpen(true); setMoreOpen(false) }}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        🤖 AI 分析
+                      </button>
+                    )}
+                    <button onClick={() => { setDark(d => !d); setMoreOpen(false) }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      {dark ? '☀️ 淺色模式' : '🌙 深色模式'}
+                    </button>
+                    {meta && (
+                      <button onClick={() => { setSearchOpen(true); setMoreOpen(false) }}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        🔍 搜尋
+                      </button>
+                    )}
+                    {role !== 'viewer' && (
+                      <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true); setMoreOpen(false) }}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        🔑 API Key {keyHasValue && <span className="ml-auto text-emerald-500 text-xs">✓ 已設定</span>}
+                      </button>
+                    )}
+                    <button onClick={() => { setShowHistory(v => !v); setMoreOpen(false) }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      📁 上傳記錄
+                      <span className="ml-auto text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-1.5 py-0.5">{uploadHistory.length}</span>
+                    </button>
+                    {role !== 'viewer' && (
+                      <button onClick={() => { handleExportPDF(); setMoreOpen(false) }} disabled={pdfLoading}
+                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors disabled:opacity-50">
+                        {pdfLoading ? '⏳ 產生中…' : '📄 PDF 匯出'}
+                      </button>
+                    )}
+                    <div className="mx-3 my-1 border-t border-gray-100 dark:border-gray-700" />
+                    <button onClick={() => { logout(); setMoreOpen(false) }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      ⏏ 登出
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── 桌面版右側（sm 以上才顯示）── */}
             <button onClick={() => setShowHistory(v => !v)}
-              className={`${role === 'admin' ? 'flex' : 'hidden sm:flex'} text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1`}>
+              className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1">
               📁 <span className="hidden md:inline">記錄</span>
               <span className="bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-full px-1.5 py-0.5 text-xs font-medium">{uploadHistory.length}</span>
             </button>
 
-            {/* Add file — 僅限有上傳權限的角色 */}
             {perms.uploadData && (
               <>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="text-sm px-2.5 py-1.5 rounded-[10px] text-white transition-colors flex items-center gap-1 shadow-sm font-medium"
+                  className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-[10px] text-white transition-colors items-center gap-1 shadow-sm font-medium"
                   style={{background:'var(--mint-500)'}}
                   onMouseEnter={e=>e.currentTarget.style.background='var(--mint-600)'}
                   onMouseLeave={e=>e.currentTarget.style.background='var(--mint-500)'}>
                   <span className="text-base leading-none">＋</span>
-                  <span className="hidden sm:inline">新增檔案</span>
+                  <span className="hidden md:inline">新增檔案</span>
                 </button>
                 <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.csv" className="hidden"
                   onChange={e => { if (e.target.files[0]) handleFileLoaded(e.target.files[0]); e.target.value = '' }} />
               </>
             )}
 
-            {/* Global search — hidden on mobile */}
             {meta && (
               <button onClick={() => setSearchOpen(true)}
                 className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1.5">
@@ -520,7 +583,6 @@ function AppDashboard() {
               </button>
             )}
 
-            {/* API Key — 僅限非檢視者；hidden on mobile */}
             {role !== 'viewer' && (
               <button onClick={() => { setKeyInput(getStoredApiKey()); setKeyModalOpen(true) }}
                 title={keyHasValue ? 'API Key 已設定' : '尚未設定 API Key'}
@@ -529,15 +591,13 @@ function AppDashboard() {
               </button>
             )}
 
-            {/* AI Analysis — 僅限非檢視者 */}
             {role !== 'viewer' && (
               <button onClick={() => setAiOpen(true)}
-                className="text-sm px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors flex items-center gap-1 shadow-sm">
-                🤖 <span className="hidden sm:inline">AI 分析</span>
+                className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-colors items-center gap-1 shadow-sm">
+                🤖 <span className="hidden md:inline">AI 分析</span>
               </button>
             )}
 
-            {/* PDF export — 僅限非檢視者；hidden on mobile */}
             {role !== 'viewer' && (
               <button onClick={handleExportPDF} disabled={pdfLoading}
                 className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors items-center gap-1 disabled:opacity-60">
@@ -545,7 +605,6 @@ function AppDashboard() {
               </button>
             )}
 
-            {/* Cloud sync status */}
             {syncStatus && (
               <span className="hidden sm:flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 px-2 py-1 rounded-lg">
                 {syncing && <span className="w-2.5 h-2.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
@@ -553,39 +612,22 @@ function AppDashboard() {
               </span>
             )}
 
-            {/* Dark mode toggle */}
-            <button
-              onClick={() => setDark(d => !d)}
+            <button onClick={() => setDark(d => !d)}
               title={dark ? '切換淺色模式' : '切換深色模式'}
-              className="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-base"
-            >
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-base">
               {dark ? '☀️' : '🌙'}
             </button>
 
-            {/* Mobile logout */}
-            <button
-              onClick={logout}
-              title="登出"
-              className="sm:hidden flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/50 transition-colors text-sm"
-            >
-              ⏏
-            </button>
-
-            {/* Reset — hidden on mobile */}
             <button onClick={handleReset}
               className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               重置
             </button>
 
-            {/* User info + logout */}
             {roleInfo && (
               <div className="hidden sm:flex items-center gap-1.5 pl-2 border-l border-gray-200 dark:border-gray-600">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${roleInfo.badge}`}>{roleInfo.label}</span>
-                <button
-                  onClick={logout}
-                  title="登出"
-                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/50 transition-colors"
-                >
+                <button onClick={logout} title="登出"
+                  className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-700/50 transition-colors">
                   登出
                 </button>
               </div>
@@ -593,9 +635,9 @@ function AppDashboard() {
           </div>
         </header>
 
-        {/* Admin Bar — 管理員快速導航 */}
+        {/* Admin Bar — 管理員快速導航（手機版隱藏，透過底部工具群組進入） */}
         {role === 'admin' && (
-          <div className="bg-red-50 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/50 px-3 sm:px-4 py-1.5 flex items-center gap-1.5 flex-shrink-0">
+          <div className="hidden md:flex bg-red-50 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/50 px-3 sm:px-4 py-1.5 items-center gap-1.5 flex-shrink-0">
             <span className="text-xs font-bold text-red-400 dark:text-red-500 mr-1 hidden sm:inline">🔐 管理員</span>
             {[
               { id: 'users',    label: '人員設定', icon: '👥' },
