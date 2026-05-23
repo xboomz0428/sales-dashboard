@@ -650,6 +650,307 @@ function InvoiceForm({ initial, onSubmit, onCancel, stores, allRows = [], curren
   )
 }
 
+// ─── Base64 轉換工具 ─────────────────────────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target.result.split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// ─── 發票批次匯入 Modal ──────────────────────────────────────────────────────
+function InvoiceImportModal({ onClose, onImport, currentMonth, invoices }) {
+  const [tab, setTab] = useState('csv')
+  const [rows, setRows] = useState([])
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const [ocrError, setOcrError] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+
+  const apiKey = localStorage.getItem('google_ai_studio_api_key') || ''
+
+  // 計算每筆資料的比對狀態（更新現有 / 新建草稿）
+  const previewRows = useMemo(() => rows.map(r => {
+    const month = r.month || currentMonth
+    const monthItems = invoices[month] || []
+    const match = monthItems.find(inv =>
+      inv.store === r.customer ||
+      inv.billingName === r.customer ||
+      (Array.isArray(inv.mergedStores) && inv.mergedStores.includes(r.customer))
+    )
+    return { ...r, _matchStatus: match ? 'update' : 'create', _matchId: match?.id }
+  }), [rows, invoices, currentMonth])
+
+  const updateRow = (idx, field, val) =>
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r))
+
+  const removeRow = (idx) =>
+    setRows(prev => prev.filter((_, i) => i !== idx))
+
+  // ── CSV / XLSX 解析 ───────────────────────────────────────────────────────
+  const parseCsvFile = (file) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const data = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        const parsed = data.map((row, i) => ({
+          _rowId: i,
+          customer: String(row['客戶名稱'] || row['客戶'] || row['store'] || '').trim(),
+          month: String(row['月份'] || '').trim() || currentMonth,
+          invoiceNo: String(row['發票號碼'] || row['invoiceNo'] || '').trim().toUpperCase(),
+          amount: row['金額'] ? Number(row['金額']) : null,
+          billingName: String(row['抬頭'] || row['發票抬頭'] || '').trim(),
+          taxId: String(row['統編'] || row['統一編號'] || '').trim(),
+        })).filter(r => r.customer && r.invoiceNo)
+        setRows(parsed)
+        setOcrError(parsed.length === 0 ? '檔案中沒有符合格式的資料（需有「客戶名稱」和「發票號碼」欄位）' : '')
+      } catch (err) {
+        setOcrError('檔案解析失敗：' + err.message)
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  // ── 圖片 OCR（Gemini Vision）───────────────────────────────────────────────
+  const parseImageFile = async (file) => {
+    if (!apiKey) { setOcrError('請先在右上角「工具 → API Key」設定 Google AI Studio API Key'); return }
+    setOcrLoading(true); setOcrError('')
+    try {
+      const base64 = await fileToBase64(file)
+      const mimeType = file.type || 'image/jpeg'
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [
+              { inlineData: { mimeType, data: base64 } },
+              { text: '請從這張圖片提取所有發票或銷售記錄資料，以純 JSON 陣列回傳（不要加 markdown 代碼區塊）。每筆物件包含：customer（客戶/店家名稱，字串）、month（月份 YYYY-MM，若無則空字串）、invoiceNo（發票號碼，字串）、amount（金額數字，若無則 null）、billingName（發票抬頭，若無則空字串）、taxId（統編，若無則空字串）。若圖片無發票資訊則回傳 []。' }
+            ]}],
+            generationConfig: { maxOutputTokens: 2048, temperature: 0.1 }
+          })
+        }
+      )
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error?.message || `HTTP ${res.status}`) }
+      const json = await res.json()
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text || '[]'
+      const m = text.match(/\[[\s\S]*\]/)
+      if (!m) throw new Error('AI 回傳格式無法解析，請重試')
+      const parsed = JSON.parse(m[0])
+      const normalized = parsed.map((r, i) => ({
+        _rowId: i,
+        customer: String(r.customer || '').trim(),
+        month: String(r.month || '').trim() || currentMonth,
+        invoiceNo: String(r.invoiceNo || '').trim().toUpperCase(),
+        amount: r.amount ? Number(r.amount) : null,
+        billingName: String(r.billingName || '').trim(),
+        taxId: String(r.taxId || '').trim(),
+      })).filter(r => r.customer && r.invoiceNo)
+      setRows(normalized)
+      if (!normalized.length) setOcrError('AI 未能從圖片中識別出發票資料，請確認圖片清晰度或手動調整')
+    } catch (err) {
+      setOcrError('辨識失敗：' + err.message)
+    } finally {
+      setOcrLoading(false)
+    }
+  }
+
+  const handleFileDrop = (file) => {
+    if (!file) return
+    if (tab === 'csv') {
+      if (/\.(csv|xlsx|xls)$/i.test(file.name)) parseCsvFile(file)
+      else setOcrError('請上傳 CSV 或 Excel 檔案（.csv / .xlsx / .xls）')
+    } else {
+      if (file.type.startsWith('image/')) parseImageFile(file)
+      else setOcrError('請上傳圖片檔案（JPG / PNG / HEIC / WEBP）')
+    }
+  }
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['客戶名稱', '月份', '發票號碼', '金額', '抬頭', '統編'],
+      ['全聯中壢店', currentMonth, 'AA-12345678', '50000', '全聯福利中心', '22603994'],
+      ['家樂福台北店', currentMonth, 'BB-87654321', '', '', ''],
+    ])
+    ws['!cols'] = [{wch:20},{wch:12},{wch:18},{wch:12},{wch:20},{wch:12}]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '發票匯入範本')
+    XLSX.writeFile(wb, '發票匯入範本.xlsx')
+  }
+
+  const confirmImport = () => {
+    if (!previewRows.length) return
+    onImport(previewRows)
+    onClose()
+  }
+
+  const inputCls = 'border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1 text-xs bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:border-blue-400 w-full'
+  const updateCnt = previewRows.filter(r => r._matchStatus === 'update').length
+  const createCnt = previewRows.filter(r => r._matchStatus === 'create').length
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl flex flex-col w-full max-w-2xl max-h-[92vh] overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">📥 發票號碼批次匯入</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">上傳後自動比對現有發票並填入號碼，未比對到者新建草稿</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xl font-bold">×</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Tabs */}
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
+            {[{ v: 'csv', l: '📊 CSV / Excel 批次' }, { v: 'ocr', l: '📷 圖片辨識（OCR）' }].map(t => (
+              <button key={t.v} onClick={() => { setTab(t.v); setRows([]); setOcrError('') }}
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                {t.l}
+              </button>
+            ))}
+          </div>
+
+          {/* CSV 範本下載 */}
+          {tab === 'csv' && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500 dark:text-gray-400">需要範本？</span>
+              <button onClick={downloadTemplate}
+                className="text-xs px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-semibold transition-colors">
+                ⬇ 下載範本 XLSX
+              </button>
+              <span className="text-xs text-gray-400 dark:text-gray-500">必填：客戶名稱、發票號碼；選填：月份、金額、抬頭、統編</span>
+            </div>
+          )}
+
+          {/* OCR API Key 提示 */}
+          {tab === 'ocr' && !apiKey && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl text-xs text-amber-700 dark:text-amber-300">
+              ⚠️ 請先在右上角「⋯ 更多 → API Key」設定 Google AI Studio API Key 才能使用圖片辨識功能
+            </div>
+          )}
+
+          {/* 上傳區域 */}
+          <div
+            onDrop={e => { e.preventDefault(); setDragOver(false); handleFileDrop(e.dataTransfer.files[0]) }}
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-colors ${dragOver ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 cursor-pointer'}`}
+          >
+            <input
+              type="file"
+              accept={tab === 'csv' ? '.csv,.xlsx,.xls' : 'image/*'}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={e => { handleFileDrop(e.target.files[0]); e.target.value = '' }}
+            />
+            {ocrLoading ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">AI 辨識中，請稍候…</p>
+              </div>
+            ) : (
+              <>
+                <p className="text-4xl mb-2">{tab === 'csv' ? '📄' : '📷'}</p>
+                <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                  {tab === 'csv' ? '點擊或拖曳上傳 CSV / Excel 檔案' : '點擊或拖曳上傳手寫記錄圖片'}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  {tab === 'csv' ? '支援 .csv / .xlsx / .xls 格式' : '支援 JPG / PNG / HEIC / WEBP，AI 自動辨識發票號碼'}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* 錯誤訊息 */}
+          {ocrError && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-xs text-red-600 dark:text-red-400">
+              <span className="flex-shrink-0">⚠️</span>{ocrError}
+            </div>
+          )}
+
+          {/* 預覽表格 */}
+          {previewRows.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
+                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200">解析結果（{previewRows.length} 筆）</h3>
+                <div className="flex items-center gap-3 text-xs">
+                  {updateCnt > 0 && <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✓ 更新 {updateCnt} 筆</span>}
+                  {createCnt > 0 && <span className="text-amber-600 dark:text-amber-400 font-semibold">＋ 新建 {createCnt} 筆</span>}
+                  <span className="text-gray-400">（可直接編輯欄位或刪除不需要的列）</span>
+                </div>
+              </div>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr className="text-gray-500 dark:text-gray-400">
+                        <th className="text-left px-3 py-2 font-semibold">客戶名稱</th>
+                        <th className="text-left px-3 py-2 font-semibold">月份</th>
+                        <th className="text-left px-3 py-2 font-semibold">發票號碼</th>
+                        <th className="text-right px-3 py-2 font-semibold">金額</th>
+                        <th className="text-center px-3 py-2 font-semibold">比對結果</th>
+                        <th className="px-2 py-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                      {previewRows.map((r, idx) => (
+                        <tr key={r._rowId} className={r._matchStatus === 'update' ? 'bg-emerald-50/60 dark:bg-emerald-900/10' : 'bg-amber-50/60 dark:bg-amber-900/10'}>
+                          <td className="px-2 py-1.5 min-w-[120px]">
+                            <input value={r.customer} onChange={e => updateRow(idx, 'customer', e.target.value)} className={inputCls} />
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[100px]">
+                            <input value={r.month} onChange={e => updateRow(idx, 'month', e.target.value)} placeholder="YYYY-MM" className={inputCls} />
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[130px]">
+                            <input value={r.invoiceNo} onChange={e => updateRow(idx, 'invoiceNo', e.target.value.toUpperCase())} className={inputCls + ' font-mono'} />
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[90px]">
+                            <input type="number" value={r.amount ?? ''} onChange={e => updateRow(idx, 'amount', e.target.value ? Number(e.target.value) : null)} placeholder="—" className={inputCls + ' text-right font-mono'} />
+                          </td>
+                          <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${r._matchStatus === 'update' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'}`}>
+                              {r._matchStatus === 'update' ? '✓ 更新號碼' : '＋ 新建草稿'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button onClick={() => removeRow(idx)} className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors rounded mx-auto text-base font-bold">×</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {previewRows.length > 0
+              ? `共 ${previewRows.length} 筆：更新 ${updateCnt} 張現有發票 + 新建 ${createCnt} 張草稿`
+              : '尚未載入資料'}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">取消</button>
+            <button onClick={confirmImport} disabled={!previewRows.length}
+              className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm">
+              ✓ 確認匯入{previewRows.length > 0 ? ` (${previewRows.length})` : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── 主元件 ─────────────────────────────────────────────────────────────────
 export default function InvoiceReconciliation({
   invoices = {}, onSave, allRows = [],
@@ -677,6 +978,7 @@ export default function InvoiceReconciliation({
   const [uninvSortBy, setUninvSortBy] = useState('amount')
   const [uninvSortDir, setUninvSortDir] = useState('desc')
   const [showBulkPanel, setShowBulkPanel] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
 
   // 當月發票列表（從 invoices[YYYY-MM] 取得）
   const monthItems = useMemo(() => invoices[currentMonth] || [], [invoices, currentMonth])
@@ -1005,6 +1307,45 @@ export default function InvoiceReconciliation({
     XLSX.writeFile(wb, `發票對帳_${new Date().toISOString().slice(0,10)}.xlsx`)
   }, [invoices])
 
+  const handleImport = useCallback((importRows) => {
+    const byMonth = {}
+    for (const row of importRows) {
+      const month = row.month || currentMonth
+      if (!byMonth[month]) byMonth[month] = []
+      byMonth[month].push(row)
+    }
+    for (const [month, mRows] of Object.entries(byMonth)) {
+      const existing = [...(invoices[month] || [])]
+      for (const row of mRows) {
+        const matchIdx = existing.findIndex(inv =>
+          inv.store === row.customer ||
+          inv.billingName === row.customer ||
+          (Array.isArray(inv.mergedStores) && inv.mergedStores.includes(row.customer))
+        )
+        if (matchIdx >= 0) {
+          existing[matchIdx] = {
+            ...existing[matchIdx],
+            invoiceNo: row.invoiceNo || existing[matchIdx].invoiceNo,
+            ...(row.amount != null ? { amount: row.amount } : {}),
+            ...(row.billingName ? { billingName: row.billingName } : {}),
+            ...(row.taxId ? { taxId: row.taxId } : {}),
+          }
+        } else {
+          existing.push({
+            id: genId(), store: row.customer, invoiceNo: row.invoiceNo,
+            billingName: row.billingName || '', taxId: row.taxId || '',
+            mergedStores: [], amount: row.amount || 0,
+            billingStart: monthStart(month), billingEnd: monthEnd(month),
+            issueDate: todayStr(), invoiceType: 'electronic',
+            paymentMethod: 'transfer', paymentTerm: 30,
+            status: 'pending', confirmedAt: '', confirmedAmount: null, note: '（批次匯入）',
+          })
+        }
+      }
+      onSave(month, existing)
+    }
+  }, [invoices, currentMonth, onSave])
+
   const diffAmount = (item) => {
     if (item.confirmedAmount == null) return null
     return item.confirmedAmount - item.amount
@@ -1051,6 +1392,13 @@ export default function InvoiceReconciliation({
             title="匯出全部月份 XLSX"
           >
             📥 匯出
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 text-sm font-semibold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            title="批次匯入發票號碼（CSV / Excel 或圖片辨識）"
+          >
+            📤 批次匯入
           </button>
           {Object.keys(salesByCustomer).length > 0 && (
             <button
@@ -1778,6 +2126,16 @@ export default function InvoiceReconciliation({
             </div>
           ))}
         </div>
+      )}
+
+      {/* 批次匯入 Modal */}
+      {showImportModal && (
+        <InvoiceImportModal
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImport}
+          currentMonth={currentMonth}
+          invoices={invoices}
+        />
       )}
     </div>
   )
