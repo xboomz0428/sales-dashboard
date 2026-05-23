@@ -37,6 +37,7 @@ import FlowDiagram from './components/charts/FlowDiagram'
 import UserManagement from './components/auth/UserManagement'
 import DataBackupPanel from './components/DataBackupPanel'
 import DatabaseStatusPanel from './components/DatabaseStatusPanel'
+import CrmPanel from './components/CrmPanel'
 
 const TABS = [
   { id: 'summary',     label: '老闆視角', icon: '👔' },
@@ -49,6 +50,7 @@ const TABS = [
   { id: 'brand',       label: '品牌分析', icon: '✨' },
   { id: 'heatmap',     label: '熱力圖',   icon: '🗓️' },
   { id: 'table',       label: '資料表格', icon: '📋' },
+  { id: 'crm',         label: '業務管理', icon: '🤝' },
   { id: 'costs',       label: '商品成本', icon: '💲' },
   { id: 'expenses',    label: '月費用',   icon: '💰' },
   { id: 'invoice',     label: '發票對帳', icon: '🧾' },
@@ -66,7 +68,7 @@ const TABS = [
 
 const TAB_GROUPS = [
   { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','table'] },
-  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['costs','expenses','invoice','goals','alerts','health','forecast'] },
+  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
 
@@ -902,6 +904,13 @@ function AppDashboard() {
             <MonthlyExpenseManager
               expenses={monthlyExpenses}
               onSave={saveMonthlyExpenses}
+            />
+          )}
+          {activeTab === 'crm' && (
+            <CrmPanel
+              user={user}
+              role={role}
+              invoices={invoiceRecords}
             />
           )}
           {activeTab === 'invoice' && (
