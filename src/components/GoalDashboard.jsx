@@ -267,7 +267,7 @@ ${growthRates || '資料不足'}
     "topChannelMaxPct": 60
   }
 }`
-      const text = await callClaude(prompt, 1200)
+      const text = await callClaude(prompt, 1200, { noThinking: true })
       const json = extractJSON(text)
       setAiNote(`📊 ${json.analysis || ''}（建議 CAGR：${json.cagr || '—'}%）`)
       setAiDirty(false)
