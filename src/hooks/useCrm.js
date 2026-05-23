@@ -70,18 +70,24 @@ function dbToPlan(r) {
     devStudio:      r.dev_studio ?? 1000,
     devThreshold:   r.dev_threshold ?? 500000,
     devEnabled:     r.dev_enabled ?? true,
-    monthlyTiers:   r.monthly_tiers || [
+    monthlyTiers:    r.monthly_tiers || [
       { min: 0,       rate: 0.01  },
       { min: 500000,  rate: 0.015 },
       { min: 1000000, rate: 0.02  },
     ],
-    monthlyEnabled: r.monthly_enabled ?? true,
-    annualTiers:    r.annual_tiers || [
+    monthlyEnabled:  r.monthly_enabled ?? true,
+    quarterlyTiers:  r.quarterly_tiers || [
+      { min: 0,        rate: 0.008 },
+      { min: 1500000,  rate: 0.012 },
+      { min: 3000000,  rate: 0.018 },
+    ],
+    quarterlyEnabled: r.quarterly_enabled ?? true,
+    annualTiers:     r.annual_tiers || [
       { min: 0,        rate: 0.005 },
       { min: 5000000,  rate: 0.01  },
     ],
-    annualEnabled:  r.annual_enabled ?? true,
-    updatedAt:      r.updated_at || '',
+    annualEnabled:   r.annual_enabled ?? true,
+    updatedAt:       r.updated_at || '',
   }
 }
 
@@ -94,10 +100,12 @@ function planToDb(p) {
     dev_studio:      Number(p.devStudio) || 0,
     dev_threshold:   Number(p.devThreshold) || 0,
     dev_enabled:     p.devEnabled,
-    monthly_tiers:   p.monthlyTiers,
-    monthly_enabled: p.monthlyEnabled,
-    annual_tiers:    p.annualTiers,
-    annual_enabled:  p.annualEnabled,
+    monthly_tiers:    p.monthlyTiers,
+    monthly_enabled:  p.monthlyEnabled,
+    quarterly_tiers:  p.quarterlyTiers,
+    quarterly_enabled: p.quarterlyEnabled,
+    annual_tiers:     p.annualTiers,
+    annual_enabled:   p.annualEnabled,
     updated_at:      new Date().toISOString().slice(0, 10),
   }
 }

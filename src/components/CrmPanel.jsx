@@ -50,6 +50,32 @@ function applyTiers(amount, tiers) {
   return tier ? Math.round(amount * tier.rate) : 0
 }
 
+// 反推：要獲得 targetBonus，至少需要多少業績
+function reverseCalcSales(targetBonus, tiers) {
+  if (!tiers?.length || targetBonus <= 0) return null
+  const sorted = [...tiers].sort((a, b) => a.min - b.min)
+  // 產生候選業績（各層 min + 各層反推值）
+  const candidates = []
+  sorted.forEach(t => {
+    if (t.rate > 0) candidates.push(Math.ceil(targetBonus / t.rate))
+    if (t.min > 0) candidates.push(t.min)
+  })
+  candidates.sort((a, b) => a - b)
+  for (const c of candidates) {
+    if (c > 0 && applyTiers(c, tiers) >= targetBonus) return c
+  }
+  // 超出最高層時，以最高費率反推
+  const best = sorted[sorted.length - 1]
+  return best.rate > 0 ? Math.ceil(targetBonus / best.rate) : null
+}
+
+function getQuarter(month) { return Math.floor((month - 1) / 3) + 1 }
+function quarterMonthKeys(year, month) {
+  const q = getQuarter(month)
+  const start = (q - 1) * 3 + 1
+  return [0, 1, 2].map(i => `${year}-${String(start + i).padStart(2, '0')}`)
+}
+
 function calcBonus(assigneeUid, contacts, invoices, bonusPlans, year, month) {
   const plan = bonusPlans.find(p => p.uid === assigneeUid)
   if (!plan) return null
@@ -58,8 +84,14 @@ function calcBonus(assigneeUid, contacts, invoices, bonusPlans, year, month) {
   const nameSet = new Set(myClients.flatMap(c => [c.name].filter(Boolean)))
 
   const monthKey = `${year}-${String(month).padStart(2, '0')}`
-  const monthItems = invoices[monthKey] || []
-  const monthTotal = monthItems
+  const monthTotal = (invoices[monthKey] || [])
+    .filter(r => nameSet.has(r.store) || nameSet.has(r.billingName))
+    .reduce((s, r) => s + (r.confirmedAmount ?? 0), 0)
+
+  // 季度合計
+  const qKeys = quarterMonthKeys(year, month)
+  const quarterTotal = qKeys
+    .flatMap(k => invoices[k] || [])
     .filter(r => nameSet.has(r.store) || nameSet.has(r.billingName))
     .reduce((s, r) => s + (r.confirmedAmount ?? 0), 0)
 
@@ -69,8 +101,9 @@ function calcBonus(assigneeUid, contacts, invoices, bonusPlans, year, month) {
     .filter(r => nameSet.has(r.store) || nameSet.has(r.billingName))
     .reduce((s, r) => s + (r.confirmedAmount ?? 0), 0)
 
-  const monthBonus  = plan.monthlyEnabled ? applyTiers(monthTotal, plan.monthlyTiers) : 0
-  const annualBonus = plan.annualEnabled  ? applyTiers(yearTotal,  plan.annualTiers)  : 0
+  const monthBonus    = plan.monthlyEnabled   ? applyTiers(monthTotal,   plan.monthlyTiers)   : 0
+  const quarterBonus  = plan.quarterlyEnabled ? applyTiers(quarterTotal, plan.quarterlyTiers) : 0
+  const annualBonus   = plan.annualEnabled    ? applyTiers(yearTotal,    plan.annualTiers)    : 0
 
   const wonProspects = contacts.filter(c =>
     c.assigneeUid === assigneeUid && c.type === 'prospect' && c.stage === 'won' && c.wonAt
@@ -87,7 +120,7 @@ function calcBonus(assigneeUid, contacts, invoices, bonusPlans, year, month) {
     return { contact: c, cumulative, reward, triggered: plan.devEnabled && cumulative >= plan.devThreshold, cat }
   })
 
-  return { monthTotal, yearTotal, monthBonus, annualBonus, devBonusItems, plan }
+  return { monthTotal, quarterTotal, yearTotal, monthBonus, quarterBonus, annualBonus, devBonusItems, plan, quarter: getQuarter(month) }
 }
 
 // ─── Input 共用樣式 ───────────────────────────────────────────────────────────
@@ -121,36 +154,79 @@ function LogForm({ onAdd, onCancel }) {
 
 // ─── 薪資模擬器 ───────────────────────────────────────────────────────────────
 function SalarySim({ plan }) {
-  const [base,   setBase]   = useState('')
-  const [simM,   setSimM]   = useState('')
-  const [simY,   setSimY]   = useState('')
+  const [base,      setBase]      = useState('')
+  const [simM,      setSimM]      = useState('')
+  const [simY,      setSimY]      = useState('')
+  const [simDevCat, setSimDevCat] = useState('studio')
+  const [simDevCum, setSimDevCum] = useState('')
+  const [targetY,   setTargetY]   = useState('')
+  const [showRev,   setShowRev]   = useState(false)
 
-  const baseN = Number(base) || 0
-  const mBonus = plan?.monthlyEnabled ? applyTiers(Number(simM) || 0, plan?.monthlyTiers || []) : 0
-  const yBonus = plan?.annualEnabled  ? applyTiers(Number(simY) || 0, plan?.annualTiers  || []) : 0
+  const baseN  = Number(base)      || 0
+  const simMN  = Number(simM)      || 0
+  const simYN  = Number(simY)      || 0
+  const simDCN = Number(simDevCum) || 0
+  const targetN = Number(targetY)  || 0
+
+  const mBonus  = plan?.monthlyEnabled  ? applyTiers(simMN, plan?.monthlyTiers  || []) : 0
+  const yBonus  = plan?.annualEnabled   ? applyTiers(simYN, plan?.annualTiers   || []) : 0
+
+  // 開發獎金模擬
+  const devReward = simDevCat === 'chain' ? (plan?.devChain || 0)
+    : simDevCat === 'brand' ? (plan?.devBrand || 0) : (plan?.devStudio || 0)
+  const devTriggered = plan?.devEnabled && simDCN >= (plan?.devThreshold || 0)
+  const devThreshold = plan?.devThreshold || 0
+
   const mTotal = baseN + mBonus
   const yTotal = baseN * 12 + yBonus
 
-  const row = (label, val, highlight) => (
-    <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${highlight ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+  // 反推計算
+  const neededBonus   = Math.max(0, targetN - baseN * 12)
+  const reqAnnualSales = reverseCalcSales(neededBonus, plan?.annualTiers || [])
+  const reqMonthBonus  = neededBonus / 12
+  const reqMonthlySales = reverseCalcSales(reqMonthBonus, plan?.monthlyTiers || [])
+
+  const row = (label, val, highlight, color) => (
+    <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${highlight ? (color || 'bg-blue-50 dark:bg-blue-900/20') : ''}`}>
       <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-      <span className={`text-sm font-bold font-mono ${highlight ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-200'}`}>{fmtFull(val)}</span>
+      <span className={`text-sm font-bold font-mono ${highlight ? (color ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400') : 'text-gray-700 dark:text-gray-200'}`}>{fmtFull(val)}</span>
     </div>
   )
 
+  const tierTable = (tiers, simVal, color) => {
+    if (!tiers?.length || !simVal) return null
+    const sorted = [...tiers].sort((a,b)=>a.min-b.min)
+    return (
+      <div className="text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-2 space-y-0.5">
+        {sorted.map((t, i) => {
+          const nextMin = sorted[i+1]?.min
+          const active  = simVal >= t.min && (nextMin === undefined || simVal < nextMin)
+          return (
+            <div key={i} className={`flex justify-between ${active ? color + ' font-semibold' : ''}`}>
+              <span>{fmtMoney(t.min)} 以上</span>
+              <span>{(t.rate*100).toFixed(1)}%{active?' ◀ 適用':''}</span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* 底薪 */}
       <div>
         <label className="text-xs text-gray-400 mb-1 block">底薪（元 / 月）</label>
         <input type="number" value={base} onChange={e => setBase(e.target.value)}
           placeholder="例：35000" className={inp} />
       </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* 月模擬 */}
         <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">月度模擬</p>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">模擬月銷售金額（元）</label>
+            <label className="text-xs text-gray-400 mb-1 block">模擬月銷售（元）</label>
             <input type="number" value={simM} onChange={e => setSimM(e.target.value)}
               placeholder="例：800000" className={inpSm} />
           </div>
@@ -159,48 +235,128 @@ function SalarySim({ plan }) {
             {row('月採購獎金', mBonus)}
             {row('月收入合計', mTotal, true)}
           </div>
-          {plan?.monthlyEnabled && simM && (
-            <div className="text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-2">
-              {[...plan.monthlyTiers].sort((a,b)=>b.min-a.min).map((t, i, arr) => {
-                const active = (Number(simM)||0) >= t.min && (i===0 || (Number(simM)||0) < arr[i-1].min)
-                return (
-                  <div key={i} className={`flex justify-between ${active?'text-blue-500 font-semibold':''}`}>
-                    <span>{fmtMoney(t.min)} 以上</span>
-                    <span>{(t.rate*100).toFixed(1)}%{active?' ◀ 適用':''}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          {tierTable(plan?.monthlyTiers, simMN, 'text-blue-500')}
         </div>
 
         {/* 年模擬 */}
         <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">年度模擬</p>
           <div>
-            <label className="text-xs text-gray-400 mb-1 block">模擬年銷售金額（元）</label>
+            <label className="text-xs text-gray-400 mb-1 block">模擬年銷售（元）</label>
             <input type="number" value={simY} onChange={e => setSimY(e.target.value)}
               placeholder="例：10000000" className={inpSm} />
           </div>
           <div className="space-y-1">
             {row('底薪 × 12', baseN * 12)}
             {row('年度獎金', yBonus)}
-            {row('年收入合計', yTotal, true)}
+            {row('年收入合計', yTotal, true, 'bg-emerald-50 dark:bg-emerald-900/20')}
           </div>
-          {plan?.annualEnabled && simY && (
-            <div className="text-xs text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-2">
-              {[...plan.annualTiers].sort((a,b)=>b.min-a.min).map((t, i, arr) => {
-                const active = (Number(simY)||0) >= t.min && (i===0 || (Number(simY)||0) < arr[i-1].min)
-                return (
-                  <div key={i} className={`flex justify-between ${active?'text-emerald-500 font-semibold':''}`}>
-                    <span>{fmtMoney(t.min)} 以上</span>
-                    <span>{(t.rate*100).toFixed(1)}%{active?' ◀ 適用':''}</span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          {tierTable(plan?.annualTiers, simYN, 'text-emerald-500')}
         </div>
+      </div>
+
+      {/* 開發獎金模擬 */}
+      {plan?.devEnabled && (
+        <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">開發獎金模擬</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">客戶類別</label>
+              <select value={simDevCat} onChange={e => setSimDevCat(e.target.value)} className={inpSm}>
+                {CLIENT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 mb-1 block">目前累積入帳（元）</label>
+              <input type="number" value={simDevCum} onChange={e => setSimDevCum(e.target.value)}
+                placeholder="例：300000" className={inpSm} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 dark:text-gray-400">觸發門檻</span>
+              <span className="font-mono text-gray-700 dark:text-gray-200">{fmtFull(devThreshold)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500 dark:text-gray-400">本類別獎金</span>
+              <span className="font-mono text-gray-700 dark:text-gray-200">{fmtFull(devReward)}</span>
+            </div>
+            {simDevCum && (
+              <div className={`flex items-center justify-between px-3 py-2 rounded-lg mt-1 ${devTriggered ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
+                <span className="text-sm font-semibold">{devTriggered ? '🎉 已達觸發條件' : `還差 ${fmtFull(devThreshold - simDCN)}`}</span>
+                <span className={`text-sm font-bold font-mono ${devTriggered ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {devTriggered ? `+${fmtFull(devReward)}` : '—'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 反推計算 */}
+      <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
+        <button onClick={() => setShowRev(v => !v)}
+          className="flex items-center gap-2 text-sm font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors">
+          🎯 反推業績目標 {showRev ? '▲' : '▼'}
+        </button>
+        {showRev && (
+          <div className="mt-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 space-y-4">
+            <p className="text-xs text-amber-700 dark:text-amber-300">輸入目標年薪，自動計算每月需要達成的業績</p>
+            <div>
+              <label className="text-xs text-amber-600 dark:text-amber-400 mb-1 block">目標年薪（元）</label>
+              <input type="number" value={targetY} onChange={e => setTargetY(e.target.value)}
+                placeholder="例：1200000（年薪120萬）" className={inp} />
+            </div>
+            {targetN > 0 && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">底薪收入（年）</span>
+                  <span className="font-mono text-gray-700 dark:text-gray-200">{fmtFull(baseN * 12)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">需要獎金收入（年）</span>
+                  <span className="font-mono text-gray-700 dark:text-gray-200">{fmtFull(neededBonus)}</span>
+                </div>
+                <hr className="border-amber-200 dark:border-amber-800" />
+                {/* 年獎金反推 */}
+                {plan?.annualEnabled && (
+                  <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${reqAnnualSales ? 'bg-white dark:bg-gray-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                    <div>
+                      <p className="text-xs text-gray-400">方案一：以年度獎金達成</p>
+                      <p className="text-xs text-gray-400">（年業績一次計算）</p>
+                    </div>
+                    <div className="text-right">
+                      {reqAnnualSales ? (
+                        <>
+                          <p className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">年業績 ≥ {fmtMoney(reqAnnualSales)}</p>
+                          <p className="text-xs text-gray-400">月均 {fmtMoney(Math.ceil(reqAnnualSales / 12))}</p>
+                        </>
+                      ) : <p className="text-xs text-gray-400">無法以此方案達成</p>}
+                    </div>
+                  </div>
+                )}
+                {/* 月獎金反推 */}
+                {plan?.monthlyEnabled && (
+                  <div className={`flex items-center justify-between px-3 py-2 rounded-lg ${reqMonthlySales ? 'bg-white dark:bg-gray-800' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                    <div>
+                      <p className="text-xs text-gray-400">方案二：以月採購獎金達成</p>
+                      <p className="text-xs text-gray-400">（每月穩定達標）</p>
+                    </div>
+                    <div className="text-right">
+                      {reqMonthlySales ? (
+                        <>
+                          <p className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono">月業績 ≥ {fmtMoney(reqMonthlySales)}</p>
+                          <p className="text-xs text-gray-400">年合計 {fmtMoney(reqMonthlySales * 12)}</p>
+                        </>
+                      ) : <p className="text-xs text-gray-400">無法以此方案達成</p>}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-amber-600 dark:text-amber-400">※ 開發獎金可額外加成，不含於上述計算</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -560,6 +716,30 @@ function PlanEditor({ plan, onSave, onClose }) {
 
           <hr className="border-gray-100 dark:border-gray-800" />
 
+          {/* 季度獎金 */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">季採購獎金（3 層）</p>
+              {toggle('quarterlyEnabled')}
+            </div>
+            {(form.quarterlyTiers || []).map((tier, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400">季入帳 ≥（元）</label>
+                  <input type="number" value={tier.min} onChange={e => setTier('quarterlyTiers', i, 'min', e.target.value)} className={inpSm} />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
+                  <input type="number" step="0.001" min="0" max="1" value={tier.rate}
+                    onChange={e => setTier('quarterlyTiers', i, 'rate', e.target.value)} className={inpSm} />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <hr className="border-gray-100 dark:border-gray-800" />
+
           {/* 年獎金 */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
@@ -716,6 +896,8 @@ export default function CrmPanel({ user, role, invoices = {} }) {
       devThreshold: 500000, devEnabled: true,
       monthlyTiers: [{ min: 0, rate: 0.01 }, { min: 500000, rate: 0.015 }, { min: 1000000, rate: 0.02 }],
       monthlyEnabled: true,
+      quarterlyTiers: [{ min: 0, rate: 0.008 }, { min: 1500000, rate: 0.012 }, { min: 3000000, rate: 0.018 }],
+      quarterlyEnabled: true,
       annualTiers: [{ min: 0, rate: 0.005 }, { min: 5000000, rate: 0.01 }],
       annualEnabled: true,
     }
@@ -848,46 +1030,49 @@ export default function CrmPanel({ user, role, invoices = {} }) {
           ) : (
             <>
               {/* 摘要卡片 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { label: `${bonusYear}/${bonusMonth} 月入帳`, value: bonusResult.monthTotal, color: 'text-gray-700 dark:text-gray-200' },
-                  { label: '月採購獎金',   value: bonusResult.monthBonus,  color: 'text-blue-600 dark:text-blue-400' },
-                  { label: `${bonusYear} 年入帳累積`, value: bonusResult.yearTotal, color: 'text-gray-700 dark:text-gray-200' },
-                  { label: '年度獎金（試算）', value: bonusResult.annualBonus, color: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: `${bonusYear}/${bonusMonth} 月入帳`, value: bonusResult.monthTotal, color: 'text-gray-700 dark:text-gray-200', sub: `月獎金 ${fmtMoney(bonusResult.monthBonus)}` },
+                  { label: `Q${bonusResult.quarter} 季度入帳`, value: bonusResult.quarterTotal, color: 'text-gray-700 dark:text-gray-200', sub: `季獎金 ${fmtMoney(bonusResult.quarterBonus)}` },
+                  { label: `${bonusYear} 年入帳累積`, value: bonusResult.yearTotal, color: 'text-gray-700 dark:text-gray-200', sub: `年獎金 ${fmtMoney(bonusResult.annualBonus)}` },
                 ].map(c => (
                   <div key={c.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                     <p className="text-xs text-gray-400 mb-1">{c.label}</p>
                     <p className={`text-xl font-bold font-mono ${c.color}`}>{fmtMoney(c.value)}</p>
+                    <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">{c.sub}</p>
                   </div>
                 ))}
               </div>
 
-              {/* 月獎金階梯 */}
-              {bonusResult.plan.monthlyEnabled && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* 獎金階梯 — 月、季、年 */}
+              {[
+                { label: '月採購獎金階梯', enabled: bonusResult.plan.monthlyEnabled,   tiers: bonusResult.plan.monthlyTiers,   total: bonusResult.monthTotal,   bonus: bonusResult.monthBonus,   color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' },
+                { label: `Q${bonusResult.quarter} 季採購獎金階梯`, enabled: bonusResult.plan.quarterlyEnabled, tiers: bonusResult.plan.quarterlyTiers, total: bonusResult.quarterTotal, bonus: bonusResult.quarterBonus, color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400' },
+                { label: '年度獎金階梯',   enabled: bonusResult.plan.annualEnabled,    tiers: bonusResult.plan.annualTiers,    total: bonusResult.yearTotal,    bonus: bonusResult.annualBonus,  color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' },
+              ].map(({ label, enabled, tiers, total, bonus, color }) => enabled && tiers?.length ? (
+                <div key={label} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">月採購獎金階梯</span>
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{label}</span>
                   </div>
                   <div className="divide-y divide-gray-50 dark:divide-gray-700">
-                    {[...bonusResult.plan.monthlyTiers].sort((a,b)=>a.min-b.min).map((tier, i, arr) => {
-                      const isActive = bonusResult.monthTotal >= tier.min &&
-                        (i === arr.length - 1 || bonusResult.monthTotal < arr[i+1].min)
+                    {[...tiers].sort((a,b)=>a.min-b.min).map((tier, i, arr) => {
+                      const isActive = total >= tier.min && (i === arr.length - 1 || total < arr[i+1].min)
                       return (
-                        <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${isActive ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                        <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${isActive ? color.split(' ').slice(0,2).join(' ') : ''}`}>
                           <div className="flex items-center gap-2">
-                            {isActive && <span className="text-blue-500 text-xs">▶</span>}
+                            {isActive && <span className="text-xs">▶</span>}
                             <span className="text-sm text-gray-600 dark:text-gray-300">{fmtMoney(tier.min)} 以上</span>
                           </div>
-                          <span className={`text-sm font-semibold ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
+                          <span className={`text-sm font-semibold ${isActive ? color.split(' ').slice(2).join(' ') : 'text-gray-400'}`}>
                             {(tier.rate * 100).toFixed(1)}%
-                            {isActive && ` → ${fmtFull(bonusResult.monthBonus)}`}
+                            {isActive && ` → ${fmtFull(bonus)}`}
                           </span>
                         </div>
                       )
                     })}
                   </div>
                 </div>
-              )}
+              ) : null)}
 
               {/* 開發獎金 */}
               {bonusResult.plan.devEnabled && bonusResult.devBonusItems.length > 0 && (
@@ -945,6 +1130,7 @@ export default function CrmPanel({ user, role, invoices = {} }) {
                           <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">業務員</th>
                           <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">月入帳</th>
                           <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">月獎金</th>
+                          <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">季獎金</th>
                           <th className="text-right px-4 py-2 text-xs font-medium text-gray-400">年獎金</th>
                           <th className="text-center px-4 py-2 text-xs font-medium text-gray-400">方案</th>
                         </tr>
@@ -957,6 +1143,7 @@ export default function CrmPanel({ user, role, invoices = {} }) {
                               <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-200">{a.name}</td>
                               <td className="px-4 py-2.5 text-right font-mono text-gray-600 dark:text-gray-300">{r ? fmtMoney(r.monthTotal) : '—'}</td>
                               <td className="px-4 py-2.5 text-right font-mono text-blue-600 dark:text-blue-400 font-semibold">{r ? fmtMoney(r.monthBonus) : '—'}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-purple-600 dark:text-purple-400 font-semibold">{r ? fmtMoney(r.quarterBonus) : '—'}</td>
                               <td className="px-4 py-2.5 text-right font-mono text-emerald-600 dark:text-emerald-400 font-semibold">{r ? fmtMoney(r.annualBonus) : '—'}</td>
                               <td className="px-4 py-2.5 text-center">
                                 <button onClick={() => setEditPlan(getOrCreatePlan(a.uid, a.name))}
