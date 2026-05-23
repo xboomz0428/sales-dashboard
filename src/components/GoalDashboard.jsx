@@ -73,12 +73,21 @@ function ProgressRing({ pct, size = 120, stroke = 10 }) {
 }
 
 /* ─────── 月份追蹤表 ─────── */
-function MonthlyTracker({ year, annualTarget, trendData }) {
+function MonthlyTracker({ year, annualTarget, trendData, monthlyOverrides = {} }) {
   const currentYear = new Date().getFullYear()
   const currentMonth = new Date().getMonth() + 1
   const isCurrentYear = parseInt(year) === currentYear
 
   const seasonDist = useMemo(() => distributeBySeasonality(annualTarget, trendData), [annualTarget, trendData])
+
+  const effectiveDist = useMemo(() => {
+    const result = { ...seasonDist }
+    for (let m = 1; m <= 12; m++) {
+      const key = `${year}-${String(m).padStart(2, '0')}`
+      if (monthlyOverrides[key] != null) result[m] = monthlyOverrides[key]
+    }
+    return result
+  }, [seasonDist, monthlyOverrides, year])
 
   const actuals = useMemo(() => {
     const map = {}
@@ -108,7 +117,7 @@ function MonthlyTracker({ year, annualTarget, trendData }) {
         </thead>
         <tbody>
           {months.map(m => {
-            const mTarget = seasonDist[m] || 0
+            const mTarget = effectiveDist[m] || 0
             const mActual = actuals[m] ?? null
             cumTarget += mTarget
             if (mActual != null) cumActual += mActual
@@ -189,11 +198,12 @@ function DimGoalSection({ title, icon, dimKey, items, dimGoals, onEdit }) {
 }
 
 /* ─────── AI 目標編輯 Modal ─────── */
-function GoalEditorModal({ byYear, goals, brandData, channelData, onSave, onClose, editSection }) {
+function GoalEditorModal({ byYear, goals, brandData, channelData, trendData = [], onSave, onClose, editSection }) {
   const currentYear = new Date().getFullYear()
   const nextYears = [0, 1, 2].map(i => String(currentYear + i))
 
   const [tab, setTab] = useState(editSection || 'annual')
+  const [monthlyYear, setMonthlyYear] = useState(String(currentYear))
   const [draft, setDraft] = useState(() => ({
     annual: Object.fromEntries(nextYears.map(y => [y, {
       subtotal: goals.annual[y]?.subtotal || 0,
@@ -212,6 +222,7 @@ function GoalEditorModal({ byYear, goals, brandData, channelData, onSave, onClos
       newCustomerRate: goals.kpis?.newCustomerRate || 0,
       topChannelMaxPct: goals.kpis?.topChannelMaxPct || 0,
     },
+    monthlyTargets: { ...(goals.monthlyTargets || {}) },
   }))
   const [loading, setLoading] = useState(false)
   const [aiNote, setAiNote] = useState('')
@@ -293,7 +304,7 @@ ${growthRates || '資料不足'}
 
   const TABS = [
     { id: 'annual', label: '年度目標' },
-    { id: 'monthly', label: '月份分配說明' },
+    { id: 'monthly', label: '月份目標' },
     { id: 'dims', label: '品牌/通路目標' },
     { id: 'kpis', label: '策略 KPI' },
     { id: 'longterm', label: '長期里程碑' },
@@ -365,18 +376,85 @@ ${growthRates || '資料不足'}
             </div>
           )}
 
-          {/* 月份說明 */}
-          {tab === 'monthly' && (
-            <div className="space-y-3">
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-700/50 rounded-xl p-4 text-base text-blue-700 dark:text-blue-400">
-                月份目標由系統根據歷史各月份銷售比例自動拆解，無需手動設定。設定好年度目標後，「月份追蹤」頁面會自動顯示各月份應達成數字。
+          {/* 月份目標 */}
+          {tab === 'monthly' && (() => {
+            const annualAmt = draft.annual[monthlyYear]?.subtotal || 0
+            const autoDist = distributeBySeasonality(annualAmt, trendData)
+            const lastYearStr = String(parseInt(monthlyYear) - 1)
+            const lastActuals = {}
+            trendData.filter(d => d.yearMonth.startsWith(lastYearStr)).forEach(d => {
+              lastActuals[parseInt(d.yearMonth.split('-')[1])] = d.subtotal
+            })
+            const setMonthOverride = (m, val) => {
+              const key = `${monthlyYear}-${String(m).padStart(2, '0')}`
+              setDraft(d => {
+                const mt = { ...d.monthlyTargets }
+                if (val === '' || val == null) delete mt[key]
+                else mt[key] = Number(val) || 0
+                return { ...d, monthlyTargets: mt }
+              })
+            }
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">年度：</span>
+                  {nextYears.map(y => (
+                    <button key={y} onClick={() => setMonthlyYear(y)}
+                      className={`px-3 py-1 text-sm rounded-lg font-semibold transition-colors ${monthlyYear === y ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                      {y}
+                    </button>
+                  ))}
+                </div>
+                {annualAmt === 0 ? (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700/50 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-400">
+                    請先在「年度目標」分頁設定 {monthlyYear} 年的銷售目標
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                      自動目標依歷史季節比例分配。手動覆寫欄位空白時使用自動值。
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
+                            <th className="text-left py-2 pr-3">月份</th>
+                            <th className="text-right py-2 pr-3">{lastYearStr}年實績</th>
+                            <th className="text-right py-2 pr-3">自動目標</th>
+                            <th className="text-right py-2">手動覆寫</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                            const key = `${monthlyYear}-${String(m).padStart(2, '0')}`
+                            const override = draft.monthlyTargets[key]
+                            const auto = autoDist[m] || 0
+                            return (
+                              <tr key={m} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/60 dark:hover:bg-gray-700/30">
+                                <td className="py-2 pr-3 font-semibold text-gray-700 dark:text-gray-200">{m} 月</td>
+                                <td className="py-2 pr-3 text-right font-mono text-gray-400 dark:text-gray-500">
+                                  {lastActuals[m] != null ? fmtM(lastActuals[m]) : '—'}
+                                </td>
+                                <td className="py-2 pr-3 text-right font-mono text-blue-600 dark:text-blue-400">{fmtM(auto)}</td>
+                                <td className="py-2 text-right">
+                                  <input type="number"
+                                    value={override != null ? override : ''}
+                                    placeholder={String(auto)}
+                                    onChange={e => setMonthOverride(m, e.target.value)}
+                                    className="w-28 text-right px-2 py-1 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-sm"
+                                  />
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-700/50 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-400">
-                <p className="font-bold mb-1">季節性調整說明</p>
-                <p>若過去 12 個月資料中，7 月平均佔全年 12%，則年度目標的 12% 會分配到 7 月。資料越多，分配越準確。</p>
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* 品牌/通路目標 */}
           {tab === 'dims' && (
@@ -465,7 +543,7 @@ ${growthRates || '資料不足'}
         <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 flex-shrink-0">
           <button onClick={onClose} className="px-5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-base hover:bg-gray-50 dark:hover:bg-gray-700">取消</button>
           <button onClick={() => { onSave(draft); onClose() }}
-            className="px-5 py-2 rounded-xl bg-blue-600 text-white text-base font-bold hover:bg-blue-700">儲存目標</button>
+            className="px-5 py-2 rounded-xl bg-blue-600 text-white text-base font-bold hover:bg-blue-700">儲存目標設定</button>
         </div>
       </div>
     </div>
@@ -534,7 +612,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
   const openEdit = (section = 'annual') => { setEditSection(section); setEditing(true) }
 
   const handleSave = draft => {
-    save({ ...goals, annual: { ...goals.annual, ...draft.annual }, longTerm: draft.longTerm, brands: draft.brands, channels: draft.channels, kpis: draft.kpis })
+    save({ ...goals, annual: { ...goals.annual, ...draft.annual }, longTerm: draft.longTerm, brands: draft.brands, channels: draft.channels, kpis: draft.kpis, monthlyTargets: draft.monthlyTargets || {} })
   }
 
   const noTarget = !target.subtotal && !target.quantity
@@ -767,7 +845,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                     </ResponsiveContainer>
                   </div>
                   <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
-                    <MonthlyTracker year={currentYear} annualTarget={target.subtotal} trendData={trendData} />
+                    <MonthlyTracker year={currentYear} annualTarget={target.subtotal} trendData={trendData} monthlyOverrides={goals.monthlyTargets || {}} />
                   </div>
                 </>
               )}
@@ -955,6 +1033,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
           goals={goals}
           brandData={brandData}
           channelData={channelData}
+          trendData={trendData}
           onSave={handleSave}
           onClose={() => setEditing(false)}
           editSection={editSection}

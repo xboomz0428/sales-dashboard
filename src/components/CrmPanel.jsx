@@ -634,9 +634,18 @@ function NewContactModal({ type, onClose, onSave, user }) {
   )
 }
 
+const DEFAULT_PLAN_TIERS = {
+  monthlyTiers:   [{ min: 0, rate: 0.01 }, { min: 500000, rate: 0.015 }, { min: 1000000, rate: 0.02 }],
+  monthlyEnabled: true,
+  quarterlyTiers: [{ min: 0, rate: 0.008 }, { min: 1500000, rate: 0.012 }, { min: 3000000, rate: 0.018 }],
+  quarterlyEnabled: true,
+  annualTiers:    [{ min: 0, rate: 0.005 }, { min: 5000000, rate: 0.01 }],
+  annualEnabled:  true,
+}
+
 // ─── 獎金方案編輯器 ───────────────────────────────────────────────────────────
 function PlanEditor({ plan, onSave, onClose }) {
-  const [form, setForm]   = useState({ ...plan })
+  const [form, setForm] = useState({ ...DEFAULT_PLAN_TIERS, ...plan })
   const [showSim, setShowSim] = useState(false)
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const setTier = (type, idx, field, val) => {
