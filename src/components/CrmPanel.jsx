@@ -643,7 +643,7 @@ const DEFAULT_PLAN_TIERS = {
   annualEnabled:  true,
 }
 
-// ─── 獎金方案編輯器 ───────────────────────────────────────────────────────────
+// ─── 獎金方案編輯器（全頁 inline，非 Modal）────────────────────────────────────
 function PlanEditor({ plan, onSave, onClose }) {
   const [form, setForm] = useState({ ...DEFAULT_PLAN_TIERS, ...plan })
   const [showSim, setShowSim] = useState(false)
@@ -668,127 +668,120 @@ function PlanEditor({ plan, onSave, onClose }) {
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[92vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white dark:bg-gray-900 px-6 pt-6 pb-3 border-b border-gray-100 dark:border-gray-800 z-10">
+    <div className="space-y-4">
+      {/* 麵包屑 / 返回 */}
+      <div className="flex items-center gap-3">
+        <button onClick={onClose}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
+          ← 返回獎金總覽
+        </button>
+        <span className="text-gray-300 dark:text-gray-600 select-none">/</span>
+        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">⚙️ 獎金方案 — {plan.name}</h3>
+      </div>
+
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+        {/* 開發獎金 */}
+        <section className="p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">獎金方案 — {plan.name}</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">開發獎金</p>
+            {toggle('devEnabled')}
           </div>
-        </div>
-
-        <div className="px-6 py-4 space-y-5">
-          {/* 開發獎金 */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">開發獎金</p>
-              {toggle('devEnabled')}
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[['devChain','🏬 連鎖店'],['devBrand','🏷️ 品牌店'],['devStudio','✂️ 工作室']].map(([key, label]) => (
-                <div key={key}>
-                  <label className="text-xs text-gray-400 mb-1 block">{label}（元）</label>
-                  <input type="number" value={form[key]} onChange={e => set(key, e.target.value)} className={inpSm} />
-                </div>
-              ))}
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block">觸發門檻 — 成交後累積入帳 ≥（元）</label>
-              <input type="number" value={form.devThreshold} onChange={e => set('devThreshold', e.target.value)} className={inp} />
-            </div>
-          </section>
-
-          <hr className="border-gray-100 dark:border-gray-800" />
-
-          {/* 月獎金 */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">月採購獎金（3 層）</p>
-              {toggle('monthlyEnabled')}
-            </div>
-            {(form.monthlyTiers || []).map((tier, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">月入帳 ≥（元）</label>
-                  <input type="number" value={tier.min} onChange={e => setTier('monthlyTiers', i, 'min', e.target.value)} className={inpSm} />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                  <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                    onChange={e => setTier('monthlyTiers', i, 'rate', e.target.value)} className={inpSm} />
-                </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[['devChain','🏬 連鎖店'],['devBrand','🏷️ 品牌店'],['devStudio','✂️ 工作室']].map(([key, label]) => (
+              <div key={key}>
+                <label className="text-xs text-gray-400 mb-1 block">{label}（元）</label>
+                <input type="number" value={form[key]} onChange={e => set(key, e.target.value)} className={inpSm} />
               </div>
             ))}
-          </section>
+          </div>
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">觸發門檻 — 成交後累積入帳 ≥（元）</label>
+            <input type="number" value={form.devThreshold} onChange={e => set('devThreshold', e.target.value)} className={inp} />
+          </div>
+        </section>
 
-          <hr className="border-gray-100 dark:border-gray-800" />
-
-          {/* 季度獎金 */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">季採購獎金（3 層）</p>
-              {toggle('quarterlyEnabled')}
-            </div>
-            {(form.quarterlyTiers || []).map((tier, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">季入帳 ≥（元）</label>
-                  <input type="number" value={tier.min} onChange={e => setTier('quarterlyTiers', i, 'min', e.target.value)} className={inpSm} />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                  <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                    onChange={e => setTier('quarterlyTiers', i, 'rate', e.target.value)} className={inpSm} />
-                </div>
+        {/* 月獎金 */}
+        <section className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">月採購獎金（3 層）</p>
+            {toggle('monthlyEnabled')}
+          </div>
+          {(form.monthlyTiers || []).map((tier, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">月入帳 ≥（元）</label>
+                <input type="number" value={tier.min} onChange={e => setTier('monthlyTiers', i, 'min', e.target.value)} className={inpSm} />
               </div>
-            ))}
-          </section>
-
-          <hr className="border-gray-100 dark:border-gray-800" />
-
-          {/* 年獎金 */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">年度獎金（2 層）</p>
-              {toggle('annualEnabled')}
-            </div>
-            {(form.annualTiers || []).map((tier, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">年入帳 ≥（元）</label>
-                  <input type="number" value={tier.min} onChange={e => setTier('annualTiers', i, 'min', e.target.value)} className={inpSm} />
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                  <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                    onChange={e => setTier('annualTiers', i, 'rate', e.target.value)} className={inpSm} />
-                </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
+                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
+                  onChange={e => setTier('monthlyTiers', i, 'rate', e.target.value)} className={inpSm} />
               </div>
-            ))}
-          </section>
+            </div>
+          ))}
+        </section>
 
-          <hr className="border-gray-100 dark:border-gray-800" />
+        {/* 季度獎金 */}
+        <section className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">季採購獎金（3 層）</p>
+            {toggle('quarterlyEnabled')}
+          </div>
+          {(form.quarterlyTiers || []).map((tier, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">季入帳 ≥（元）</label>
+                <input type="number" value={tier.min} onChange={e => setTier('quarterlyTiers', i, 'min', e.target.value)} className={inpSm} />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
+                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
+                  onChange={e => setTier('quarterlyTiers', i, 'rate', e.target.value)} className={inpSm} />
+              </div>
+            </div>
+          ))}
+        </section>
 
-          {/* 薪資模擬器 */}
-          <section className="space-y-3">
-            <button onClick={() => setShowSim(v => !v)}
-              className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-              <span>📊 薪資收入模擬</span>
-              <span className="text-xs text-gray-400 font-normal">{showSim ? '▲ 收起' : '▼ 展開'}</span>
-            </button>
-            {showSim && <SalarySim plan={form} />}
-          </section>
-        </div>
+        {/* 年獎金 */}
+        <section className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">年度獎金（2 層）</p>
+            {toggle('annualEnabled')}
+          </div>
+          {(form.annualTiers || []).map((tier, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">年入帳 ≥（元）</label>
+                <input type="number" value={tier.min} onChange={e => setTier('annualTiers', i, 'min', e.target.value)} className={inpSm} />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
+                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
+                  onChange={e => setTier('annualTiers', i, 'rate', e.target.value)} className={inpSm} />
+              </div>
+            </div>
+          ))}
+        </section>
 
-        <div className="sticky bottom-0 bg-white dark:bg-gray-900 px-6 pb-6 pt-3 border-t border-gray-100 dark:border-gray-800 flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">取消</button>
-          <button onClick={() => { onSave(form); onClose() }}
-            className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">儲存方案</button>
-        </div>
+        {/* 薪資模擬器 */}
+        <section className="p-5 space-y-3">
+          <button onClick={() => setShowSim(v => !v)}
+            className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+            <span>📊 薪資收入模擬</span>
+            <span className="text-xs text-gray-400 font-normal">{showSim ? '▲ 收起' : '▼ 展開'}</span>
+          </button>
+          {showSim && <SalarySim plan={form} />}
+        </section>
+      </div>
+
+      {/* 底部按鈕 */}
+      <div className="flex gap-2 justify-end pb-2">
+        <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">取消</button>
+        <button onClick={() => { onSave(form); onClose() }}
+          className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">儲存方案</button>
       </div>
     </div>
   )
@@ -991,7 +984,10 @@ export default function CrmPanel({ user, role, invoices = {} }) {
       )}
 
       {/* ── 獎金計算 ── */}
-      {subTab === 'bonus' && (
+      {subTab === 'bonus' && editPlan && (
+        <PlanEditor plan={editPlan} onSave={saveBonusPlan} onClose={() => setEditPlan(null)} />
+      )}
+      {subTab === 'bonus' && !editPlan && (
         <div className="space-y-4">
           {isAdmin && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
@@ -1189,13 +1185,6 @@ export default function CrmPanel({ user, role, invoices = {} }) {
           onClose={() => setShowNew(false)}
           onSave={saveContact}
           user={user}
-        />
-      )}
-      {editPlan && (
-        <PlanEditor
-          plan={editPlan}
-          onSave={saveBonusPlan}
-          onClose={() => setEditPlan(null)}
         />
       )}
     </div>

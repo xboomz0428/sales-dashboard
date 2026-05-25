@@ -664,21 +664,26 @@ function BrandChannelMonthTable({ brandChannelMonthData, metric }) {
     if (displayMode === 'value') return null
     return rows.map(row => {
       const entry = { channel: row.channel }
-      activeMonths.forEach((m, idx) => {
+      activeMonths.forEach((m) => {
         const v = row[m] || 0
         if (displayMode === 'mom') {
-          const prevM = activeMonths[idx - 1]
-          const prevV = prevM != null ? (row[prevM] || 0) : null
+          // 使用實際日曆前一個月，而非陣列索引前一項
+          const [y, mo] = m.split('-').map(Number)
+          const prevMo = mo === 1 ? 12 : mo - 1
+          const prevY  = mo === 1 ? y - 1 : y
+          const prevM  = `${prevY}-${String(prevMo).padStart(2, '0')}`
+          const prevV  = months.includes(prevM) ? (row[prevM] ?? 0) : null
           entry[m] = (prevV != null && prevV > 0) ? (v - prevV) / prevV * 100 : null
         } else {
+          // YoY：用 months（完整月份清單）取代 activeMonths 做判斷
           const prevYearM = `${parseInt(m.slice(0, 4)) - 1}${m.slice(4)}`
-          const prevV = activeMonths.includes(prevYearM) ? (row[prevYearM] || 0) : null
+          const prevV = months.includes(prevYearM) ? (row[prevYearM] ?? 0) : null
           entry[m] = (prevV != null && prevV > 0) ? (v - prevV) / prevV * 100 : null
         }
       })
       return entry
     })
-  }, [rows, activeMonths, displayMode])
+  }, [rows, activeMonths, months, displayMode])
 
   const growthMaxAbs = useMemo(() => {
     if (!growthRows) return 0
