@@ -227,8 +227,8 @@ export default function TrendChart({ trendData, trendDataYoY, trendDataMoM, tren
               data={trendData}
               columns={[
                 { key: 'yearMonth', label: '月份', sortable: true },
-                { key: 'subtotal', label: '銷售金額', align: 'right', fmt: v => v?.toLocaleString(), sortable: true },
-                { key: 'quantity', label: '銷售數量', align: 'right', fmt: v => v?.toLocaleString(), sortable: true },
+                { key: 'subtotal', label: '銷售金額', align: 'right', fmt: v => v != null ? Math.round(v).toLocaleString() : '—', sortable: true },
+                { key: 'quantity', label: '銷售數量', align: 'right', fmt: v => v != null ? Math.round(v).toLocaleString() : '—', sortable: true },
               ]}
             />
           )}

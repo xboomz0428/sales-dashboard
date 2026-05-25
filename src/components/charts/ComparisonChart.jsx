@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList,
 } from 'recharts'
 import ChartCard from '../ChartCard'
 import { calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
@@ -196,6 +196,24 @@ function YearLegend({ years }) {
   )
 }
 
+// ─── Rank Chart Label ─────────────────────────────────────────────────────────
+function RankLabel(props) {
+  const { x, y, width, value } = props
+  if (!value) return null
+  const cx = (x || 0) + (width || 0) / 2
+  const rankColors = { 1: '#F59E0B', 2: '#94A3B8', 3: '#CD853F' }
+  const color = rankColors[value] || '#9CA3AF'
+  return (
+    <g>
+      <circle cx={cx} cy={y - 14} r={11} fill={color} opacity={0.18} />
+      <circle cx={cx} cy={y - 14} r={11} fill="none" stroke={color} strokeWidth={1.5} />
+      <text x={cx} y={y - 14} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold" fill={color}>
+        {value}
+      </text>
+    </g>
+  )
+}
+
 // ─── YoY Section ─────────────────────────────────────────────────────────────
 function YoYSection({ comparisonData, metric, chartStyle }) {
   const { byYear } = comparisonData
@@ -258,7 +276,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
           <>
             <YearLegend years={yoyRows.map(r => r.year)} />
             <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
-              <BarChart data={yoyRows} barCategoryGap="35%" margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <BarChart data={yoyRows} barCategoryGap="35%" margin={{ top: 36, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="year" tick={{ fontSize: 14, fontWeight: 600 }} />
                 <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
@@ -267,6 +285,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
                   {yoyRows.map((row, i) => (
                     <Cell key={row.year} fill={COLORS[i % COLORS.length]} />
                   ))}
+                  <LabelList dataKey="rank" content={RankLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -278,7 +297,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
           <>
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">折線呈現年度銷售成長趨勢</p>
             <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300}>
-              <LineChart data={yoyRows} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <LineChart data={yoyRows} margin={{ top: 36, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                 <XAxis dataKey="year" tick={{ fontSize: 14, fontWeight: 600 }} />
                 <YAxis tickFormatter={v => fmtVal(v, metric)} tick={{ fontSize: 13 }} width={calcValueAxisWidth(maxVal, v => fmtVal(v, metric))} />
@@ -287,8 +306,18 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
                   type="monotone" dataKey={metric} name={metricLabel}
                   stroke="#3B82F6" strokeWidth={3}
                   dot={(props) => {
-                    const { cx, cy, index } = props
-                    return <circle key={index} cx={cx} cy={cy} r={7} fill={COLORS[index % COLORS.length]} stroke="#fff" strokeWidth={2} />
+                    const { cx, cy, index, payload } = props
+                    const rank = payload?.rank
+                    const rankColors = { 1: '#F59E0B', 2: '#94A3B8', 3: '#CD853F' }
+                    const rankColor = rankColors[rank] || '#9CA3AF'
+                    return (
+                      <g key={index}>
+                        <circle cx={cx} cy={cy} r={7} fill={COLORS[index % COLORS.length]} stroke="#fff" strokeWidth={2} />
+                        <circle cx={cx} cy={cy - 22} r={10} fill={rankColor} opacity={0.18} />
+                        <circle cx={cx} cy={cy - 22} r={10} fill="none" stroke={rankColor} strokeWidth={1.5} />
+                        <text x={cx} y={cy - 22} textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold" fill={rankColor}>{rank}</text>
+                      </g>
+                    )
                   }}
                   activeDot={{ r: 8 }}
                 />
@@ -603,6 +632,22 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
     return growths.length ? growths.reduce((s, g) => s + g, 0) / growths.length : null
   })()
 
+  const monthAvgGrowths = useMemo(() => {
+    if (years.length < 2) return {}
+    const result = {}
+    chartData.forEach(md => {
+      const growths = []
+      years.forEach((year, yi) => {
+        if (yi === 0) return
+        const cur = md[year]
+        const prev = md[years[yi - 1]]
+        if (cur != null && prev != null && prev > 0) growths.push((cur - prev) / prev * 100)
+      })
+      result[md.month] = growths.length ? growths.reduce((s, g) => s + g, 0) / growths.length : null
+    })
+    return result
+  }, [chartData, years])
+
   const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
 
   return (
@@ -741,6 +786,24 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
                 </tr>
               )
             })}
+            {years.length > 1 && (
+              <tr className="border-t-2 border-gray-200 dark:border-gray-600 bg-amber-50/40 dark:bg-amber-900/10">
+                <td className="py-2.5 pr-3 text-center sticky left-0 bg-amber-50/40 dark:bg-amber-900/10">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30">均</span>
+                </td>
+                <td className="py-2.5 pr-4 sticky left-12 bg-amber-50/40 dark:bg-amber-900/10 whitespace-nowrap">
+                  <span className="text-sm font-bold text-amber-700 dark:text-amber-400">各月平均成長</span>
+                </td>
+                {chartData.map(md => {
+                  const g = monthAvgGrowths[md.month]
+                  return (
+                    <td key={md.month} className="py-2.5 px-2 text-right">
+                      {g != null ? <GrowthBadge rate={g} /> : <span className="text-gray-300 dark:text-gray-600 text-base">—</span>}
+                    </td>
+                  )
+                })}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

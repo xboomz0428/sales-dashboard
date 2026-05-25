@@ -366,7 +366,7 @@ function AppDashboard() {
     summary, filtered,
     trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, brandChannelData, heatmapData,
+    brandData, brandChannelData, heatmapData, heatmapBrandData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
@@ -886,7 +886,7 @@ function AppDashboard() {
           )}
           {activeTab === 'heatmap' && meta && (
             <div data-pdf-section data-pdf-title="熱力圖">
-              <HeatmapChart heatmapData={heatmapData} metric={filters.metric} />
+              <HeatmapChart heatmapData={heatmapData} heatmapBrandData={heatmapBrandData} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'table' && meta && (

@@ -506,12 +506,30 @@ export function useSalesData(rows, filters) {
     return { data, months, channelTypes }
   }, [filtered, metric])
 
+  // Heatmap: month × brand
+  const heatmapBrandData = useMemo(() => {
+    const brands = [...new Set(filtered.map(r => r.brand).filter(Boolean))].sort()
+    const months = [...new Set(filtered.map(r => r.yearMonth))].sort()
+    const map = {}
+    filtered.forEach(row => {
+      const br = row.brand || '其他'
+      const key = `${br}__${row.yearMonth}`
+      map[key] = (map[key] || 0) + row[metric]
+    })
+    const data = brands.map(br => {
+      const entry = { channelType: br }
+      months.forEach(ym => { entry[ym] = map[`${br}__${ym}`] || 0 })
+      return entry
+    })
+    return { data, months, channelTypes: brands }
+  }, [filtered, metric])
+
   return {
     filtered, summary, activeProducts,
     trendData, trendDataYoY, trendDataMoM,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, brandChannelData, heatmapData,
+    brandData, brandChannelData, heatmapData, heatmapBrandData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
