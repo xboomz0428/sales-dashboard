@@ -366,7 +366,7 @@ function AppDashboard() {
     summary, filtered,
     trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, brandChannelData, heatmapData, heatmapBrandData,
+    brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
@@ -866,7 +866,7 @@ function AppDashboard() {
           )}
           {activeTab === 'brand' && meta && (
             <div data-pdf-section data-pdf-title="品牌分析">
-              <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} metric={filters.metric} />
+              <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} brandChannelMonthData={brandChannelMonthData} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'product' && meta && (

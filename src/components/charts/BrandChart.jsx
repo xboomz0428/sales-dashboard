@@ -13,6 +13,48 @@ const COLORS = [
   '#06B6D4', '#F97316', '#84CC16', '#EC4899', '#6366F1',
 ]
 
+// ─── Heatmap color helpers (for monthly channel view) ─────────────────────────
+function hmValueColor(value, max, isDark) {
+  if (isDark) {
+    if (max === 0) return '#1f2937'
+    const r = value / max
+    if (r === 0) return '#1f2937'
+    return `rgb(${Math.round(30+r*66)},${Math.round(58+r*107)},${Math.round(138+r*112)})`
+  }
+  if (max === 0) return '#f3f4f6'
+  const r = value / max
+  if (r === 0) return '#f9fafb'
+  return `rgb(${Math.round(219-r*180)},${Math.round(234-r*160)},${Math.round(254-r*80)})`
+}
+function hmGrowthColor(rate, maxAbs, isDark) {
+  if (rate == null) return isDark ? '#1f2937' : '#f9fafb'
+  if (maxAbs === 0) return isDark ? '#374151' : '#f3f4f6'
+  const ratio = Math.min(Math.abs(rate) / maxAbs, 1)
+  if (rate > 0) {
+    if (isDark) return `rgb(${Math.round(10+(1-ratio)*40)},${Math.round(100+ratio*100)},${Math.round(40+ratio*20)})`
+    return `rgb(${Math.round(220-ratio*170)},${Math.round(252-ratio*80)},${Math.round(220-ratio*185)})`
+  }
+  if (rate < 0) {
+    if (isDark) return `rgb(${Math.round(80+ratio*130)},25,25)`
+    return `rgb(255,${Math.round(220-ratio*165)},${Math.round(220-ratio*165)})`
+  }
+  return isDark ? '#374151' : '#f3f4f6'
+}
+function hmValueText(value, max, isDark) {
+  const high = max > 0 && value / max > 0.5
+  return isDark ? (high ? '#ffffff' : '#93c5fd') : (high ? '#1e3a5f' : '#6b7280')
+}
+function hmGrowthText(rate, isDark) {
+  if (rate == null) return isDark ? '#4b5563' : '#d1d5db'
+  if (rate > 0) return isDark ? '#86efac' : '#15803d'
+  if (rate < 0) return isDark ? '#fca5a5' : '#dc2626'
+  return isDark ? '#9ca3af' : '#6b7280'
+}
+function fmtGrowth(v) {
+  if (v == null) return '—'
+  return `${v > 0 ? '▲' : v < 0 ? '▼' : ''}${Math.abs(v).toFixed(0)}%`
+}
+
 const MONTH_NAMES = {
   '01':'1月','02':'2月','03':'3月','04':'4月','05':'5月','06':'6月',
   '07':'7月','08':'8月','09':'9月','10':'10月','11':'11月','12':'12月',
@@ -582,19 +624,274 @@ function BrandTrendChart({ trendByBrand, metric }) {
   )
 }
 
+// ─── Brand × Channel × Month Heatmap ─────────────────────────────────────────
+function BrandChannelMonthTable({ brandChannelMonthData, metric }) {
+  const { map, brands, months, channels } = brandChannelMonthData
+  const [selectedBrand, setSelectedBrand] = useState(() => brands[0] || '')
+  const [displayMode, setDisplayMode] = useState('value')
+  const isDark = document.documentElement.classList.contains('dark')
+  const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
+
+  const { rows, activeMonths } = useMemo(() => {
+    if (!selectedBrand || !map[selectedBrand]) return { rows: [], activeMonths: [] }
+    const brandMap = map[selectedBrand]
+    const rows = channels.map(ch => {
+      const entry = { channel: ch }
+      months.forEach(ym => { entry[ym] = brandMap[ch]?.[ym] || 0 })
+      return entry
+    }).filter(row => months.some(m => row[m] > 0))
+    const activeMonths = months.filter(m => rows.some(row => row[m] > 0))
+    return { rows, activeMonths }
+  }, [selectedBrand, map, channels, months])
+
+  const maxVal = useMemo(() => {
+    let max = 0
+    rows.forEach(row => { activeMonths.forEach(m => { if ((row[m] || 0) > max) max = row[m] }) })
+    return max
+  }, [rows, activeMonths])
+
+  const yearGroups = useMemo(() => {
+    const groups = {}
+    activeMonths.forEach(m => {
+      const y = m.slice(0, 4)
+      if (!groups[y]) groups[y] = []
+      groups[y].push(m)
+    })
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
+  }, [activeMonths])
+
+  const growthRows = useMemo(() => {
+    if (displayMode === 'value') return null
+    return rows.map(row => {
+      const entry = { channel: row.channel }
+      activeMonths.forEach((m, idx) => {
+        const v = row[m] || 0
+        if (displayMode === 'mom') {
+          const prevM = activeMonths[idx - 1]
+          const prevV = prevM != null ? (row[prevM] || 0) : null
+          entry[m] = (prevV != null && prevV > 0) ? (v - prevV) / prevV * 100 : null
+        } else {
+          const prevYearM = `${parseInt(m.slice(0, 4)) - 1}${m.slice(4)}`
+          const prevV = activeMonths.includes(prevYearM) ? (row[prevYearM] || 0) : null
+          entry[m] = (prevV != null && prevV > 0) ? (v - prevV) / prevV * 100 : null
+        }
+      })
+      return entry
+    })
+  }, [rows, activeMonths, displayMode])
+
+  const growthMaxAbs = useMemo(() => {
+    if (!growthRows) return 0
+    let max = 0
+    growthRows.forEach(row => {
+      activeMonths.forEach(m => { if (row[m] != null && Math.abs(row[m]) > max) max = Math.abs(row[m]) })
+    })
+    return max || 100
+  }, [growthRows, activeMonths])
+
+  const rowTotals = useMemo(() => {
+    const t = {}
+    rows.forEach(row => { t[row.channel] = activeMonths.reduce((s, m) => s + (row[m] || 0), 0) })
+    return t
+  }, [rows, activeMonths])
+
+  const colTotals = useMemo(() => {
+    const t = {}
+    activeMonths.forEach(m => { t[m] = rows.reduce((s, row) => s + (row[m] || 0), 0) })
+    return t
+  }, [rows, activeMonths])
+
+  const grandTotal = useMemo(() => Object.values(rowTotals).reduce((s, v) => s + v, 0), [rowTotals])
+
+  const isGrowthMode = displayMode !== 'value'
+  const CELL_W = 76
+
+  if (!brands.length) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">無資料</div>
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Brand picker */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+        <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-3">選擇品牌</h4>
+        <div className="flex flex-wrap gap-2">
+          {brands.slice(0, 20).map((b, i) => (
+            <button key={b} onClick={() => setSelectedBrand(b)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${selectedBrand === b ? 'text-white border-transparent shadow-sm' : 'bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-gray-300'}`}
+              style={selectedBrand === b ? { background: COLORS[i % COLORS.length], borderColor: COLORS[i % COLORS.length] } : {}}>
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">顯示模式：</span>
+        <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
+          {[{ v: 'value', l: '銷售值' }, { v: 'mom', l: '月環比' }, { v: 'yoy', l: '年同比' }].map(({ v, l }) => (
+            <button key={v} onClick={() => setDisplayMode(v)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                displayMode === v
+                  ? v === 'value' ? 'bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'bg-emerald-500 text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+              }`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {isGrowthMode && (
+          <span className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/50 px-2 py-1 rounded-lg font-medium">
+            {displayMode === 'mom' ? '▲▼ 與上個月比較' : '▲▼ 與去年同月比較'}
+          </span>
+        )}
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="flex items-center justify-center h-40 text-gray-400 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+          {selectedBrand ? '此品牌無通路月度數據' : '請選擇品牌'}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <div className="mb-3">
+            <h4 className="text-base font-bold text-gray-700 dark:text-gray-200">
+              {selectedBrand} — 各通路月度{isGrowthMode ? (displayMode === 'mom' ? '月環比' : '年同比') : label}
+            </h4>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">
+              {rows.length} 個通路 × {activeMonths.length} 個月{isGrowthMode && ' · 綠色成長 / 紅色衰退'}
+            </p>
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {isGrowthMode ? (
+              <>
+                <span className="font-medium text-red-500 dark:text-red-400">衰退</span>
+                <div className="flex rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+                  {[-1, -0.5, -0.15, 0.15, 0.5, 1].map(r => (
+                    <div key={r} className="w-8 h-5" style={{ background: hmGrowthColor(r * growthMaxAbs, growthMaxAbs, isDark) }} />
+                  ))}
+                </div>
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">成長</span>
+                <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-lg">±{Math.round(growthMaxAbs)}%</span>
+              </>
+            ) : (
+              <>
+                <span className="font-medium">低</span>
+                <div className="flex rounded-lg overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700">
+                  {[0.05, 0.2, 0.4, 0.6, 0.8, 0.95].map(r => (
+                    <div key={r} className="w-8 h-5" style={{ background: hmValueColor(r * maxVal, maxVal, isDark) }} />
+                  ))}
+                </div>
+                <span className="font-medium">高</span>
+              </>
+            )}
+          </div>
+
+          <p className="sm:hidden text-xs text-center text-gray-400 mb-2">← 左右滑動 →</p>
+          <div className="overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-700">
+            <table className="border-collapse" style={{ minWidth: `${activeMonths.length * CELL_W + 200}px` }}>
+              <thead>
+                <tr>
+                  <th rowSpan={2} className="text-left px-3 py-3 text-sm text-gray-500 dark:text-gray-400 font-bold sticky left-0 bg-gray-50 dark:bg-gray-800 z-10 border-b-2 border-r-2 border-gray-200 dark:border-gray-600" style={{ minWidth: 120 }}>
+                    通路
+                  </th>
+                  {yearGroups.map(([year, mos]) => (
+                    <th key={year} colSpan={mos.length} className="text-center py-2 text-xs font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-l-2 border-b border-blue-200 dark:border-blue-700/50">
+                      {year}年
+                    </th>
+                  ))}
+                  {!isGrowthMode && (
+                    <th rowSpan={2} className="text-right px-3 py-3 text-sm text-gray-600 dark:text-gray-300 font-bold bg-gray-100 dark:bg-gray-700/50 border-b-2 border-l-2 border-gray-200 dark:border-gray-600 whitespace-nowrap" style={{ minWidth: 72 }}>
+                      合計
+                    </th>
+                  )}
+                </tr>
+                <tr>
+                  {activeMonths.map((m, idx) => {
+                    const isFirst = idx === 0 || activeMonths[idx - 1].slice(0, 4) !== m.slice(0, 4)
+                    return (
+                      <th key={m} className={`text-center py-2 text-sm text-gray-600 dark:text-gray-300 font-semibold bg-gray-50 dark:bg-gray-800 border-b-2 border-b-gray-200 dark:border-b-gray-600 ${isFirst ? 'border-l-2 border-l-blue-200 dark:border-l-blue-700/50' : 'border-l border-l-gray-100 dark:border-l-gray-700'}`} style={{ minWidth: CELL_W }}>
+                        {parseInt(m.slice(5))}月
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIdx) => {
+                  const isEven = rowIdx % 2 === 0
+                  const stickyBg = isEven ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700/40'
+                  const growthRow = growthRows?.find(r => r.channel === row.channel)
+                  return (
+                    <tr key={row.channel} className={`border-b border-gray-100 dark:border-gray-700/80 ${isEven ? '' : 'bg-gray-50/30 dark:bg-gray-700/10'}`}>
+                      <td className={`px-3 py-3 text-sm text-gray-700 dark:text-gray-200 font-bold sticky left-0 z-10 border-r-2 border-gray-200 dark:border-gray-600 whitespace-nowrap ${stickyBg}`}>
+                        {row.channel}
+                      </td>
+                      {activeMonths.map((m, idx) => {
+                        const rawVal = row[m] || 0
+                        const growthVal = growthRow?.[m] ?? null
+                        const bg = isGrowthMode ? hmGrowthColor(growthVal, growthMaxAbs, isDark) : hmValueColor(rawVal, maxVal, isDark)
+                        const textColor = isGrowthMode ? hmGrowthText(growthVal, isDark) : hmValueText(rawVal, maxVal, isDark)
+                        const isFirst = idx === 0 || activeMonths[idx - 1].slice(0, 4) !== m.slice(0, 4)
+                        return (
+                          <td key={m}
+                            title={isGrowthMode ? `${row.channel} / ${m}：${growthVal != null ? fmtGrowth(growthVal) : '無前期'}\n實際：${rawVal.toLocaleString()}` : `${row.channel} / ${m}：${rawVal.toLocaleString()}`}
+                            className={`text-center py-3 text-sm font-semibold ${isFirst ? 'border-l-2 border-l-blue-200 dark:border-l-blue-700/50' : 'border-l border-l-white/70 dark:border-l-gray-800'}`}
+                            style={{ background: bg, color: textColor }}>
+                            {isGrowthMode ? fmtGrowth(growthVal) : fmtY(rawVal)}
+                          </td>
+                        )
+                      })}
+                      {!isGrowthMode && (
+                        <td className={`text-right px-3 py-3 text-sm font-bold text-blue-700 dark:text-blue-400 border-l-2 border-gray-200 dark:border-gray-600 whitespace-nowrap ${stickyBg}`}>
+                          {fmtY(rowTotals[row.channel] || 0)}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+                {!isGrowthMode && (
+                  <tr className="border-t-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60">
+                    <td className="px-3 py-3 text-sm font-black text-gray-700 dark:text-gray-300 sticky left-0 bg-gray-100 dark:bg-gray-700/60 border-r-2 border-gray-200 dark:border-gray-600 whitespace-nowrap z-10">合計</td>
+                    {activeMonths.map((m, idx) => {
+                      const isFirst = idx === 0 || activeMonths[idx - 1].slice(0, 4) !== m.slice(0, 4)
+                      return (
+                        <td key={m} className={`text-center py-3 text-sm font-bold text-gray-700 dark:text-gray-300 ${isFirst ? 'border-l-2 border-l-blue-200 dark:border-l-blue-700/50' : 'border-l border-l-gray-200 dark:border-l-gray-600'}`}>
+                          {fmtY(colTotals[m] || 0)}
+                        </td>
+                      )
+                    })}
+                    <td className="text-right px-3 py-3 text-sm font-black text-blue-800 dark:text-blue-300 border-l-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700/60 whitespace-nowrap">
+                      {fmtY(grandTotal)}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main BrandChart ──────────────────────────────────────────────────────────
-export default function BrandChart({ brandData, trendByBrand, brandChannelData, metric }) {
+export default function BrandChart({ brandData, trendByBrand, brandChannelData, brandChannelMonthData, metric }) {
   const [tab, setTab] = useState('ranking')
   const top20 = brandData.slice(0, 20)
   const top8 = brandData.slice(0, 8)
   const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
   const hasChannelData = brandChannelData?.channels?.length > 0
+  const hasMonthData = brandChannelMonthData?.brands?.length > 0
 
   const tabs = [
-    { v: 'ranking',  l: '📊 排行分析' },
-    { v: 'trend',    l: '📈 品牌趨勢' },
-    { v: 'channel',  l: '🔀 通路比較', hidden: !hasChannelData },
+    { v: 'ranking',        l: '📊 排行分析' },
+    { v: 'trend',          l: '📈 品牌趨勢' },
+    { v: 'channel',        l: '🔀 通路比較',   hidden: !hasChannelData },
+    { v: 'monthly_channel',l: '📅 月度通路',   hidden: !hasMonthData },
   ].filter(t => !t.hidden)
 
   return (
@@ -687,6 +984,10 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
 
       {tab === 'channel' && brandChannelData && (
         <BrandChannelChart brandChannelData={brandChannelData} metric={metric} />
+      )}
+
+      {tab === 'monthly_channel' && brandChannelMonthData && (
+        <BrandChannelMonthTable brandChannelMonthData={brandChannelMonthData} metric={metric} />
       )}
         </div>
         )

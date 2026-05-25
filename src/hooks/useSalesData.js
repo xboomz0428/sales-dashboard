@@ -239,6 +239,28 @@ export function useSalesData(rows, filters) {
     return { map, brands, channels, years }
   }, [filtered, metric])
 
+  // Brand × Channel × Month (for monthly growth analysis)
+  const brandChannelMonthData = useMemo(() => {
+    const brandTotals = {}
+    filtered.forEach(r => { if (r.brand) brandTotals[r.brand] = (brandTotals[r.brand] || 0) + r[metric] })
+    const topBrands = Object.entries(brandTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([b]) => b)
+    const topBrandSet = new Set(topBrands)
+    const map = {}
+    filtered.forEach(row => {
+      const br = row.brand
+      if (!br || !topBrandSet.has(br)) return
+      const ch = row.channelType || row.channel || '其他'
+      const ym = row.yearMonth
+      if (!ym) return
+      if (!map[br]) map[br] = {}
+      if (!map[br][ch]) map[br][ch] = {}
+      map[br][ch][ym] = (map[br][ch][ym] || 0) + row[metric]
+    })
+    const months = [...new Set(filtered.map(r => r.yearMonth).filter(Boolean))].sort()
+    const channels = [...new Set(filtered.map(r => r.channelType || r.channel).filter(Boolean))].sort()
+    return { map, brands: topBrands, months, channels }
+  }, [filtered, metric])
+
   // ── Flow data for Sankey diagrams ──────────────────────────────────────────
   const flowData = useMemo(() => {
     if (!filtered.length) return null
@@ -529,7 +551,7 @@ export function useSalesData(rows, filters) {
     trendData, trendDataYoY, trendDataMoM,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
-    brandData, brandChannelData, heatmapData, heatmapBrandData,
+    brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
