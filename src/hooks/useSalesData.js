@@ -242,13 +242,16 @@ export function useSalesData(rows, filters) {
   // Brand × Channel × Month (for monthly growth analysis)
   const brandChannelMonthData = useMemo(() => {
     const brandTotals = {}
-    filtered.forEach(r => { if (r.brand) brandTotals[r.brand] = (brandTotals[r.brand] || 0) + r[metric] })
+    filtered.forEach(r => {
+      const br = r.brand || '未知'
+      brandTotals[br] = (brandTotals[br] || 0) + r[metric]
+    })
     const topBrands = Object.entries(brandTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([b]) => b)
     const topBrandSet = new Set(topBrands)
     const map = {}
     filtered.forEach(row => {
-      const br = row.brand
-      if (!br || !topBrandSet.has(br)) return
+      const br = row.brand || '未知'
+      if (!topBrandSet.has(br)) return
       const ch = row.channelType || row.channel || '其他'
       const ym = row.yearMonth
       if (!ym) return
