@@ -902,16 +902,14 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
         const chartH = expanded ? 'calc(60vh - 80px)' : (typeof window !== 'undefined' && window.innerWidth < 640 ? 260 : 420)
         return (
         <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="overflow-x-auto pb-0.5 -mb-0.5">
-              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl w-max min-w-full">
-                {tabs.map(t => (
-                  <button key={t.v} onClick={() => setTab(t.v)}
-                    className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                    {t.l}
-                  </button>
-                ))}
-              </div>
+          <div className="overflow-x-auto pb-0.5 -mb-0.5">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl w-max min-w-full">
+              {tabs.map(t => (
+                <button key={t.v} onClick={() => setTab(t.v)}
+                  className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                  {t.l}
+                </button>
+              ))}
             </div>
           </div>
 

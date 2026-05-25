@@ -384,9 +384,7 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
         const chartH = expanded ? 'calc(50vh - 60px)' : (typeof window !== 'undefined' && window.innerWidth < 640 ? 200 : 300)
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              {viewSelector}
-            </div>
+            {viewSelector}
 
             {/* 月度品牌熱力表 */}
             {view === 'monthly_brand' && (
