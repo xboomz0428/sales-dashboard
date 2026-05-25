@@ -906,7 +906,7 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
             <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl w-max min-w-full">
               {tabs.map(t => (
                 <button key={t.v} onClick={() => setTab(t.v)}
-                  className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                  className={`px-1.5 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-xs sm:text-base font-medium transition-all whitespace-nowrap ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
                   {t.l}
                 </button>
               ))}
