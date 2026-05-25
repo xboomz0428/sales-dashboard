@@ -264,6 +264,30 @@ export function useSalesData(rows, filters) {
     return { map, brands: topBrands, months, channels }
   }, [filtered, metric])
 
+  // Channel × Brand × Month (for channel monthly brand analysis)
+  const channelBrandMonthData = useMemo(() => {
+    const chTotals = {}
+    filtered.forEach(r => {
+      const ch = r.channelType || r.channel || '其他'
+      chTotals[ch] = (chTotals[ch] || 0) + r[metric]
+    })
+    const topChannels = Object.entries(chTotals).sort((a, b) => b[1] - a[1]).slice(0, 15).map(([c]) => c)
+    const topChannelSet = new Set(topChannels)
+    const map = {}
+    filtered.forEach(row => {
+      const ch = row.channelType || row.channel || '其他'
+      if (!topChannelSet.has(ch)) return
+      const br = row.brand || '未知'
+      const ym = row.yearMonth
+      if (!ym) return
+      if (!map[ch]) map[ch] = {}
+      if (!map[ch][br]) map[ch][br] = {}
+      map[ch][br][ym] = (map[ch][br][ym] || 0) + row[metric]
+    })
+    const months = [...new Set(filtered.map(r => r.yearMonth).filter(Boolean))].sort()
+    return { map, channels: topChannels, months }
+  }, [filtered, metric])
+
   // ── Flow data for Sankey diagrams ──────────────────────────────────────────
   const flowData = useMemo(() => {
     if (!filtered.length) return null
@@ -555,6 +579,7 @@ export function useSalesData(rows, filters) {
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
     brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
+    channelBrandMonthData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,

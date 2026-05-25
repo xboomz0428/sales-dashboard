@@ -367,6 +367,7 @@ function AppDashboard() {
     trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
     brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
+    channelBrandMonthData,
     productData, productByChannel, productCustomerData,
     customerData, customerByChannelTop, performanceData,
     comparisonData,
@@ -861,7 +862,7 @@ function AppDashboard() {
           )}
           {activeTab === 'channel' && meta && (
             <div data-pdf-section data-pdf-title="通路分析">
-              <ChannelBarChart channelData={channelData} channelTypeData={channelTypeData} channelCustomerData={channelCustomerData} metric={filters.metric} />
+              <ChannelBarChart channelData={channelData} channelTypeData={channelTypeData} channelCustomerData={channelCustomerData} channelBrandMonthData={channelBrandMonthData} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'brand' && meta && (
