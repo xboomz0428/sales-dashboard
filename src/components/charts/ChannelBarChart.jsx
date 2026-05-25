@@ -354,7 +354,6 @@ function ChannelBrandMonthTable({ channelBrandMonthData, metric }) {
 export default function ChannelBarChart({ channelData, channelTypeData, channelCustomerData, channelBrandMonthData, metric }) {
   const [view, setView] = useState('channel')
 
-  const hasMonthData = channelBrandMonthData?.channels?.length > 0
   const dataKey = view === 'customerCount' ? 'customerCount' : metric
   const barLabel = view === 'customerCount' ? '客戶數' : (metric === 'subtotal' ? '銷售金額' : '銷售數量')
   const data = view === 'channel' ? channelData : view === 'channelType' ? channelTypeData : (channelCustomerData || [])
@@ -363,17 +362,19 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
     { v: 'channel',       l: '網路/實體' },
     { v: 'channelType',   l: '通路類型' },
     { v: 'customerCount', l: '客戶數統計' },
-    { v: 'monthly_brand', l: '📅 月度品牌', hidden: !hasMonthData },
-  ].filter(t => !t.hidden)
+    { v: 'monthly_brand', l: '📅 月度品牌' },
+  ]
 
   const viewSelector = (
-    <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
-      {VIEWS.map(({ v, l }) => (
-        <button key={v} onClick={() => setView(v)}
-          className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${view === v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-          {l}
-        </button>
-      ))}
+    <div className="overflow-x-auto pb-0.5 -mb-0.5">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl w-max min-w-full">
+        {VIEWS.map(({ v, l }) => (
+          <button key={v} onClick={() => setView(v)}
+            className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${view === v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
     </div>
   )
 
@@ -388,8 +389,10 @@ export default function ChannelBarChart({ channelData, channelTypeData, channelC
             </div>
 
             {/* 月度品牌熱力表 */}
-            {view === 'monthly_brand' && channelBrandMonthData && (
-              <ChannelBrandMonthTable channelBrandMonthData={channelBrandMonthData} metric={metric} />
+            {view === 'monthly_brand' && (
+              channelBrandMonthData
+                ? <ChannelBrandMonthTable channelBrandMonthData={channelBrandMonthData} metric={metric} />
+                : <div className="flex items-center justify-center h-64 text-base text-gray-400 dark:text-gray-500">無資料，請先上傳銷售數據</div>
             )}
 
             {view !== 'monthly_brand' && data.length === 0 ? (

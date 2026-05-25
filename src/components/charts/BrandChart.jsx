@@ -889,15 +889,12 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
   const top8 = brandData.slice(0, 8)
   const label = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
-  const hasChannelData = brandChannelData?.channels?.length > 0
-  const hasMonthData = brandChannelMonthData?.brands?.length > 0
-
   const tabs = [
     { v: 'ranking',        l: '📊 排行分析' },
     { v: 'trend',          l: '📈 品牌趨勢' },
-    { v: 'channel',        l: '🔀 通路比較',   hidden: !hasChannelData },
-    { v: 'monthly_channel',l: '📅 月度通路',   hidden: !hasMonthData },
-  ].filter(t => !t.hidden)
+    { v: 'channel',        l: '🔀 通路比較' },
+    { v: 'monthly_channel',l: '📅 月度通路' },
+  ]
 
   return (
     <ChartCard title={`品牌分析 — ${label}`}>
@@ -906,13 +903,15 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
         return (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl">
-              {tabs.map(t => (
-                <button key={t.v} onClick={() => setTab(t.v)}
-                  className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-                  {t.l}
-                </button>
-              ))}
+            <div className="overflow-x-auto pb-0.5 -mb-0.5">
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl w-max min-w-full">
+                {tabs.map(t => (
+                  <button key={t.v} onClick={() => setTab(t.v)}
+                    className={`px-2 sm:px-3 py-1.5 min-h-[36px] rounded-lg text-sm sm:text-base font-medium transition-all whitespace-nowrap ${tab === t.v ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -987,12 +986,16 @@ export default function BrandChart({ brandData, trendByBrand, brandChannelData, 
         <div className="flex items-center justify-center h-64 text-base text-gray-400">無趨勢資料</div>
       )}
 
-      {tab === 'channel' && brandChannelData && (
-        <BrandChannelChart brandChannelData={brandChannelData} metric={metric} />
+      {tab === 'channel' && (
+        brandChannelData
+          ? <BrandChannelChart brandChannelData={brandChannelData} metric={metric} />
+          : <div className="flex items-center justify-center h-64 text-base text-gray-400">無通路比較資料，請先上傳銷售數據</div>
       )}
 
-      {tab === 'monthly_channel' && brandChannelMonthData && (
-        <BrandChannelMonthTable brandChannelMonthData={brandChannelMonthData} metric={metric} />
+      {tab === 'monthly_channel' && (
+        brandChannelMonthData
+          ? <BrandChannelMonthTable brandChannelMonthData={brandChannelMonthData} metric={metric} />
+          : <div className="flex items-center justify-center h-64 text-base text-gray-400">無月度通路資料，請先上傳銷售數據</div>
       )}
         </div>
         )
