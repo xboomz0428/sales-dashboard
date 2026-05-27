@@ -124,8 +124,8 @@ function calcBonus(assigneeUid, contacts, invoices, bonusPlans, year, month) {
 }
 
 // ─── Input 共用樣式 ───────────────────────────────────────────────────────────
-const inp = 'w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200'
-const inpSm = 'w-full px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200'
+const inp = 'w-full px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200 min-h-[44px]'
+const inpSm = 'w-full px-2 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-200'
 
 // ─── 聯絡 Log 表單 ────────────────────────────────────────────────────────────
 function LogForm({ onAdd, onCancel }) {
@@ -643,7 +643,7 @@ const DEFAULT_PLAN_TIERS = {
   annualEnabled:  true,
 }
 
-// ─── 獎金方案編輯器（全頁 inline，非 Modal）────────────────────────────────────
+// ─── 獎金方案編輯器（全頁換頁，手機優先）──────────────────────────────────────
 function PlanEditor({ plan, onSave, onClose }) {
   const [form, setForm] = useState({ ...DEFAULT_PLAN_TIERS, ...plan })
   const [showSim, setShowSim] = useState(false)
@@ -656,132 +656,125 @@ function PlanEditor({ plan, onSave, onClose }) {
     })
   }
   const fmtRate = r => `${(r * 100).toFixed(1)}%`
-  const toggle = (k) => (
-    <label className="flex items-center gap-2 cursor-pointer">
-      <div className="relative w-8 h-4">
-        <input type="checkbox" className="sr-only peer" checked={form[k]} onChange={e => set(k, e.target.checked)} />
-        <div className="w-8 h-4 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-500 transition-colors" />
-        <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+
+  const renderSwitch = (k) => (
+    <label className="flex items-center gap-2 cursor-pointer select-none">
+      <div className="relative w-10 h-6 flex-shrink-0">
+        <input type="checkbox" className="sr-only peer" checked={!!form[k]} onChange={e => set(k, e.target.checked)} />
+        <div className="w-10 h-6 bg-gray-200 dark:bg-gray-600 rounded-full peer peer-checked:bg-blue-500 transition-colors" />
+        <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
       </div>
-      <span className="text-xs text-gray-400">啟用</span>
+      <span className="text-sm text-gray-500 dark:text-gray-400">啟用</span>
     </label>
   )
 
+  const renderTierRows = (type, unit) => (form[type] || []).map((tier, i) => (
+    <div key={i} className="p-4 space-y-3 border-b border-gray-50 dark:border-gray-800 last:border-0">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">第 {i + 1} 層</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-gray-400 mb-1.5 block">{unit} ≥（元）</label>
+          <input type="number" inputMode="numeric" value={tier.min}
+            onChange={e => setTier(type, i, 'min', e.target.value)} className={inp} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 mb-1.5 block">獎金率（{fmtRate(tier.rate)}）</label>
+          <input type="number" inputMode="decimal" step="0.001" min="0" max="1" value={tier.rate}
+            onChange={e => setTier(type, i, 'rate', e.target.value)} className={inp} />
+        </div>
+      </div>
+    </div>
+  ))
+
   return (
-    <div className="space-y-4">
-      {/* 麵包屑 / 返回 */}
-      <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-40 bg-gray-50 dark:bg-gray-950 flex flex-col">
+
+      {/* ── 頂部導航 ── */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
         <button onClick={onClose}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-all">
-          ← 返回獎金總覽
+          className="w-11 h-11 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 active:bg-gray-200 transition-colors flex-shrink-0 text-xl">
+          ←
         </button>
-        <span className="text-gray-300 dark:text-gray-600 select-none">/</span>
-        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">⚙️ 獎金方案 — {plan.name}</h3>
-      </div>
-
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
-        {/* 開發獎金 */}
-        <section className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">開發獎金</p>
-            {toggle('devEnabled')}
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[['devChain','🏬 連鎖店'],['devBrand','🏷️ 品牌店'],['devStudio','✂️ 工作室']].map(([key, label]) => (
-              <div key={key}>
-                <label className="text-xs text-gray-400 mb-1 block">{label}（元）</label>
-                <input type="number" value={form[key]} onChange={e => set(key, e.target.value)} className={inpSm} />
-              </div>
-            ))}
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">觸發門檻 — 成交後累積入帳 ≥（元）</label>
-            <input type="number" value={form.devThreshold} onChange={e => set('devThreshold', e.target.value)} className={inp} />
-          </div>
-        </section>
-
-        {/* 月獎金 */}
-        <section className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">月採購獎金（3 層）</p>
-            {toggle('monthlyEnabled')}
-          </div>
-          {(form.monthlyTiers || []).map((tier, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">月入帳 ≥（元）</label>
-                <input type="number" value={tier.min} onChange={e => setTier('monthlyTiers', i, 'min', e.target.value)} className={inpSm} />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                  onChange={e => setTier('monthlyTiers', i, 'rate', e.target.value)} className={inpSm} />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* 季度獎金 */}
-        <section className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">季採購獎金（3 層）</p>
-            {toggle('quarterlyEnabled')}
-          </div>
-          {(form.quarterlyTiers || []).map((tier, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">季入帳 ≥（元）</label>
-                <input type="number" value={tier.min} onChange={e => setTier('quarterlyTiers', i, 'min', e.target.value)} className={inpSm} />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                  onChange={e => setTier('quarterlyTiers', i, 'rate', e.target.value)} className={inpSm} />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* 年獎金 */}
-        <section className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">年度獎金（2 層）</p>
-            {toggle('annualEnabled')}
-          </div>
-          {(form.annualTiers || []).map((tier, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="text-xs text-gray-400 w-4">{i + 1}.</span>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">年入帳 ≥（元）</label>
-                <input type="number" value={tier.min} onChange={e => setTier('annualTiers', i, 'min', e.target.value)} className={inpSm} />
-              </div>
-              <div className="flex-1">
-                <label className="text-xs text-gray-400">獎金率 → {fmtRate(tier.rate)}</label>
-                <input type="number" step="0.001" min="0" max="1" value={tier.rate}
-                  onChange={e => setTier('annualTiers', i, 'rate', e.target.value)} className={inpSm} />
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* 薪資模擬器 */}
-        <section className="p-5 space-y-3">
-          <button onClick={() => setShowSim(v => !v)}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-            <span>📊 薪資收入模擬</span>
-            <span className="text-xs text-gray-400 font-normal">{showSim ? '▲ 收起' : '▼ 展開'}</span>
-          </button>
-          {showSim && <SalarySim plan={form} />}
-        </section>
-      </div>
-
-      {/* 底部按鈕 */}
-      <div className="flex gap-2 justify-end pb-2">
-        <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">取消</button>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-400 leading-tight">業務管理 › 獎金設定</p>
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate leading-snug">{plan.name}</h2>
+        </div>
         <button onClick={() => { onSave(form); onClose() }}
-          className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm">儲存方案</button>
+          className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors flex-shrink-0 min-h-[44px]">
+          儲存
+        </button>
+      </div>
+
+      {/* ── 可捲動主體 ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-4 py-4 space-y-4 max-w-xl mx-auto pb-8">
+
+          {/* 開發獎金 */}
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-800">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">開發獎金</p>
+              {renderSwitch('devEnabled')}
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 mb-1.5 block">觸發門檻 — 成交後累積入帳達（元）</label>
+                <input type="number" inputMode="numeric" value={form.devThreshold}
+                  onChange={e => set('devThreshold', e.target.value)} className={inp} />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[['devChain','🏬 連鎖'],['devBrand','🏷️ 品牌'],['devStudio','✂️ 工作室']].map(([key, label]) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-400 mb-1.5 block">{label}</label>
+                    <input type="number" inputMode="numeric" value={form[key]}
+                      onChange={e => set(key, e.target.value)} className={inp} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* 月採購獎金 */}
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">月採購獎金</p>
+              {renderSwitch('monthlyEnabled')}
+            </div>
+            {renderTierRows('monthlyTiers', '月入帳')}
+          </section>
+
+          {/* 季採購獎金 */}
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">季採購獎金</p>
+              {renderSwitch('quarterlyEnabled')}
+            </div>
+            {renderTierRows('quarterlyTiers', '季入帳')}
+          </section>
+
+          {/* 年度獎金 */}
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-4">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">年度獎金</p>
+              {renderSwitch('annualEnabled')}
+            </div>
+            {renderTierRows('annualTiers', '年入帳')}
+          </section>
+
+          {/* 薪資模擬器 */}
+          <section className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <button onClick={() => setShowSim(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-4 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 transition-colors min-h-[52px]">
+              <span>📊 薪資收入模擬器</span>
+              <span className="text-gray-400 font-normal text-xs">{showSim ? '▲ 收起' : '▼ 展開'}</span>
+            </button>
+            {showSim && (
+              <div className="border-t border-gray-100 dark:border-gray-800 p-4">
+                <SalarySim plan={form} />
+              </div>
+            )}
+          </section>
+
+        </div>
       </div>
     </div>
   )
