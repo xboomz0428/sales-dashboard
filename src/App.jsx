@@ -174,6 +174,8 @@ function AppDashboard() {
   const [keyInput, setKeyInput] = useState('')
   const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
   const [moreOpen, setMoreOpen] = useState(false)
+  const [tabBarCollapsed, setTabBarCollapsed] = useState(false)
+  const [bottomNavHidden, setBottomNavHidden] = useState(false)
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
   const tabBarRef = useRef(null)
@@ -213,6 +215,9 @@ function AppDashboard() {
     const groupIds = new Set(group.tabs)
     return visibleTabs.filter(t => groupIds.has(t.id))
   }, [activeGroup, visibleTabs])
+
+  const currentTabInfo  = useMemo(() => groupTabs.find(t => t.id === activeTab) || groupTabs[0], [groupTabs, activeTab])
+  const activeGroupInfo = useMemo(() => TAB_GROUPS.find(g => g.id === activeGroup) || TAB_GROUPS[0], [activeGroup])
 
   // Scroll active tab into view on mobile
   useEffect(() => {
@@ -794,29 +799,55 @@ function AppDashboard() {
         </div>
 
         {/* Sub-tabs（只顯示當前群組的 tab）*/}
-        <div ref={tabBarRef} className="flex border-b dark:border-gray-700 bg-white dark:bg-gray-900 px-1 sm:px-3 flex-shrink-0 overflow-x-auto scroll-smooth" style={{borderBottomColor:'var(--line)'}}>
-          {groupTabs.map(tab => (
-            <button key={tab.id}
-              data-tab-active={activeTab === tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0 sm:gap-1.5
-                px-2 sm:px-4 py-1 sm:py-3 min-h-[44px] sm:min-h-0 min-w-[46px] sm:min-w-0
-                text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'dark:text-emerald-400 dark:border-emerald-400'
-                  : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
-              }`}
-              style={activeTab === tab.id ? {color:'var(--mint-600)',borderBottomColor:'var(--mint-500)'} : {}}>
-              <span className="text-base sm:text-base leading-none">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-              <span className="sm:hidden text-[10px] leading-tight max-w-[46px] text-center break-keep mt-0.5">{tab.label}</span>
-              {tab.id === 'alerts' && <AnomalyBadge allRows={visibleRows} metric={filters.metric} />}
+        <div className="border-b dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0" style={{borderBottomColor:'var(--line)'}}>
+
+          {/* 手機版：折疊時顯示麵包屑 */}
+          {tabBarCollapsed && (
+            <button
+              onClick={() => setTabBarCollapsed(false)}
+              className="md:hidden w-full flex items-center justify-between px-3 h-10 active:bg-gray-50 dark:active:bg-gray-800 transition-colors">
+              <div className="flex items-center gap-1.5 text-sm min-w-0">
+                <span className="text-base leading-none flex-shrink-0">{activeGroupInfo?.icon}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0">{activeGroupInfo?.label}</span>
+                <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">›</span>
+                <span className="font-semibold truncate" style={{color:'var(--mint-600)'}}>{currentTabInfo?.icon} {currentTabInfo?.label}</span>
+              </div>
+              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">▼ 切換</span>
             </button>
-          ))}
+          )}
+
+          {/* Tab 列（手機折疊時隱藏，桌機永遠顯示）*/}
+          <div ref={tabBarRef}
+            className={`overflow-x-auto scroll-smooth px-1 sm:px-3 ${tabBarCollapsed ? 'hidden md:flex' : 'flex'}`}>
+            {groupTabs.map(tab => (
+              <button key={tab.id}
+                data-tab-active={activeTab === tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-0 sm:gap-1.5
+                  px-2 sm:px-4 py-1 sm:py-3 min-h-[44px] sm:min-h-0 min-w-[46px] sm:min-w-0
+                  text-xs sm:text-sm font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'dark:text-emerald-400 dark:border-emerald-400'
+                    : 'border-transparent text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+                style={activeTab === tab.id ? {color:'var(--mint-600)',borderBottomColor:'var(--mint-500)'} : {}}>
+                <span className="text-base leading-none">{tab.icon}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden text-[10px] leading-tight max-w-[46px] text-center break-keep mt-0.5">{tab.label}</span>
+                {tab.id === 'alerts' && <AnomalyBadge allRows={visibleRows} metric={filters.metric} />}
+              </button>
+            ))}
+            {/* 手機：收折按鈕（Tab 列右端） */}
+            <button
+              onClick={() => setTabBarCollapsed(true)}
+              className="md:hidden flex-shrink-0 self-center ml-auto mr-1 w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 dark:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-500 dark:hover:text-gray-400 transition-colors text-xs">
+              ▲
+            </button>
+          </div>
         </div>
 
         {/* Chart area */}
-        <div className="flex-1 overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 pb-24 md:pb-4 dark:bg-gray-950" ref={chartAreaRef}
+        <div className={`flex-1 overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 ${bottomNavHidden ? 'pb-8' : 'pb-24'} md:pb-4 dark:bg-gray-950`} ref={chartAreaRef}
           style={{ background:'var(--bg)' }}>
 
           {/* 尚無資料空狀態 */}
@@ -979,27 +1010,50 @@ function AppDashboard() {
 
       {/* 手機底部群組導覽列 */}
       <div
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex bg-white dark:bg-gray-900 border-t dark:border-gray-700"
-        style={{borderTopColor:'var(--line)', paddingBottom:'env(safe-area-inset-bottom,0px)'}}
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-30 transition-transform duration-300 ease-in-out ${bottomNavHidden ? 'translate-y-full' : 'translate-y-0'}`}
+        style={{paddingBottom:'env(safe-area-inset-bottom,0px)'}}
       >
-        {TAB_GROUPS.map(group => {
-          const visibleIds = new Set(visibleTabs.map(t => t.id))
-          const hasAny = group.tabs.some(id => visibleIds.has(id))
-          if (!hasAny) return null
-          const isActive = activeGroup === group.id
-          return (
-            <button key={group.id}
-              onClick={() => handleGroupChange(group.id)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-                isActive ? '' : 'text-gray-400 dark:text-gray-500'
-              }`}
-              style={isActive ? {color:'var(--mint-600)'} : {}}>
-              <span className="text-xl leading-none">{group.icon}</span>
-              <span className="text-[11px] font-semibold">{group.label}</span>
-            </button>
-          )
-        })}
+        {/* 拖曳把手 — 點擊可隱藏導覽列 */}
+        <button
+          onClick={() => setBottomNavHidden(true)}
+          className="w-full flex items-center justify-center pt-1 pb-0.5 bg-white dark:bg-gray-900 border-t dark:border-gray-700"
+          style={{borderTopColor:'var(--line)'}}>
+          <div className="w-10 h-1 rounded-full bg-gray-200 dark:bg-gray-600" />
+        </button>
+        {/* 導覽按鈕 */}
+        <div className="flex bg-white dark:bg-gray-900 border-t dark:border-gray-700"
+          style={{borderTopColor:'var(--line)'}}>
+          {TAB_GROUPS.map(group => {
+            const visibleIds = new Set(visibleTabs.map(t => t.id))
+            const hasAny = group.tabs.some(id => visibleIds.has(id))
+            if (!hasAny) return null
+            const isActive = activeGroup === group.id
+            return (
+              <button key={group.id}
+                onClick={() => handleGroupChange(group.id)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
+                  isActive ? '' : 'text-gray-400 dark:text-gray-500'
+                }`}
+                style={isActive ? {color:'var(--mint-600)'} : {}}>
+                <span className="text-xl leading-none">{group.icon}</span>
+                <span className="text-[11px] font-semibold">{group.label}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
+
+      {/* 底部導覽列隱藏時 — 展開把手 */}
+      {bottomNavHidden && (
+        <button
+          onClick={() => setBottomNavHidden(false)}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-center gap-2 py-1.5 bg-white/95 dark:bg-gray-900/95 border-t dark:border-gray-700 backdrop-blur-sm text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          style={{borderTopColor:'var(--line)', paddingBottom:'max(env(safe-area-inset-bottom,0px),6px)'}}>
+          <div className="w-8 h-0.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+          <span>展開導覽</span>
+          <div className="w-8 h-0.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+        </button>
+      )}
 
       <GlobalSearch
         open={searchOpen}
