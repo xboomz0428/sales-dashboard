@@ -1,5 +1,9 @@
 # 更新日誌 CHANGELOG
 
+## v0.0.86（2026-07-07）
+
+- **LC 自動匯入改為在 ERP 主機執行**（因 MariaDB 僅開放本機連線）：`lc-inspect.mjs` 強化為一次輸出「表清單＋候選銷貨表欄位＋樣本資料」，`LC_DB_HOST` 預設 localhost；新增 `.env.example` 與 `scripts/README-LC自動匯入.md`（ERP 主機安裝／探查／排程步驟）。待 schema 貼回後即可產出 `lc-import.mjs`。
+
 ## v0.0.85（2026-07-07）
 
 - **產品成本匯入**：新增 `scripts/import-costs.mjs`，從 LC「商品資料.xls」把成本補進 user_costs（精確＋正規化比對、只補缺不覆蓋、支援 --dry-run/--overwrite）。同時直接補上 2angels 停售系列、mamayo 磁力片等高價值缺口，成本列覆蓋率 90.6% → 96.6%。
