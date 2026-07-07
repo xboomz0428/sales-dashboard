@@ -214,8 +214,50 @@ function RankLabel(props) {
   )
 }
 
+// ─── 選取期間 vs 去年同期（同比）摘要卡 ─────────────────────────────────────
+function PeriodYoYCard({ periodYoY, metric }) {
+  if (!periodYoY) return null
+  const up = periodYoY.deltaAmount >= 0
+  const sign = up ? '+' : '-'
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+      <div className="mb-3">
+        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">選取期間 vs 去年同期（同比）</h3>
+        {periodYoY.rangeStart && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            本期 {periodYoY.rangeStart} ~ {periodYoY.rangeEnd}　vs　去年 {periodYoY.priorRangeStart} ~ {periodYoY.priorRangeEnd}
+          </p>
+        )}
+      </div>
+      {periodYoY.hasPrior ? (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+            <p className="text-xs text-gray-400 dark:text-gray-500">本期間</p>
+            <p className="text-base sm:text-xl font-black text-gray-800 dark:text-gray-100 tabular-nums leading-tight">{fmtVal(periodYoY.current, metric)}</p>
+          </div>
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+            <p className="text-xs text-gray-400 dark:text-gray-500">去年同期</p>
+            <p className="text-base sm:text-xl font-black text-gray-500 dark:text-gray-400 tabular-nums leading-tight">{fmtVal(periodYoY.prior, metric)}</p>
+          </div>
+          <div className={`rounded-xl p-3 ${up ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+            <p className="text-xs text-gray-400 dark:text-gray-500">同比{up ? '成長' : '衰退'}</p>
+            <p className={`text-base sm:text-xl font-black tabular-nums leading-tight ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+              {up ? '▲' : '▼'} {sign}{fmtVal(Math.abs(periodYoY.deltaAmount), metric)}
+            </p>
+            <p className={`text-sm font-bold ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+              {sign}{Math.abs(periodYoY.deltaPct).toFixed(1)}%
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-400 dark:text-gray-500 py-2">去年同期無資料，無法計算同比（例如目前選取的是最早一年）。</p>
+      )}
+    </div>
+  )
+}
+
 // ─── YoY Section ─────────────────────────────────────────────────────────────
-function YoYSection({ comparisonData, metric, chartStyle }) {
+function YoYSection({ comparisonData, metric, chartStyle, periodYoY }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
@@ -239,6 +281,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
 
   return (
     <div className="space-y-4">
+      <PeriodYoYCard periodYoY={periodYoY} metric={metric} />
       <AvgGrowthSummary
         label="年度整體趨勢"
         avgGrowth={avgGrowth != null ? Math.round(avgGrowth * 10) / 10 : null}
@@ -375,7 +418,7 @@ function YoYSection({ comparisonData, metric, chartStyle }) {
 }
 
 // ─── QoQ Section ─────────────────────────────────────────────────────────────
-function QoQSection({ comparisonData, metric, chartStyle }) {
+function QoQSection({ comparisonData, metric, chartStyle, periodYoY }) {
   const { byYear, byQuarter } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
   const years = useMemo(() => byYear.map(d => d.year), [byYear])
@@ -424,6 +467,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
 
   return (
     <div className="space-y-4">
+      <PeriodYoYCard periodYoY={periodYoY} metric={metric} />
       <AvgGrowthSummary
         label="季度整體趨勢"
         avgGrowth={qoqAvgGrowth != null ? Math.round(qoqAvgGrowth * 10) / 10 : null}
@@ -650,47 +694,9 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
 
   const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
 
-  const yUp = periodYoY ? periodYoY.deltaAmount >= 0 : true
-  const ySign = yUp ? '+' : '-'
-
   return (
     <div className="space-y-4">
-      {/* 選取期間 vs 去年同期（同比） */}
-      {periodYoY && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
-          <div className="mb-3">
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">選取期間 vs 去年同期（同比）</h3>
-            {periodYoY.rangeStart && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                本期 {periodYoY.rangeStart} ~ {periodYoY.rangeEnd}　vs　去年 {periodYoY.priorRangeStart} ~ {periodYoY.priorRangeEnd}
-              </p>
-            )}
-          </div>
-          {periodYoY.hasPrior ? (
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
-                <p className="text-xs text-gray-400 dark:text-gray-500">本期間</p>
-                <p className="text-base sm:text-xl font-black text-gray-800 dark:text-gray-100 tabular-nums leading-tight">{fmtVal(periodYoY.current, metric)}</p>
-              </div>
-              <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
-                <p className="text-xs text-gray-400 dark:text-gray-500">去年同期</p>
-                <p className="text-base sm:text-xl font-black text-gray-500 dark:text-gray-400 tabular-nums leading-tight">{fmtVal(periodYoY.prior, metric)}</p>
-              </div>
-              <div className={`rounded-xl p-3 ${yUp ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
-                <p className="text-xs text-gray-400 dark:text-gray-500">同比{yUp ? '成長' : '衰退'}</p>
-                <p className={`text-base sm:text-xl font-black tabular-nums leading-tight ${yUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                  {yUp ? '▲' : '▼'} {ySign}{fmtVal(Math.abs(periodYoY.deltaAmount), metric)}
-                </p>
-                <p className={`text-sm font-bold ${yUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
-                  {ySign}{Math.abs(periodYoY.deltaPct).toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400 dark:text-gray-500 py-2">去年同期無資料，無法計算同比（例如目前選取的是最早一年）。</p>
-          )}
-        </div>
-      )}
+      <PeriodYoYCard periodYoY={periodYoY} metric={metric} />
       <AvgGrowthSummary
         label="月度整體趨勢"
         avgGrowth={momAvgGrowth != null ? Math.round(momAvgGrowth * 10) / 10 : null}
@@ -1022,6 +1028,7 @@ export default function ComparisonChart({ comparisonData, trendData, periodYoY, 
             comparisonData={activeCompData}
             metric={metric}
             chartStyle={yoyStyle}
+            periodYoY={selectedProduct ? null : periodYoY}
           />
         )}
         {activeSection === 'qoq' && (
@@ -1029,6 +1036,7 @@ export default function ComparisonChart({ comparisonData, trendData, periodYoY, 
             comparisonData={activeCompData}
             metric={metric}
             chartStyle={qoqStyle}
+            periodYoY={selectedProduct ? null : periodYoY}
           />
         )}
         {activeSection === 'mom' && (
