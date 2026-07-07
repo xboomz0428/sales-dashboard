@@ -19,6 +19,7 @@ import ProductChart from './components/charts/ProductChart'
 import CustomerChart from './components/charts/CustomerChart'
 import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
+import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import DataTable from './components/DataTable'
 import AIAnalysis from './components/AIAnalysis'
 import GlobalSearch from './components/GlobalSearch'
@@ -114,11 +115,29 @@ function AppDashboard() {
       rows = allRows.filter(r => r.date >= cutoffStr)
     }
     if (demoMode) {
+      // 遮罩真實名稱：客戶/產品/品牌換成穩定的假名（同名永遠對應同一個假名）
+      const buildMask = (values, prefix) => {
+        const m = new Map()
+        ;[...values].sort().forEach((v, i) => m.set(v, `${prefix}${String(i + 1).padStart(3, '0')}`))
+        return m
+      }
+      const customers = new Set(), products = new Set(), brands = new Set()
+      rows.forEach(r => {
+        if (r.customer) customers.add(r.customer)
+        if (r.product)  products.add(r.product)
+        if (r.brand)    brands.add(r.brand)
+      })
+      const cMask = buildMask(customers, '客戶')
+      const pMask = buildMask(products,  '產品')
+      const bMask = buildMask(brands,    '品牌')
       rows = rows.map(r => ({
         ...r,
         subtotal: (r.subtotal || 0) * DEMO_MULTIPLIER,
         total:    (r.total    || 0) * DEMO_MULTIPLIER,
         quantity: (r.quantity || 0) * DEMO_MULTIPLIER,
+        customer: r.customer ? cMask.get(r.customer) : '',
+        product:  r.product  ? pMask.get(r.product)  : '',
+        brand:    r.brand    ? bMask.get(r.brand)    : '',
       }))
     }
     return rows
@@ -153,11 +172,13 @@ function AppDashboard() {
   // 雲端資料載入完成 callback
   // 注意：不可在 setAllRows updater 內呼叫其他 setState（React 反模式）
   // 改用 allRowsRef 讀取當前值，並在 updater 外直接設定 meta / uploadHistory
-  const handleCloudDataLoaded = useCallback((rows, fileNames) => {
+  const handleCloudDataLoaded = useCallback((rows, fileNames, options = {}) => {
     const prev = allRowsRef.current
 
     let finalRows
-    if (!prev.length) {
+    if (options.replace || !prev.length) {
+      // replace：來源是資料庫全量（快取或最新），直接取代——
+      // 這樣「快取先顯示 → 背景抓到最新」時，被刪除的資料列也會正確消失
       finalRows = rows
       setUploadHistory(fileNames.map(name => ({
         id: name, name, addedCount: 0, duplicateCount: 0,
@@ -920,6 +941,7 @@ function AppDashboard() {
           {activeTab === 'channel' && meta && (
             <div data-pdf-section data-pdf-title="通路分析">
               <ChannelBarChart channelData={channelData} channelTypeData={channelTypeData} channelCustomerData={channelCustomerData} channelBrandMonthData={channelBrandMonthData} metric={filters.metric} />
+              {perms.viewCosts && <ChannelMarginPanel filtered={filtered} costs={productCosts} />}
             </div>
           )}
           {activeTab === 'brand' && meta && (

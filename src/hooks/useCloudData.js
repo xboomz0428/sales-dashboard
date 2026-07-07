@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase, supabaseAdmin, supabaseReady } from '../config/supabase'
 import { processExcelFile } from '../utils/dataProcessor'
+import { cacheGet, cacheSet, cacheDel, SALES_CACHE_KEY } from '../utils/salesCache'
 
 const storageReader  = supabaseAdmin || supabase
 const STORAGE_BUCKET = 'sales-files'
@@ -69,7 +70,57 @@ function rowFromDb(r) {
   }
 }
 
-// ─── 從 DB 讀取所有銷售資料（並行分頁，加速載入）─────────────────────────────
+// ─── 資料庫戳記：筆數 + 最大 id，用來判斷本地快取是否過期 ────────────────────
+async function fetchDbStamp() {
+  try {
+    const client = supabaseAdmin || supabase
+    const { count, error } = await client
+      .from(DB_TABLE).select('*', { count: 'exact', head: true })
+    if (error) throw error
+    const { data: maxRow, error: e2 } = await client
+      .from(DB_TABLE).select('id').order('id', { ascending: false }).limit(1)
+    if (e2) throw e2
+    return { count: count || 0, maxId: maxRow?.[0]?.id ?? 0 }
+  } catch { return null }
+}
+
+// ─── 壓縮版讀取（get_sales_compact RPC）──────────────────────────────────────
+// 回傳陣列格式、單一 jsonb 不受 max-rows 限制：141k 筆約 8 個請求（原本 142 個）
+const COMPACT_CHUNK = 20000
+const COMPACT_CONCURRENCY = 4
+const COMPACT_COLS = ['_key','date','yearMonth','year','month','channel','channelType','brand','agentType','product','orderId','customer','quantity','subtotal','total','discountRate']
+
+function rowFromCompact(a) {
+  const r = {}
+  COMPACT_COLS.forEach((k, i) => { r[k] = a[i] })
+  for (const k of ['channel','channelType','brand','agentType','product','orderId','customer']) r[k] = r[k] ?? ''
+  for (const k of ['quantity','subtotal','total','discountRate']) r[k] = r[k] ?? 0
+  return r
+}
+
+async function loadRowsFromDbCompact(totalCount) {
+  const client = supabaseAdmin || supabase
+  const pages = Math.ceil(totalCount / COMPACT_CHUNK)
+  const results = new Array(pages)
+  let nextPage = 0
+  async function worker() {
+    while (true) {
+      const p = nextPage++
+      if (p >= pages) break
+      const { data, error } = await client.rpc('get_sales_compact', {
+        p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK,
+      })
+      if (error) throw error
+      results[p] = (data || []).map(rowFromCompact)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(COMPACT_CONCURRENCY, pages) }, () => worker()))
+  const all = results.flat()
+  all.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+  return all
+}
+
+// ─── 從 DB 讀取所有銷售資料（並行分頁；作為 RPC 失敗時的 fallback）───────────
 const DB_SELECT_COLS = '_key,date,year_month,year,month,channel,channel_type,brand,agent_type,product,order_id,customer,quantity,subtotal,total,discount_rate'
 const DB_LOAD_CONCURRENCY = 6   // 同時抓幾頁（原本逐頁循序抓 140+ 次非常慢）
 
@@ -186,21 +237,66 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
     try {
       setSyncing(true)
 
-      // ① 嘗試從 DB 讀取
+      // ① 嘗試從 DB 讀取（本地快取優先 → 戳記比對 → 壓縮 RPC → 舊版分頁 fallback）
       if (supabaseReady) {
-        setSyncStatus('從資料庫讀取銷售資料…')
-        try {
-          const dbRows = await loadRowsFromDb()
-          if (dbRows.length > 0) {
-            setSyncStatus(`✓ 已從資料庫載入 ${dbRows.length.toLocaleString()} 筆資料`)
-            setTimeout(() => setSyncStatus(''), 4000)
-            onDataLoadedRef.current?.(dbRows, [])
-            setSyncing(false)
-            return
+        setSyncStatus('讀取本地快取…')
+        const cached = await cacheGet(SALES_CACHE_KEY)
+        const stamp  = await fetchDbStamp()
+
+        // 快取有效（戳記一致）→ 秒開，結束
+        if (cached?.rows?.length && stamp &&
+            cached.stamp?.count === stamp.count && cached.stamp?.maxId === stamp.maxId) {
+          onDataLoadedRef.current?.(cached.rows, [], { replace: true })
+          setSyncStatus(`✓ 已載入 ${cached.rows.length.toLocaleString()} 筆（本地快取，資料為最新）`)
+          setTimeout(() => setSyncStatus(''), 4000)
+          setSyncing(false)
+          return
+        }
+
+        // 連不上資料庫但有快取 → 先用快取撐著並提示
+        if (cached?.rows?.length && !stamp) {
+          onDataLoadedRef.current?.(cached.rows, [], { replace: true })
+          setSyncStatus('⚠️ 無法連線資料庫，目前顯示的是本地快取資料')
+          setTimeout(() => setSyncStatus(''), 8000)
+          setSyncing(false)
+          return
+        }
+
+        // 快取過期但先顯示，背景更新（使用者立刻有畫面）
+        if (cached?.rows?.length && stamp) {
+          onDataLoadedRef.current?.(cached.rows, [], { replace: true })
+          setSyncStatus('已載入快取，正在同步最新資料…')
+        } else {
+          setSyncStatus('從資料庫讀取銷售資料…')
+        }
+
+        if (stamp && stamp.count > 0) {
+          try {
+            let dbRows
+            try {
+              dbRows = await loadRowsFromDbCompact(stamp.count)   // 壓縮 RPC（快）
+            } catch (rpcErr) {
+              console.warn('[loadCloudFiles] 壓縮 RPC 失敗，改用分頁讀取:', rpcErr.message)
+              dbRows = await loadRowsFromDb()                      // 舊版分頁 fallback
+            }
+            if (dbRows.length > 0) {
+              onDataLoadedRef.current?.(dbRows, [], { replace: true })
+              cacheSet(SALES_CACHE_KEY, { rows: dbRows, stamp, savedAt: Date.now() })
+              setSyncStatus(`✓ 已從資料庫載入 ${dbRows.length.toLocaleString()} 筆資料`)
+              setTimeout(() => setSyncStatus(''), 4000)
+              setSyncing(false)
+              return
+            }
+          } catch (dbErr) {
+            console.warn('[loadCloudFiles] DB 讀取失敗，改用 Storage:', dbErr.message)
+            if (cached?.rows?.length) {
+              // 已顯示快取，不再走 Storage 蓋掉
+              setSyncStatus('⚠️ 資料庫同步失敗，目前顯示的是本地快取資料')
+              setTimeout(() => setSyncStatus(''), 8000)
+              setSyncing(false)
+              return
+            }
           }
-        } catch (dbErr) {
-          // DB 讀取失敗（可能是資料表尚未建立）→ fallback 到 Storage
-          console.warn('[loadCloudFiles] DB 讀取失敗，改用 Storage:', dbErr.message)
         }
       }
 
@@ -338,6 +434,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         setSyncStatus(`寫入資料庫（${rows.length.toLocaleString()} 筆）…`)
         const { verified } = await importRowsToDb(rows, file.name)   // 失敗會 throw → 進 catch 明確報錯
         dbMsg = `DB ✓ ${verified.toLocaleString()} 筆`
+        cacheDel(SALES_CACHE_KEY)   // 資料已變動，讓下次載入重新抓取
       }
 
       // ② 上傳至 Storage（備份）
@@ -404,6 +501,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
   const loadSpecificFiles = useCallback(async (filePaths) => {
     if (!filePaths?.length || !supabaseReady) return { rows: [], fileNames: [] }
 
+    cacheDel(SALES_CACHE_KEY)   // 備份還原會改變資料，快取作廢
     setSyncing(true)
     setSyncStatus(`正在還原 ${filePaths.length} 個檔案…`)
 
