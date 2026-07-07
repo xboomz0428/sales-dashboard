@@ -1,5 +1,9 @@
 # 更新日誌 CHANGELOG
 
+## v0.0.87（2026-07-07）
+
+- **LC 銷售同步改走 LCTool（半自動）**：LCTool 是視窗程式（無命令列），改為「LCTool 匯出 xls 到資料夾 → 自動匯入」流程。`erp-import.mjs` 新增「資料夾模式」（自動挑最新 xls）；新增 `lc-sync.bat`（一鍵/排程同步，預設 --replace-all 整表更新）；改寫 `scripts/README-LC自動匯入.md` 為 LCTool 半自動設定與排程步驟。無需 ERP 資料庫密碼、無需在 Win7 老機器裝任何東西。
+
 ## v0.0.86（2026-07-07）
 
 - **LC 自動匯入改為在 ERP 主機執行**（因 MariaDB 僅開放本機連線）：`lc-inspect.mjs` 強化為一次輸出「表清單＋候選銷貨表欄位＋樣本資料」，`LC_DB_HOST` 預設 localhost；新增 `.env.example` 與 `scripts/README-LC自動匯入.md`（ERP 主機安裝／探查／排程步驟）。待 schema 貼回後即可產出 `lc-import.mjs`。

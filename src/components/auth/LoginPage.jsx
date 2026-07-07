@@ -157,7 +157,7 @@ export default function LoginPage() {
       </div>
 
       <p className="text-gray-600 dark:text-gray-500 text-xs mt-6">
-        Sales Dashboard v0.0.86
+        Sales Dashboard v0.0.87
       </p>
     </div>
   )

@@ -16,8 +16,8 @@
  * 需要 .env（repo 根目錄）：VITE_SUPABASE_URL、VITE_SUPABASE_SERVICE_KEY
  * Windows 排程：用工作排程器執行 erp-import.bat（見 scripts/README-ERP自動匯入.md）
  */
-import { readFileSync, existsSync } from 'fs'
-import { basename, resolve, dirname } from 'path'
+import { readFileSync, existsSync, statSync, readdirSync } from 'fs'
+import { basename, resolve, dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 import { parseBuffer } from '../src/utils/excelCore.js'
@@ -43,15 +43,26 @@ loadEnv()
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
 const replaceAll = args.includes('--replace-all')
-const filePath = args.find(a => !a.startsWith('--')) || process.env.ERP_FILE
+let filePath = args.find(a => !a.startsWith('--')) || process.env.ERP_FILE
 
 if (!filePath) {
-  console.error('❌ 請指定檔案路徑：node scripts/erp-import.mjs <xls 路徑> [--dry-run] [--replace-all]')
+  console.error('❌ 請指定檔案或資料夾：node scripts/erp-import.mjs <xls 或資料夾> [--dry-run] [--replace-all]')
   process.exit(1)
 }
 if (!existsSync(filePath)) {
-  console.error(`❌ 找不到檔案：${filePath}（NAS 未連線？）`)
+  console.error(`❌ 找不到路徑：${filePath}（NAS 未連線？）`)
   process.exit(1)
+}
+// 若給的是資料夾（例如 LCTool 匯出到的 NAS 資料夾），自動挑最新的 .xls/.xlsx
+if (statSync(filePath).isDirectory()) {
+  const dir = filePath
+  const xls = readdirSync(dir)
+    .filter(f => /\.xlsx?$/i.test(f) && !f.startsWith('~$'))
+    .map(f => ({ f, m: statSync(join(dir, f)).mtimeMs }))
+    .sort((a, b) => b.m - a.m)
+  if (!xls.length) { console.error(`❌ 資料夾內沒有 xls：${dir}`); process.exit(1) }
+  filePath = join(dir, xls[0].f)
+  console.log(`📁 資料夾模式：挑選最新檔 ${xls[0].f}`)
 }
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL

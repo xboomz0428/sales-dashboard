@@ -1,31 +1,41 @@
-# LC(ERP) 自動匯入 — 在 ERP 主機上設定
+# LC 銷售資料同步（半自動：LCTool 匯出 → 自動匯入儀表板）
 
-因為 ERP 的 MariaDB 只開放本機連線，最穩的做法是**把自動匯入跑在 ERP 主機 `WESMILE_S1-PC` 上**（用 `localhost` 連 DB，天生有權限，不必改資料庫授權）。
-
-## 一、一次性安裝（在 WESMILE_S1-PC 上）
-
-1. 安裝 **Node.js LTS**：https://nodejs.org
-2. 取得本專案到該機（擇一）：
-   - `git clone https://github.com/xboomz0428/sales-dashboard.git`，或
-   - 直接把整個 repo 資料夾複製過去
-3. 在 repo 目錄開 PowerShell 或 CMD，執行：`npm install`
-4. 複製 `.env.example` 為 `.env`，填入：
-   - `LC_DB_HOST=localhost`、`LC_DB_USER` / `LC_DB_PASS`（ERP 的**資料庫**帳密）、`LC_DB_NAME=lcdata`
-   - `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_SERVICE_KEY`（寫入儀表板資料庫用，跟你開發機那份 `.env` 一樣）
-
-## 二、探查結構（第一次，給我看 schema）
+LCTool（LC Export）是**視窗程式**（選日期→按確定→匯出 xls），沒有命令列，無法直接排程。
+但它匯出的 xls 正是儀表板的來源格式，所以採「半自動」最穩：
+**你偶爾點一下匯出，其餘（進資料庫、驗證、更新儀表板）全自動。**
 
 ```
-node scripts/lc-inspect.mjs > lc-schema.txt
+LCTool 選日期匯出 xls  →  存到 NAS 固定資料夾  →  lc-sync.bat 自動抓最新檔匯入 Supabase  →  儀表板自動更新
 ```
-把 `lc-schema.txt` 內容貼回對話。我會據此寫好 `scripts/lc-import.mjs`（唯讀查 `lcdata` → 冪等寫入 `sales_data`，比照現有 `erp-import.mjs` 的「插新→驗證→刪舊」安全順序）。
 
-## 三、之後每天自動匯入（工作排程器）
+## 一次性設定（在「有 Node 的電腦」上，例如你的開發機）
 
-`lc-import.mjs` 完成後：
-1. 開「工作排程器」→「建立基本工作」
-2. 名稱 `LC銷售自動匯入`；觸發：每天（建議 ERP 日結後，如 06:30）
-3. 動作：啟動程式 → 程式填 `node`、引數填 `scripts\lc-import.mjs`、「開始位置」填 repo 目錄
-4. 右鍵該工作 →「執行」測試一次，看到 `🎉 完成` 即可
+> ERP 老機器(Win7)不用裝任何東西；匯入跑在你有 Node 的電腦。
 
-> 全程唯讀查 ERP、只寫入 Supabase 的 `sales_data`；不會改動 ERP 任何資料。
+1. 確認這台有 Node：`node -v` 有版本號即可。
+2. 取得本專案（`git clone` 或複製資料夾），於 repo 目錄 `npm install`。
+3. `.env` 需有 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_SERVICE_KEY`。
+4. 打開 `lc-sync.bat`，把 `FOLDER=` 改成你 LCTool 實際匯出的資料夾（建議放 NAS，兩台都讀得到）。
+
+## 平常的操作（你要做的只有這步）
+
+1. 開 LCTool → 日期區間選 **2018/01/01 ～ 今天**（要完整）→ 確定 → 存到上面那個 NAS 資料夾。
+2. 之後 `lc-sync.bat` 會抓資料夾裡**最新的 xls**、用 `--replace-all` 整批更新資料庫。
+   - 手動：雙擊 `lc-sync.bat`。
+   - 自動：見下方排程。
+
+> 用 `--replace-all` 是因為每次都匯出完整範圍→整表換新，最不會有重複計算問題。
+> 若你改成只匯出當月、要保留歷史，請改用「檔案層級」模式（`erp-import.mjs <單一檔>` 不加 --replace-all）。
+
+## 定時自動匯入（工作排程器，在有 Node 的電腦上）
+
+1. 工作排程器 →「建立基本工作」
+2. 名稱 `儀表板銷售同步`；觸發：每天（例如 09:00）或每小時
+3. 動作：啟動程式 → 程式填 `lc-sync.bat` 的完整路徑；「開始位置」填 repo 目錄
+4. 右鍵該工作「執行」測試一次，看到 `✅ 完成` 即可
+
+這樣：你（或同事）匯出一次 xls 丟進資料夾，排程就會自動更新儀表板；就算忘了匯出，也只是資料停在上次，不會出錯。
+
+## 想要「完全不用點」？（進階，非必要）
+
+LCTool 是視窗程式，要全自動得用 UI 自動化（例如 AutoHotkey）在 ERP 機器上「自動開視窗、填日期、按確定」。可行但較脆弱（LCTool 一改版就可能失效），且要在老機器上長駐。**建議先用上面的半自動**，穩定且維護簡單；真的需要全自動再評估。
