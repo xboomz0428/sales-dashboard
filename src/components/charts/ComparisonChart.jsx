@@ -576,7 +576,7 @@ function QoQSection({ comparisonData, metric, chartStyle }) {
 }
 
 // ─── MoM Section ─────────────────────────────────────────────────────────────
-function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
+function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
   const years = useMemo(() => byYear.map(d => d.year), [byYear])
@@ -650,8 +650,47 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
 
   const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
 
+  const yUp = periodYoY ? periodYoY.deltaAmount >= 0 : true
+  const ySign = yUp ? '+' : '-'
+
   return (
     <div className="space-y-4">
+      {/* 選取期間 vs 去年同期（同比） */}
+      {periodYoY && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+          <div className="mb-3">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">選取期間 vs 去年同期（同比）</h3>
+            {periodYoY.rangeStart && (
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                本期 {periodYoY.rangeStart} ~ {periodYoY.rangeEnd}　vs　去年 {periodYoY.priorRangeStart} ~ {periodYoY.priorRangeEnd}
+              </p>
+            )}
+          </div>
+          {periodYoY.hasPrior ? (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+                <p className="text-xs text-gray-400 dark:text-gray-500">本期間</p>
+                <p className="text-base sm:text-xl font-black text-gray-800 dark:text-gray-100 tabular-nums leading-tight">{fmtVal(periodYoY.current, metric)}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+                <p className="text-xs text-gray-400 dark:text-gray-500">去年同期</p>
+                <p className="text-base sm:text-xl font-black text-gray-500 dark:text-gray-400 tabular-nums leading-tight">{fmtVal(periodYoY.prior, metric)}</p>
+              </div>
+              <div className={`rounded-xl p-3 ${yUp ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                <p className="text-xs text-gray-400 dark:text-gray-500">同比{yUp ? '成長' : '衰退'}</p>
+                <p className={`text-base sm:text-xl font-black tabular-nums leading-tight ${yUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                  {yUp ? '▲' : '▼'} {ySign}{fmtVal(Math.abs(periodYoY.deltaAmount), metric)}
+                </p>
+                <p className={`text-sm font-bold ${yUp ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                  {ySign}{Math.abs(periodYoY.deltaPct).toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 dark:text-gray-500 py-2">去年同期無資料，無法計算同比（例如目前選取的是最早一年）。</p>
+          )}
+        </div>
+      )}
       <AvgGrowthSummary
         label="月度整體趨勢"
         avgGrowth={momAvgGrowth != null ? Math.round(momAvgGrowth * 10) / 10 : null}
@@ -812,7 +851,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle }) {
 }
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
-export default function ComparisonChart({ comparisonData, trendData, filtered, metric }) {
+export default function ComparisonChart({ comparisonData, trendData, periodYoY, filtered, metric }) {
   const [activeSection, setActiveSection] = useState('yoy')
   const [selectedProduct, setSelectedProduct] = useState('')
   const [productQuery, setProductQuery] = useState('')
@@ -998,6 +1037,7 @@ export default function ComparisonChart({ comparisonData, trendData, filtered, m
             comparisonData={activeCompData}
             metric={metric}
             chartStyle={momStyle}
+            periodYoY={selectedProduct ? null : periodYoY}
           />
         )}
       </div>

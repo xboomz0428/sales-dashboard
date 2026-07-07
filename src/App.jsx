@@ -385,7 +385,7 @@ function AppDashboard() {
   const salesData = useSalesData(visibleRows, filters)
   const {
     summary, filtered,
-    trendData, trendDataYoY, trendDataMoM, trendByChannel, trendByBrand, trendByProduct,
+    trendData, trendDataYoY, trendDataMoM, periodYoY, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
     brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
     channelBrandMonthData,
@@ -909,7 +909,7 @@ function AppDashboard() {
           )}
           {activeTab === 'comparison' && meta && (
             <div data-pdf-section data-pdf-title="對比分析">
-              <ComparisonChart comparisonData={comparisonData} trendData={trendData} filtered={filtered} metric={filters.metric} />
+              <ComparisonChart comparisonData={comparisonData} trendData={trendData} periodYoY={periodYoY} filtered={filtered} metric={filters.metric} />
             </div>
           )}
           {activeTab === 'trend' && meta && (

@@ -135,6 +135,25 @@ export function useSalesData(rows, filters) {
     return Object.values(map).sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
   }, [rows, filtered, filters])
 
+  // 選取期間 vs 去年同期（同比）：加總目前選取範圍，與對齊去年同月的加總比較
+  const periodYoY = useMemo(() => {
+    const current = trendData.reduce((s, d) => s + (d[metric] || 0), 0)
+    const prior   = trendDataYoY.reduce((s, d) => s + (d[metric] || 0), 0)
+    const hasPrior = trendDataYoY.length > 0 && prior !== 0
+    const deltaAmount = current - prior
+    const deltaPct = hasPrior ? (deltaAmount / Math.abs(prior)) * 100 : null
+    const months = trendData.map(d => d.yearMonth)
+    const shiftYear = (ym) => ym ? `${parseInt(ym.slice(0, 4)) - 1}${ym.slice(4)}` : null
+    return {
+      metric,
+      current, prior, deltaAmount, deltaPct, hasPrior,
+      rangeStart: months[0] || null,
+      rangeEnd:   months[months.length - 1] || null,
+      priorRangeStart: shiftYear(months[0]),
+      priorRangeEnd:   shiftYear(months[months.length - 1]),
+    }
+  }, [trendData, trendDataYoY, metric])
+
   // Trend by channel
   const trendByChannel = useMemo(() => {
     const channelSet = [...new Set(filtered.map(r => r.channel).filter(Boolean))]
@@ -575,7 +594,7 @@ export function useSalesData(rows, filters) {
 
   return {
     filtered, summary, activeProducts,
-    trendData, trendDataYoY, trendDataMoM,
+    trendData, trendDataYoY, trendDataMoM, periodYoY,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
     brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
