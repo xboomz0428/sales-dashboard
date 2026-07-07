@@ -118,9 +118,12 @@ export function parseBuffer(buffer) {
     const customer    = str(colIdx.customer    >= 0 ? row[colIdx.customer]    : '')
     const dateStr     = parsedDate.format('YYYY-MM-DD')
 
-    const _key = orderId
+    // 銷售金額是已發生的事實，每一筆都要統計。
+    // 同一訂單內「同商品、同數量、同金額」的多筆明細是正當資料（例如不同批號），
+    // 因此在組合鍵後加上該檔案內的行序號 `#i`，確保這些明細不會被去重誤刪。
+    const _key = (orderId
       ? `id:${orderId}|prod:${product}|sub:${subtotal}|qty:${quantity}`
-      : `${dateStr}|${channel}|${channelType}|${brand}|${product}|${customer}|${subtotal}|${quantity}`
+      : `${dateStr}|${channel}|${channelType}|${brand}|${product}|${customer}|${subtotal}|${quantity}`) + `#${i}`
 
     rows.push({
       date: dateStr,
@@ -133,28 +136,19 @@ export function parseBuffer(buffer) {
     })
   }
 
-  // 檔案內去重
-  const seenKeys   = new Set()
-  const dedupedRows = []
-  for (const row of rows) {
-    if (!seenKeys.has(row._key)) {
-      seenKeys.add(row._key)
-      dedupedRows.push(row)
-    }
-  }
-
+  // 不做去重：每一筆銷售明細都保留（跨檔重複匯入由上傳流程以 source_file 冪等處理）。
   const unique = (arr) => [...new Set(arr.filter(Boolean))].sort()
   return {
-    rows: dedupedRows,
+    rows,
     meta: {
-      years:        unique(dedupedRows.map(r => r.year)),
-      channels:     unique(dedupedRows.map(r => r.channel)),
-      channelTypes: unique(dedupedRows.map(r => r.channelType)),
-      brands:       unique(dedupedRows.map(r => r.brand)),
-      agentTypes:   unique(dedupedRows.map(r => r.agentType)),
-      customers:    unique(dedupedRows.map(r => r.customer)),
-      products:     unique(dedupedRows.map(r => r.product)),
-      totalRows:    dedupedRows.length,
+      years:        unique(rows.map(r => r.year)),
+      channels:     unique(rows.map(r => r.channel)),
+      channelTypes: unique(rows.map(r => r.channelType)),
+      brands:       unique(rows.map(r => r.brand)),
+      agentTypes:   unique(rows.map(r => r.agentType)),
+      customers:    unique(rows.map(r => r.customer)),
+      products:     unique(rows.map(r => r.product)),
+      totalRows:    rows.length,
     },
   }
 }

@@ -295,8 +295,9 @@ function AppDashboard() {
       setNotice(msg)
       setTimeout(() => setNotice(null), 5000)
 
-      // 同步至雲端（非同步，不阻塞 UI）
-      uploadSalesFile(file, finalNewRows)
+      // 同步至雲端：傳整份檔案的資料列（非 finalNewRows），
+      // 資料庫以 source_file 冪等取代，必須收到該檔案的每一筆。
+      uploadSalesFile(file, data.rows)
     } catch (err) {
       setError(err.message || '解析失敗，請確認檔案格式')
     } finally {

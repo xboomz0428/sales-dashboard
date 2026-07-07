@@ -25,7 +25,7 @@ const sharedPath = (filename) =>
   filename ? `${SHARED_FOLDER}/${filename}` : SHARED_FOLDER
 
 // ─── 資料列欄位轉換（camelCase ↔ snake_case）───────────────────────────────
-function rowToDb(r) {
+function rowToDb(r, sourceFile, batch) {
   return {
     _key:          r._key,
     date:          r.date,
@@ -43,6 +43,8 @@ function rowToDb(r) {
     subtotal:      r.subtotal      ?? 0,
     total:         r.total         ?? 0,
     discount_rate: r.discountRate  ?? 0,
+    source_file:   sourceFile      ?? null,
+    import_batch:  batch           ?? null,
   }
 }
 
@@ -77,8 +79,9 @@ async function loadRowsFromDb() {
     const { data, error } = await client
       .from(DB_TABLE)
       .select('_key,date,year_month,year,month,channel,channel_type,brand,agent_type,product,order_id,customer,quantity,subtotal,total,discount_rate')
-      .range(from, from + DB_PAGE_SIZE - 1)
       .order('date', { ascending: true })
+      .order('id', { ascending: true })   // 穩定的次要排序，避免分頁時同日期資料列被跳過或重複
+      .range(from, from + DB_PAGE_SIZE - 1)
 
     if (error) throw error
     if (!data?.length) break
@@ -91,22 +94,52 @@ async function loadRowsFromDb() {
   return allRows
 }
 
-// ─── 批次 upsert 至 DB（_key 重複則跳過，不更新）──────────────────────────
-async function upsertRowsToDb(rows) {
-  if (!rows?.length) return { inserted: 0 }
+// ─── 匯入單一檔案的資料列至 DB（以 source_file 檔案層級冪等 + 寫入後驗證）──────
+//
+// 安全順序（避免上傳中途失敗造成資料遺失）：
+//   1. 以新的 import_batch 整批插入該檔案的所有資料列
+//   2. 驗證資料庫實際收到的筆數 == 送出的筆數，不符則清掉這批並丟出錯誤
+//   3. 確認新資料到位後，才刪除同一檔案的「舊批次」資料
+// 這樣就算插入到一半失敗，舊資料仍完整存在，重新上傳即可恢復。
+async function importRowsToDb(rows, sourceFile) {
+  if (!rows?.length) return { inserted: 0, verified: 0 }
+  if (!sourceFile) throw new Error('缺少來源檔名，無法安全寫入資料庫')
   const client = supabaseAdmin || supabase
-  let totalInserted = 0
+  const batch = Date.now()
 
+  let inserted = 0
   for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
-    const chunk = rows.slice(i, i + DB_BATCH_SIZE).map(rowToDb)
-    const { error } = await client
-      .from(DB_TABLE)
-      .upsert(chunk, { onConflict: '_key', ignoreDuplicates: true })
-    if (error) throw error
-    totalInserted += chunk.length
+    const chunk = rows.slice(i, i + DB_BATCH_SIZE).map(r => rowToDb(r, sourceFile, batch))
+    const { error } = await client.from(DB_TABLE).insert(chunk)
+    if (error) {
+      // 清掉這次未完成的批次，讓舊資料維持原狀
+      await client.from(DB_TABLE).delete().eq('source_file', sourceFile).eq('import_batch', batch)
+      throw new Error(`寫入資料庫失敗（第 ${i + 1} 筆起）：${error.message}`)
+    }
+    inserted += chunk.length
   }
 
-  return { inserted: totalInserted }
+  // 寫入後驗證：本批實際筆數必須等於送出筆數
+  const { count, error: cErr } = await client
+    .from(DB_TABLE)
+    .select('*', { count: 'exact', head: true })
+    .eq('source_file', sourceFile)
+    .eq('import_batch', batch)
+  if (cErr) throw cErr
+  if (count !== rows.length) {
+    await client.from(DB_TABLE).delete().eq('source_file', sourceFile).eq('import_batch', batch)
+    throw new Error(`寫入筆數不符（送出 ${rows.length}，實得 ${count}），已還原，請重新上傳`)
+  }
+
+  // 新資料確認到位後，才移除同檔案的舊批次
+  const { error: dErr } = await client
+    .from(DB_TABLE)
+    .delete()
+    .eq('source_file', sourceFile)
+    .neq('import_batch', batch)
+  if (dErr) throw dErr
+
+  return { inserted, verified: count }
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -180,6 +213,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setCloudFiles(excelFiles.map(f => ({ name: f.name, path: sharedPath(f.name) })))
 
       const allRows = []
+      const perFile = []            // 每個檔案各自的資料列，供背景同步至 DB（依 source_file 冪等）
       const failedFiles = []
       const loadedFileNames = []
 
@@ -196,6 +230,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
             const rows = JSON.parse(await blob.text())
             if (!rows?.length) throw new Error('快取資料為空')
             for (const r of rows) allRows.push(r)
+            perFile.push({ name: f.name, rows })
             loadedFileNames.push(f.name)
           } else {
             const { data: blob, error: dlErr } = await storageReader.storage
@@ -207,6 +242,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
             const result = await processExcelFile(file)
             if (!result?.rows?.length) throw new Error('檔案無可解析的資料列')
             for (const r of result.rows) allRows.push(r)
+            perFile.push({ name: f.name, rows: result.rows })
             loadedFileNames.push(f.name)
           }
         } catch (e) {
@@ -217,10 +253,13 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       if (allRows.length) {
         onDataLoadedRef.current?.(allRows, loadedFileNames)
 
-        // 將 Storage 資料同步至 DB（背景執行，不阻塞 UI）
-        upsertRowsToDb(allRows).catch(e =>
-          console.warn('[loadCloudFiles] 同步至 DB 失敗:', e.message)
-        )
+        // 將 Storage 資料同步至 DB（背景執行，不阻塞 UI），每個檔案各自冪等匯入
+        ;(async () => {
+          for (const pf of perFile) {
+            try { await importRowsToDb(pf.rows, pf.name) }
+            catch (e) { console.warn(`[loadCloudFiles] 同步 ${pf.name} 至 DB 失敗:`, e.message) }
+          }
+        })()
       }
 
       if (failedFiles.length) {
@@ -275,17 +314,14 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       setSyncing(true)
       setSyncStatus(`正在上傳 ${file.name}…`)
 
-      // ① 寫入 DB（主要儲存）─ 重複 _key 自動跳過
+      // ① 寫入 DB（主要儲存）─ 檔案層級冪等 + 寫入後驗證筆數
+      //    DB 是主要資料來源，寫入失敗必須「明確報錯並中止」，不可假裝成功後
+      //    留下殘缺資料（這正是先前金額憑空消失的根源）。
       let dbMsg = ''
       if (rows?.length) {
-        try {
-          setSyncStatus(`寫入資料庫（${rows.length.toLocaleString()} 筆）…`)
-          await upsertRowsToDb(rows)
-          dbMsg = `DB ✓`
-        } catch (dbErr) {
-          console.warn('[uploadSalesFile] DB 寫入失敗:', dbErr.message)
-          dbMsg = `DB 失敗`
-        }
+        setSyncStatus(`寫入資料庫（${rows.length.toLocaleString()} 筆）…`)
+        const { verified } = await importRowsToDb(rows, file.name)   // 失敗會 throw → 進 catch 明確報錯
+        dbMsg = `DB ✓ ${verified.toLocaleString()} 筆`
       }
 
       // ② 上傳至 Storage（備份）
