@@ -218,6 +218,7 @@ function AIChartDashboard({ salesData }) {
 const ANALYSIS_TYPES = [
   { value: 'comprehensive', label: '📊 完整分析', desc: '全面評估所有面向',    color: 'from-blue-600 to-indigo-600',   light: 'bg-blue-600' },
   { value: 'channel',       label: '🏪 通路分析', desc: '通路深度洞察與優化',  color: 'from-emerald-500 to-teal-600',  light: 'bg-emerald-600' },
+  { value: 'channelDev',    label: '🧭 通路開發維護', desc: '經銷分級、新通路、90天計畫', color: 'from-teal-500 to-cyan-600', light: 'bg-teal-600' },
   { value: 'product',       label: '🎯 產品開發', desc: '產品策略與新品建議',  color: 'from-violet-500 to-purple-600', light: 'bg-violet-600' },
   { value: 'growth',        label: '🚀 成長策略', desc: '25% 年度成長計畫',   color: 'from-amber-500 to-orange-500',  light: 'bg-amber-600' },
 ]
@@ -232,7 +233,7 @@ const SECTION_THEMES = [
   { grad: 'from-indigo-500 to-blue-600',     bg: 'bg-indigo-50 dark:bg-indigo-900/20',  border: 'border-indigo-100 dark:border-indigo-700/50',  text: 'text-indigo-800 dark:text-indigo-300',  dot: 'bg-indigo-500',  num: 'bg-indigo-600' },
 ]
 
-const TYPE_LABELS = { comprehensive: '完整分析', channel: '通路分析', product: '產品開發', growth: '成長策略' }
+const TYPE_LABELS = { comprehensive: '完整分析', channel: '通路分析', channelDev: '通路開發維護', product: '產品開發', growth: '成長策略' }
 const HISTORY_KEY = 'ai_analysis_history'
 
 function getHistory() {
