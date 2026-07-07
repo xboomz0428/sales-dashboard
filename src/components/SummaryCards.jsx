@@ -38,6 +38,12 @@ function fmt(n) {
   if (n >= 1e4) return (n / 1e4).toFixed(0) + ' 萬'
   return Math.round(n).toLocaleString()
 }
+// 保留兩位小數版本（總銷售金額專用，例如 1.24 億）
+function fmt2(n) {
+  if (n >= 1e8) return (n / 1e8).toFixed(2) + ' 億'
+  if (n >= 1e4) return (n / 1e4).toFixed(2) + ' 萬'
+  return Math.round(n).toLocaleString()
+}
 function fmtInt(n) { return n != null ? Math.round(n).toLocaleString() : '—' }
 
 export default function SummaryCards({ summary, metric, trendData = [], productData = [], customerData = [], customerByChannelTop = {}, costs = {} }) {
@@ -73,7 +79,7 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
 
   // 新版 Design Token 色系
   const kpiCards = [
-    vis('totalSales') && { id: 'totalSales', label: '總銷售金額', value: `NT$ ${fmt(totalSales)}`, sub: fmtInt(totalSales) + ' 元', icon: '💰',
+    vis('totalSales') && { id: 'totalSales', label: '總銷售金額', value: `NT$ ${fmt2(totalSales)}`, sub: fmtInt(totalSales) + ' 元', icon: '💰',
       barStyle: {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'}, iconBg: {background:'var(--mint-50)',color:'var(--mint-700)'} },
     vis('totalQty') && { id: 'totalQty', label: '銷售數量', value: fmtInt(totalQty), sub: '件', icon: '📦',
       barStyle: {background:'linear-gradient(90deg,var(--sky-300),var(--sky-500))'}, iconBg: {background:'var(--sky-100)',color:'var(--sky-500)'} },

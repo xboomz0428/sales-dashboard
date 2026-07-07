@@ -69,29 +69,45 @@ function rowFromDb(r) {
   }
 }
 
-// ─── 從 DB 讀取所有銷售資料（分頁） ─────────────────────────────────────────
+// ─── 從 DB 讀取所有銷售資料（並行分頁，加速載入）─────────────────────────────
+const DB_SELECT_COLS = '_key,date,year_month,year,month,channel,channel_type,brand,agent_type,product,order_id,customer,quantity,subtotal,total,discount_rate'
+const DB_LOAD_CONCURRENCY = 6   // 同時抓幾頁（原本逐頁循序抓 140+ 次非常慢）
+
 async function loadRowsFromDb() {
   const client = supabaseAdmin || supabase
-  const allRows = []
-  let from = 0
 
-  while (true) {
-    const { data, error } = await client
-      .from(DB_TABLE)
-      .select('_key,date,year_month,year,month,channel,channel_type,brand,agent_type,product,order_id,customer,quantity,subtotal,total,discount_rate')
-      .order('date', { ascending: true })
-      .order('id', { ascending: true })   // 穩定的次要排序，避免分頁時同日期資料列被跳過或重複
-      .range(from, from + DB_PAGE_SIZE - 1)
+  // 先取總筆數，換算頁數，再以多個 worker 並行抓取各頁
+  const { count, error: cErr } = await client
+    .from(DB_TABLE)
+    .select('*', { count: 'exact', head: true })
+  if (cErr) throw cErr
+  if (!count) return []
 
-    if (error) throw error
-    if (!data?.length) break
+  const pages = Math.ceil(count / DB_PAGE_SIZE)
+  const results = new Array(pages)
+  let nextPage = 0
 
-    for (const r of data) allRows.push(rowFromDb(r))
-    if (data.length < DB_PAGE_SIZE) break
-    from += DB_PAGE_SIZE
+  async function worker() {
+    while (true) {
+      const p = nextPage++
+      if (p >= pages) break
+      const from = p * DB_PAGE_SIZE
+      const { data, error } = await client
+        .from(DB_TABLE)
+        .select(DB_SELECT_COLS)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true })   // 穩定次要排序，避免分頁時同日期資料列被跳過或重複
+        .range(from, from + DB_PAGE_SIZE - 1)
+      if (error) throw error
+      results[p] = (data || []).map(rowFromDb)
+    }
   }
 
-  return allRows
+  await Promise.all(
+    Array.from({ length: Math.min(DB_LOAD_CONCURRENCY, pages) }, () => worker())
+  )
+
+  return results.flat()
 }
 
 // ─── 匯入單一檔案的資料列至 DB（以 source_file 檔案層級冪等 + 寫入後驗證）──────

@@ -100,14 +100,29 @@ function AppDashboard() {
   const allRowsRef = useRef([])   // 給 handleCloudDataLoaded 讀取，避免 stale closure
   useEffect(() => { allRowsRef.current = allRows }, [allRows])
 
-  // 依角色資料年限過濾（NULL = 不限制；正整數 = 從今天往前 N 年）
+  // Demo 模式：開啟後所有金額/數量放大 DEMO_MULTIPLIER 倍，用於對外展示時隱藏真實數字
+  const [demoMode, setDemoMode] = useState(false)
+  const DEMO_MULTIPLIER = 4
+
+  // 依角色資料年限過濾（NULL = 不限制；正整數 = 從今天往前 N 年）＋ Demo 模式放大
   const visibleRows = useMemo(() => {
-    if (!dataYearsLimit) return allRows
-    const cutoff = new Date()
-    cutoff.setFullYear(cutoff.getFullYear() - dataYearsLimit)
-    const cutoffStr = cutoff.toISOString().slice(0, 10)  // 'YYYY-MM-DD'
-    return allRows.filter(r => r.date >= cutoffStr)
-  }, [allRows, dataYearsLimit])
+    let rows = allRows
+    if (dataYearsLimit) {
+      const cutoff = new Date()
+      cutoff.setFullYear(cutoff.getFullYear() - dataYearsLimit)
+      const cutoffStr = cutoff.toISOString().slice(0, 10)  // 'YYYY-MM-DD'
+      rows = allRows.filter(r => r.date >= cutoffStr)
+    }
+    if (demoMode) {
+      rows = rows.map(r => ({
+        ...r,
+        subtotal: (r.subtotal || 0) * DEMO_MULTIPLIER,
+        total:    (r.total    || 0) * DEMO_MULTIPLIER,
+        quantity: (r.quantity || 0) * DEMO_MULTIPLIER,
+      }))
+    }
+    return rows
+  }, [allRows, dataYearsLimit, demoMode])
 
   const [meta, setMeta] = useState(null)
   // 依年限過濾後的 meta，供篩選器顯示可選年份
@@ -630,6 +645,16 @@ function AppDashboard() {
             <button onClick={handleReset}
               className="hidden sm:flex text-sm px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               重置
+            </button>
+
+            <button onClick={() => setDemoMode(d => !d)}
+              title={demoMode ? 'Demo 模式開啟中：所有金額/數量已放大 4 倍，非真實數據' : '切換 Demo 模式（放大 4 倍以隱藏真實數據，供對外展示）'}
+              className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg border transition-colors ${
+                demoMode
+                  ? 'border-amber-400 bg-amber-100 text-amber-700 font-bold dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-600'
+                  : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}>
+              {demoMode ? '🎭 Demo ×4' : 'Demo'}
             </button>
 
             {roleInfo && (
