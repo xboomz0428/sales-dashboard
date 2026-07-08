@@ -20,6 +20,10 @@ import CustomerChart from './components/charts/CustomerChart'
 import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
+import BrandScorecard from './components/charts/BrandScorecard'
+import LunarPanel from './components/charts/LunarPanel'
+import RepurchasePanel from './components/RepurchasePanel'
+import CharityPanel from './components/CharityPanel'
 import DataTable from './components/DataTable'
 import AIAnalysis from './components/AIAnalysis'
 import GlobalSearch from './components/GlobalSearch'
@@ -50,6 +54,7 @@ const TABS = [
   { id: 'channel',     label: '通路分析', icon: '🏪' },
   { id: 'brand',       label: '品牌分析', icon: '✨' },
   { id: 'heatmap',     label: '熱力圖',   icon: '🗓️' },
+  { id: 'lunar',       label: '農曆節氣', icon: '🏮' },
   { id: 'table',       label: '資料表格', icon: '📋' },
   { id: 'crm',         label: '業務管理', icon: '🤝' },
   { id: 'costs',       label: '商品成本', icon: '💲' },
@@ -68,7 +73,7 @@ const TABS = [
 ]
 
 const TAB_GROUPS = [
-  { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','table'] },
+  { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
   { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
@@ -947,11 +952,13 @@ function AppDashboard() {
           {activeTab === 'brand' && meta && (
             <div data-pdf-section data-pdf-title="品牌分析">
               <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} brandChannelMonthData={brandChannelMonthData} metric={filters.metric} />
+              <BrandScorecard allRows={visibleRows} costs={perms.viewCosts ? productCosts : {}} />
             </div>
           )}
           {activeTab === 'product' && meta && (
             <div data-pdf-section data-pdf-title="產品分析">
               <ProductChart productData={productData} productByChannel={productByChannel} productCustomerData={productCustomerData} metric={filters.metric} />
+              <CharityPanel allRows={visibleRows} costs={productCosts} />
             </div>
           )}
           {activeTab === 'customer' && meta && (
@@ -967,6 +974,11 @@ function AppDashboard() {
           {activeTab === 'heatmap' && meta && (
             <div data-pdf-section data-pdf-title="熱力圖">
               <HeatmapChart heatmapData={heatmapData} heatmapBrandData={heatmapBrandData} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'lunar' && meta && (
+            <div data-pdf-section data-pdf-title="農曆節氣">
+              <LunarPanel allRows={visibleRows} />
             </div>
           )}
           {activeTab === 'table' && meta && (
@@ -1016,6 +1028,7 @@ function AppDashboard() {
           {activeTab === 'health' && meta && (
             <div data-pdf-section data-pdf-title="客戶健康">
               <CustomerHealthPanel allRows={visibleRows} />
+              <RepurchasePanel allRows={visibleRows} />
             </div>
           )}
           {activeTab === 'forecast' && meta && (
@@ -1036,6 +1049,7 @@ function AppDashboard() {
               }}
               invoiceRecords={invoiceRecords}
               allRows={visibleRows}
+              costs={productCosts}
             />
           )}
           {activeTab === 'backup' && (

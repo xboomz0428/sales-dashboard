@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
-import { formatDailySalesReport, formatWeeklyInvoiceReport, sendToLine } from '../utils/lineMessage'
+import { formatDailySalesReport, formatWeeklyInvoiceReport, formatMonthlyReport, sendToLine } from '../utils/lineMessage'
 import { supabase } from '../config/supabase'
+import { getStoredApiKey } from '../utils/ai'
+import { streamAnalysis } from '../utils/aiAnalyst'
 
 const LS_KEY = 'line_notify_settings'
 const WEEKDAYS = ['週日','週一','週二','週三','週四','週五','週六']
@@ -10,6 +12,15 @@ function loadSettings() {
 }
 function saveSettings(s) {
   localStorage.setItem(LS_KEY, JSON.stringify(s))
+  // 同步到 DB，讓排程腳本（monthly-report.mjs）能用同一組設定（靜默失敗不影響本地）
+  try {
+    if (supabase) {
+      supabase.from('dashboard_settings').upsert([
+        { key: 'line_channel_token', value: s.channelToken || '', updated_at: new Date().toISOString() },
+        { key: 'line_target_id',     value: s.targetId     || '', updated_at: new Date().toISOString() },
+      ], { onConflict: 'key' }).then(() => {})
+    }
+  } catch { /* 靜默 */ }
 }
 
 // ─── Edge Function 原始碼（顯示給用戶複製）──────────────────────────────────
@@ -126,9 +137,10 @@ function CodeBlock({ code, label }) {
 }
 
 // ─── 主元件 ──────────────────────────────────────────────────────────────────
-export default function LineNotifyPanel({ salesData, invoiceRecords, allRows }) {
+export default function LineNotifyPanel({ salesData, invoiceRecords, allRows, costs = {} }) {
   const [settings, setSettings] = useState(loadSettings)
-  const [sending, setSending] = useState(null)  // 'daily' | 'weekly' | null
+  const [sending, setSending] = useState(null)  // 'daily' | 'weekly' | 'monthly' | null
+  const [monthlyWithAI, setMonthlyWithAI] = useState(false)
   const [sendResult, setSendResult] = useState(null)
   const [showToken, setShowToken] = useState(false)
   const [activeGuide, setActiveGuide] = useState(null)
@@ -154,6 +166,44 @@ export default function LineNotifyPanel({ salesData, invoiceRecords, allRows }) 
       return formatWeeklyInvoiceReport({ invoiceRecords })
     } catch { return '（尚無對帳資料）' }
   }, [invoiceRecords])
+
+  const monthlyPreview = useMemo(() => {
+    try {
+      return formatMonthlyReport({ allRows, costs })
+    } catch { return '（請先上傳銷售資料）' }
+  }, [allRows, costs])
+
+  // 月報發送（withAI=true 時先呼叫 Gemini 產生 ≤400 字洞察附在月報後）
+  const handleSendMonthly = async (withAI) => {
+    if (!isConfigured) { setSendResult({ ok: false, msg: '請先填寫 Channel Token 和 User ID' }); return }
+    setMonthlyWithAI(withAI)
+    setSending('monthly')
+    setSendResult(null)
+    try {
+      let message = monthlyPreview
+      if (withAI) {
+        const apiKey = getStoredApiKey()
+        if (!apiKey) throw new Error('尚未設定 AI API Key（右上角 🔑）')
+        const aiText = await new Promise((resolveP, rejectP) => {
+          let acc = ''
+          streamAnalysis({
+            apiKey,
+            prompt: `你是威斯邁國際（台灣母嬰多品牌經銷商）的經營顧問。以下是本月經營月報數據，請用繁體中文寫「AI 洞察」：3 個重點觀察 + 1 個風險提醒 + 1 個下月具體行動建議。總長 ≤400 字、純文字（會發送到 LINE，禁用 markdown 符號與表格）、每點一行以「•」開頭、數字要引用月報內的實際數據。\n\n${monthlyPreview}`,
+            onChunk: t => { acc += t },
+            onDone: () => resolveP(acc.trim()),
+            onError: e => rejectP(new Error(e?.message || 'AI 產生失敗')),
+          })
+        })
+        if (aiText) message = `${monthlyPreview}\n\n🤖 AI 洞察\n${'─'.repeat(22)}\n${aiText}`.slice(0, 4900)
+      }
+      await sendToLine({ supabaseUrl, channelToken: settings.channelToken, targetId: settings.targetId, message })
+      setSendResult({ ok: true, msg: `經營月報${withAI ? '（含 AI 摘要）' : ''}已成功發送到 LINE！` })
+    } catch (e) {
+      setSendResult({ ok: false, msg: e.message })
+    } finally {
+      setSending(null)
+    }
+  }
 
   const handleSend = async (type) => {
     if (!isConfigured) {
@@ -297,6 +347,37 @@ export default function LineNotifyPanel({ salesData, invoiceRecords, allRows }) 
               ) : '📤 立即發送對帳週報'}
             </button>
             <MessagePreview text={weeklyPreview} />
+          </div>
+
+          {/* 經營月報 */}
+          <div className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">📆</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-200">每月經營月報</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-semibold">可加 AI 摘要</span>
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+              上月營收（同比/環比）、毛利率、年累計、品牌/商品/客戶 Top3；「AI 摘要版」會附上 3 個重點洞察與行動建議（需已設定 AI Key）
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => handleSendMonthly(false)}
+                disabled={sending === 'monthly' || !isConfigured}
+                className="py-2 rounded-xl bg-[#06C755] hover:bg-[#05a847] disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                {sending === 'monthly' && !monthlyWithAI ? (
+                  <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />發送中…</>
+                ) : '📤 發送月報'}
+              </button>
+              <button
+                onClick={() => handleSendMonthly(true)}
+                disabled={sending === 'monthly' || !isConfigured}
+                className="py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                {sending === 'monthly' && monthlyWithAI ? (
+                  <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />AI 分析中…</>
+                ) : '🤖 AI 摘要版月報'}
+              </button>
+            </div>
+            <MessagePreview text={monthlyPreview} />
           </div>
         </div>
         {!isConfigured && (

@@ -134,6 +134,72 @@ export function formatWeeklyInvoiceReport({ invoiceRecords }) {
   return msg
 }
 
+// ─── 每月經營月報 ────────────────────────────────────────────────────────────
+// allRows: 完整資料列；costs: { 品名: 單位成本 }（可選，用於毛利）
+// 規則：預設報「上一個日曆月」；該月無資料時退回資料中最新有資料的月份。
+export function formatMonthlyReport({ allRows = [], costs = {} }) {
+  if (!allRows.length) return '（尚無銷售資料）'
+
+  const now = new Date()
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  let ym = `${prev.getFullYear()}-${pad(prev.getMonth() + 1)}`
+
+  const months = [...new Set(allRows.map(r => r.yearMonth))].sort()
+  if (!months.includes(ym)) ym = months[months.length - 1]   // 退回最新有資料的月份
+
+  const [y, m] = ym.split('-').map(Number)
+  const prevYM = m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`
+  const yoyYM  = `${y - 1}-${pad(m)}`
+
+  const inMonth  = allRows.filter(r => r.yearMonth === ym)
+  const sum = rows => rows.reduce((s, r) => s + (r.subtotal || 0), 0)
+  const rev     = sum(inMonth)
+  const revPrev = sum(allRows.filter(r => r.yearMonth === prevYM))
+  const revYoY  = sum(allRows.filter(r => r.yearMonth === yoyYM))
+  const qty     = inMonth.reduce((s, r) => s + (r.quantity || 0), 0)
+  const orders  = inMonth.length
+
+  // 年累計 + 去年同期累計
+  const ytd     = sum(allRows.filter(r => r.year === String(y) && r.yearMonth <= ym))
+  const ytdPrev = sum(allRows.filter(r => r.year === String(y - 1) && r.yearMonth <= yoyYM))
+
+  // 毛利（僅含已設定成本的商品）
+  let cost = 0, coveredRev = 0
+  inMonth.forEach(r => {
+    const c = costs[r.product]
+    if (c != null && !isNaN(c)) { cost += (r.quantity || 0) * c; coveredRev += r.subtotal || 0 }
+  })
+  const margin = coveredRev > 0 ? (coveredRev - cost) / coveredRev : null
+
+  const top = (key, n = 3) => {
+    const map = {}
+    inMonth.forEach(r => { const k = r[key]; if (k) map[k] = (map[k] || 0) + (r.subtotal || 0) })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n)
+  }
+
+  let msg = `📊 ${y}年${m}月 經營月報\n${'─'.repeat(22)}\n`
+  msg += `💰 月營收：${fmtMoney(rev)}\n`
+  if (revYoY  > 0) msg += `　vs 去年同月 ${pct(rev, revYoY).replace(/[（）]/g, '')}（${fmtMoney(revYoY)}）\n`
+  if (revPrev > 0) msg += `　vs 上月 ${pct(rev, revPrev).replace(/[（）]/g, '')}（${fmtMoney(revPrev)}）\n`
+  msg += `📦 數量 ${Math.round(qty).toLocaleString()} 件｜訂單 ${orders.toLocaleString()} 筆\n`
+  if (margin != null) msg += `📈 毛利率 ${(margin * 100).toFixed(1)}%（含成本商品營收 ${fmtMoney(coveredRev)}）\n`
+  msg += `${'─'.repeat(22)}\n`
+  msg += `📅 ${y}年累計：${fmtMoney(ytd)}`
+  msg += ytdPrev > 0 ? `（同比 ${pct(ytd, ytdPrev).replace(/[（）]/g, '')}）\n` : `\n`
+  msg += `${'─'.repeat(22)}\n`
+  const secs = [['🏷️ 品牌 Top3', top('brand')], ['⭐ 商品 Top3', top('product')], ['👑 客戶 Top3', top('customer')]]
+  secs.forEach(([title, list]) => {
+    if (!list.length) return
+    msg += `${title}\n`
+    list.forEach(([name, amt], i) => {
+      const label = name.length > 18 ? name.slice(0, 18) + '…' : name
+      msg += `${i + 1}. ${label} ${fmtMoney(amt)}\n`
+    })
+  })
+  msg += `\n🤖 銷售分析系統自動發送`
+  return msg
+}
+
 // ─── 傳送至 LINE（透過 Supabase Edge Function）──────────────────────────────
 // 需在 Supabase 部署 Edge Function（見設定頁說明）
 export async function sendToLine({ supabaseUrl, channelToken, targetId, message }) {
