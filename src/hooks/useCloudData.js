@@ -168,22 +168,57 @@ async function loadRowsFromDb() {
 //   2. 驗證資料庫實際收到的筆數 == 送出的筆數，不符則清掉這批並丟出錯誤
 //   3. 確認新資料到位後，才刪除同一檔案的「舊批次」資料
 // 這樣就算插入到一半失敗，舊資料仍完整存在，重新上傳即可恢復。
-async function importRowsToDb(rows, sourceFile) {
+// 分段刪除：大量刪除單一語句會逾時（14 萬列 > statement_timeout），
+// 改成「找最小 id → 刪一段 id 區間」循環，每一刀都很小、不會逾時。
+async function deleteBatchChunked(client, sourceFile, { eqBatch, neqBatch } = {}) {
+  const ID_WINDOW = 20000
+  while (true) {
+    let probe = client.from(DB_TABLE).select('id').eq('source_file', sourceFile)
+      .order('id', { ascending: true }).limit(1)
+    if (eqBatch  !== undefined) probe = eqBatch === null ? probe.is('import_batch', null) : probe.eq('import_batch', eqBatch)
+    if (neqBatch !== undefined) probe = probe.neq('import_batch', neqBatch)
+    const { data, error } = await probe
+    if (error) throw error
+    if (!data?.length) break
+    const startId = data[0].id
+    let del = client.from(DB_TABLE).delete().eq('source_file', sourceFile)
+      .gte('id', startId).lt('id', startId + ID_WINDOW)
+    if (eqBatch  !== undefined) del = eqBatch === null ? del.is('import_batch', null) : del.eq('import_batch', eqBatch)
+    if (neqBatch !== undefined) del = del.neq('import_batch', neqBatch)
+    const { error: dErr } = await del
+    if (dErr) throw dErr
+  }
+}
+
+async function importRowsToDb(rows, sourceFile, onProgress) {
   if (!rows?.length) return { inserted: 0, verified: 0 }
   if (!sourceFile) throw new Error('缺少來源檔名，無法安全寫入資料庫')
   const client = supabaseAdmin || supabase
   const batch = Date.now()
 
-  let inserted = 0
-  for (let i = 0; i < rows.length; i += DB_BATCH_SIZE) {
-    const chunk = rows.slice(i, i + DB_BATCH_SIZE).map(r => rowToDb(r, sourceFile, batch))
-    const { error } = await client.from(DB_TABLE).insert(chunk)
-    if (error) {
-      // 清掉這次未完成的批次，讓舊資料維持原狀
-      await client.from(DB_TABLE).delete().eq('source_file', sourceFile).eq('import_batch', batch)
-      throw new Error(`寫入資料庫失敗（第 ${i + 1} 筆起）：${error.message}`)
+  // 並行寫入（4 路 × 1000 筆），比逐批循序快數倍
+  const INSERT_CHUNK = 1000
+  const CONCURRENCY = 4
+  const chunks = []
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+    chunks.push(rows.slice(i, i + INSERT_CHUNK).map(r => rowToDb(r, sourceFile, batch)))
+  }
+  let done = 0, nextIdx = 0, failed = null
+  async function worker() {
+    while (failed == null) {
+      const idx = nextIdx++
+      if (idx >= chunks.length) break
+      const { error } = await client.from(DB_TABLE).insert(chunks[idx])
+      if (error) { failed = error; break }
+      done++
+      onProgress?.(Math.round(done / chunks.length * 100))
     }
-    inserted += chunk.length
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, () => worker()))
+  if (failed) {
+    // 清掉這次未完成的批次，讓舊資料維持原狀
+    await deleteBatchChunked(client, sourceFile, { eqBatch: batch })
+    throw new Error(`寫入資料庫失敗：${failed.message}（已還原，請重新上傳）`)
   }
 
   // 寫入後驗證：本批實際筆數必須等於送出筆數
@@ -194,19 +229,29 @@ async function importRowsToDb(rows, sourceFile) {
     .eq('import_batch', batch)
   if (cErr) throw cErr
   if (count !== rows.length) {
-    await client.from(DB_TABLE).delete().eq('source_file', sourceFile).eq('import_batch', batch)
+    await deleteBatchChunked(client, sourceFile, { eqBatch: batch })
     throw new Error(`寫入筆數不符（送出 ${rows.length}，實得 ${count}），已還原，請重新上傳`)
   }
 
-  // 新資料確認到位後，才移除同檔案的舊批次
-  const { error: dErr } = await client
-    .from(DB_TABLE)
-    .delete()
-    .eq('source_file', sourceFile)
-    .neq('import_batch', batch)
-  if (dErr) throw dErr
+  // 新資料確認到位後，才移除同檔案的舊批次（分段刪，不會逾時）
+  onProgress?.(100, '清除舊批次…')
+  await deleteBatchChunked(client, sourceFile, { neqBatch: batch })
 
-  return { inserted, verified: count }
+  // 跨檔名重疊偵測：不同檔名涵蓋同一段日期（例如 new6月 與 znew6月）會重複計算
+  let overlapFiles = []
+  try {
+    const dates = rows.map(r => r.date).sort()
+    const { data: ov } = await client
+      .from(DB_TABLE)
+      .select('source_file')
+      .neq('source_file', sourceFile)
+      .gte('date', dates[0])
+      .lte('date', dates[dates.length - 1])
+      .limit(5000)
+    overlapFiles = [...new Set((ov || []).map(r => r.source_file))]
+  } catch { /* 偵測失敗不影響匯入 */ }
+
+  return { inserted: rows.length, verified: count, overlapFiles }
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -430,11 +475,17 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
       //    DB 是主要資料來源，寫入失敗必須「明確報錯並中止」，不可假裝成功後
       //    留下殘缺資料（這正是先前金額憑空消失的根源）。
       let dbMsg = ''
+      let overlapWarn = null
       if (rows?.length) {
         setSyncStatus(`寫入資料庫（${rows.length.toLocaleString()} 筆）…`)
-        const { verified } = await importRowsToDb(rows, file.name)   // 失敗會 throw → 進 catch 明確報錯
+        const { verified, overlapFiles } = await importRowsToDb(rows, file.name,
+          (pct, note) => setSyncStatus(note ? `寫入完成，${note}` : `寫入資料庫 ${pct}%（${rows.length.toLocaleString()} 筆）…`)
+        )   // 失敗會 throw → 進 catch 明確報錯
         dbMsg = `DB ✓ ${verified.toLocaleString()} 筆`
         cacheDel(SALES_CACHE_KEY)   // 資料已變動，讓下次載入重新抓取
+        if (overlapFiles?.length) {
+          overlapWarn = `⚠️ 「${file.name}」與既有檔案日期重疊：${overlapFiles.join('、')}——同期間會重複計算！若新檔已涵蓋舊檔內容，請到檔案管理刪除舊檔。`
+        }
       }
 
       // ② 上傳至 Storage（備份）
@@ -460,8 +511,14 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
         }
       }
 
-      setSyncStatus(`✓ ${file.name} 已同步（${dbMsg}）`)
-      setTimeout(() => setSyncStatus(''), 3000)
+      if (overlapWarn) {
+        setUploadErrors(prev => [...prev.filter(x => x.name !== file.name + '_overlap'), { name: file.name + '_overlap', reason: overlapWarn }])
+        setSyncStatus(`✓ ${file.name} 已同步（${dbMsg}），但偵測到日期重疊，請看警告`)
+        setTimeout(() => setSyncStatus(''), 10000)
+      } else {
+        setSyncStatus(`✓ ${file.name} 已同步（${dbMsg}）`)
+        setTimeout(() => setSyncStatus(''), 3000)
+      }
     } catch (e) {
       const rawMsg = e.message || '請確認網路連線'
       const errMsg = rawMsg.includes('Bucket not found') || rawMsg.includes('bucket')
