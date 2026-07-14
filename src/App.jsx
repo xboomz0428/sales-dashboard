@@ -20,6 +20,7 @@ import CustomerChart from './components/charts/CustomerChart'
 import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
+import DbFileManager from './components/DbFileManager'
 import BrandScorecard from './components/charts/BrandScorecard'
 import LunarPanel from './components/charts/LunarPanel'
 import RepurchasePanel from './components/RepurchasePanel'
@@ -1065,7 +1066,10 @@ function AppDashboard() {
             <UserManagement currentUserId={user?.id} />
           )}
           {activeTab === 'database' && (
-            <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={visibleRows} />
+            <>
+              <DbFileManager canManage={role === 'admin' || role === 'manager'} />
+              <DatabaseStatusPanel cloudFiles={cloudFiles} allRows={visibleRows} />
+            </>
           )}
         </div>
       </div>
