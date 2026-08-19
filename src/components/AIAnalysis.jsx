@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { buildAIPayload, buildPrompt, streamAnalysis } from '../utils/aiAnalyst'
+import { buildAIPayload, buildPrompt, buildChatMessages, streamAnalysis } from '../utils/aiAnalyst'
 import { supabase, supabaseReady } from '../config/supabase'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -214,6 +214,27 @@ function AIChartDashboard({ salesData }) {
     </div>
   )
 }
+
+// ─── 問答泡泡的輕量文字渲染（**粗體**、• 條列、換行；表格退化為等寬文字）────
+function ChatText({ text }) {
+  const parts = String(text).split(/(\*\*[^*]+\*\*)/g)
+  return (
+    <span className="whitespace-pre-wrap leading-relaxed">
+      {parts.map((p, i) =>
+        p.startsWith('**') && p.endsWith('**')
+          ? <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>
+          : <span key={i} className={/^\|.*\|/m.test(p) ? 'font-mono text-xs' : ''}>{p}</span>
+      )}
+    </span>
+  )
+}
+
+const CHAT_SUGGESTIONS = [
+  '今年哪個通路衰退最多？為什麼？',
+  '好漢草這一年表現如何？',
+  '哪些客戶貢獻下滑需要注意？',
+  '下個月我該把資源放在哪裡？',
+]
 
 const ANALYSIS_TYPES = [
   { value: 'comprehensive', label: '📊 完整分析', desc: '全面評估所有面向',    color: 'from-blue-600 to-indigo-600',   light: 'bg-blue-600' },
@@ -621,6 +642,54 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
   const originalPromptRef = useRef('')
   const fullOutputRef = useRef('')
 
+  // ── AI 問答（自由提問）──
+  const [chatMsgs, setChatMsgs] = useState([])       // [{ role:'user'|'model', text }]
+  const [chatInput, setChatInput] = useState('')
+  const [chatStreaming, setChatStreaming] = useState(false)
+  const chatBottomRef = useRef(null)
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMsgs, chatStreaming])
+
+  async function handleChatSend(text) {
+    const question = (text ?? chatInput).trim()
+    if (!question || chatStreaming) return
+    if (!apiKey.trim()) { setError('請先在「分析」頁左側輸入 API Key'); setActiveTab('analysis'); return }
+    setChatInput('')
+    setError('')
+    const historyForApi = chatMsgs.slice(-10)   // 最多帶 10 則歷史，避免 token 爆炸
+    setChatMsgs(prev => [...prev, { role: 'user', text: question }, { role: 'model', text: '' }])
+    setChatStreaming(true)
+
+    const dataJson = buildAIPayload(salesData)
+    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question })
+
+    await new Promise((resolve) => {
+      streamAnalysis({
+        apiKey: apiKey.trim(),
+        model: aiModel,
+        messages,
+        onChunk: (t) => setChatMsgs(prev => {
+          const next = [...prev]
+          next[next.length - 1] = { ...next[next.length - 1], text: next[next.length - 1].text + t }
+          return next
+        }),
+        onDone: () => resolve(),
+        onError: (msg) => {
+          setChatMsgs(prev => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            next[next.length - 1] = { ...last, text: last.text || `⚠️ ${msg}` }
+            return next
+          })
+          resolve()
+        },
+      })
+    })
+    setChatStreaming(false)
+  }
+
   // 開啟時從 DB 載入歷史記錄，與 localStorage 合併
   useEffect(() => {
     if (!open) return
@@ -922,6 +991,12 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setActiveTab(v => v === 'chat' ? 'analysis' : 'chat')}
+            className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'chat' ? 'bg-white text-emerald-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
+          >
+            💬 問答
+          </button>
+          <button
             onClick={() => setActiveTab(v => v === 'chart' ? 'analysis' : 'chart')}
             className={`text-sm px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${activeTab === 'chart' ? 'bg-white text-violet-700' : 'bg-white/20 text-white hover:bg-white/30'}`}
           >
@@ -1070,7 +1145,83 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
 
         {/* ── Right main content ── */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
-          {activeTab === 'chart' ? (
+          {activeTab === 'chat' ? (
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* 訊息區 */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-5">
+                {!chatMsgs.length && (
+                  <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-4xl shadow-lg">💬</div>
+                    <div>
+                      <p className="text-xl font-bold text-gray-700 dark:text-gray-200">問 AI 任何關於你數據的問題</p>
+                      <p className="text-base text-gray-400 dark:text-gray-500 mt-1">
+                        AI 會帶著目前篩選範圍的銷售數據回答，可連續追問
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2 pt-1 max-w-xl">
+                      {CHAT_SUGGESTIONS.map(q => (
+                        <button key={q} onClick={() => handleChatSend(q)}
+                          className="text-sm px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="max-w-3xl mx-auto space-y-4">
+                  {chatMsgs.map((m, i) => (
+                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm ${
+                        m.role === 'user'
+                          ? 'bg-emerald-600 text-white rounded-br-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md border border-gray-200/60 dark:border-gray-700'
+                      }`}>
+                        {m.text
+                          ? <ChatText text={m.text} />
+                          : <span className="inline-flex items-center gap-1.5 text-gray-400">
+                              <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />思考中…
+                            </span>}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatBottomRef} />
+                </div>
+              </div>
+              {/* 輸入區 */}
+              <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 sm:px-8 py-3">
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSend() }
+                      }}
+                      placeholder="輸入你想問的問題…（Enter 送出，Shift+Enter 換行）"
+                      rows={Math.min(4, Math.max(1, chatInput.split('\n').length))}
+                      className="flex-1 resize-none px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                    />
+                    <button
+                      onClick={() => handleChatSend()}
+                      disabled={chatStreaming || !chatInput.trim()}
+                      className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-sm font-bold transition-colors flex-shrink-0">
+                      {chatStreaming ? '回答中…' : '送出'}
+                    </button>
+                    {chatMsgs.length > 0 && !chatStreaming && (
+                      <button onClick={() => setChatMsgs([])}
+                        title="清除對話"
+                        className="px-3 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-red-500 hover:border-red-200 text-sm flex-shrink-0">
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+                    AI 依目前篩選範圍的數據摘要回答；金額為「小計」口徑。回答僅供參考，重大決策請再核對報表。
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'chart' ? (
             <div className="flex-1 overflow-y-auto px-6 py-5">
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">資料圖表總覽</h3>

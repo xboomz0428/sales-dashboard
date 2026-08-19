@@ -227,6 +227,33 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 - **嚴禁使用 --- 水平分隔線**，章節之間直接用標題（##、###）分隔即可`
 }
 
+// ─── AI 問答：把「數據上下文＋歷史對話＋新問題」組成 Gemini messages ───────────
+// chatHistory: [{ role: 'user'|'model', text }]
+export function buildChatMessages({ dataJson, filters, chatHistory = [], question }) {
+  const filterCtx = buildFilterContext(filters)
+  const system = `${filterCtx}${COMPANY_CONTEXT}
+
+你是威斯邁國際的「銷售數據問答助手」。使用者會針對以下銷售數據摘要提問，請遵守：
+- **必須用繁體中文**、口語簡潔，直接回答問題本身，不要長篇報告
+- 每個論斷都引用摘要中的實際數字；摘要裡沒有的數據，明說「目前數據看不到」，嚴禁編造
+- 適合條列時用「•」開頭的短行；表格才用 Markdown 表格；不要用 # 標題
+- 涉及好漢草/草本/母嬰功效的文案或宣稱，附一句合規提醒（藥事法/食安法，禁療效字眼）
+- 使用者追問時，延續前文脈絡回答
+
+## 銷售數據摘要
+\`\`\`json
+${dataJson}
+\`\`\``
+
+  const msgs = [
+    { role: 'user',  parts: [{ text: system }] },
+    { role: 'model', parts: [{ text: '了解，我已讀完銷售數據摘要，請直接提問。' }] },
+  ]
+  for (const m of chatHistory) msgs.push({ role: m.role, parts: [{ text: m.text }] })
+  msgs.push({ role: 'user', parts: [{ text: question }] })
+  return msgs
+}
+
 /* messages: 多輪對話陣列 [{ role, parts }]；若只傳 prompt 則自動包裝 */
 export async function streamAnalysis({ apiKey, model, prompt, messages, onChunk, onDone, onError }) {
   const CHUNK_TIMEOUT_MS = 30000  // 30 秒沒有新 chunk 視為卡住
