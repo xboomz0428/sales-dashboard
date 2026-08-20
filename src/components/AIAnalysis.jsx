@@ -285,16 +285,43 @@ function stripHtmlTags(s) {
     .replace(/<\/?(span|font|b|i|u|em|strong|p|div|mark|small|sub|sup|code|pre)(\s[^>]*)?>/gi, '')
 }
 
+// 行內格式：**粗體**（其餘原樣）
+function chatInline(str) {
+  return str.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
+    p.startsWith('**') && p.endsWith('**')
+      ? <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>
+      : <span key={i}>{p}</span>
+  )
+}
+
 function ChatText({ text }) {
-  const parts = stripHtmlTags(text).split(/(\*\*[^*]+\*\*)/g)
+  const lines = stripHtmlTags(text).split('\n')
   return (
-    <span className="whitespace-pre-wrap leading-relaxed">
-      {parts.map((p, i) =>
-        p.startsWith('**') && p.endsWith('**')
-          ? <strong key={i} className="font-bold">{p.slice(2, -2)}</strong>
-          : <span key={i} className={/^\|.*\|/m.test(p) ? 'font-mono text-xs' : ''}>{p}</span>
-      )}
-    </span>
+    <div className="leading-relaxed">
+      {lines.map((line, i) => {
+        // ### 標題 → 粗體小標
+        const h = line.match(/^\s*#{1,4}\s+(.*)$/)
+        if (h) return <p key={i} className="font-black mt-2.5 mb-1">{chatInline(h[1])}</p>
+        // * / - 條列（支援縮排巢狀）→ • 縮排
+        const b = line.match(/^(\s*)[*\-•]\s+(.*)$/)
+        if (b) {
+          const depth = Math.min(3, Math.round(b[1].length / 2))
+          return (
+            <p key={i} className="flex gap-1.5 my-0.5" style={{ paddingLeft: depth * 16 }}>
+              <span className="opacity-60 flex-shrink-0">•</span>
+              <span>{chatInline(b[2])}</span>
+            </p>
+          )
+        }
+        // --- 分隔線
+        if (/^\s*-{3,}\s*$/.test(line)) return <div key={i} className="border-t border-current opacity-20 my-2" />
+        // 空行 → 小間距
+        if (!line.trim()) return <div key={i} className="h-2" />
+        // 表格列退化為等寬字
+        if (/^\s*\|.*\|\s*$/.test(line)) return <p key={i} className="font-mono text-xs whitespace-pre overflow-x-auto">{line}</p>
+        return <p key={i} className="my-0.5">{chatInline(line)}</p>
+      })}
+    </div>
   )
 }
 
