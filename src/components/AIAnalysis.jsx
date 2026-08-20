@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 import { buildAIPayload, buildPrompt, buildChatMessages, streamAnalysis } from '../utils/aiAnalyst'
 import { supabase, supabaseReady } from '../config/supabase'
 import {
@@ -213,6 +214,66 @@ function AIChartDashboard({ salesData }) {
       )}
     </div>
   )
+}
+
+// ─── 問答附件處理 ────────────────────────────────────────────────────────────
+// 圖片 → 縮到長邊 1600px 的 JPEG（省 token）；PDF → base64；Excel/CSV/文字 → 轉文字
+const readAsDataURL = (file) => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file)
+})
+const readAsArrayBuffer = (file) => new Promise((res, rej) => {
+  const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsArrayBuffer(file)
+})
+
+async function processChatFile(file) {
+  const name = file.name
+  const ext = (name.split('.').pop() || '').toLowerCase()
+
+  if (file.type.startsWith('image/')) {
+    if (file.size > 15 * 1024 * 1024) throw new Error(`圖片「${name}」超過 15MB`)
+    const dataUrl = await readAsDataURL(file)
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error(`圖片「${name}」無法讀取`)); i.src = dataUrl })
+    const MAX = 1600
+    const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+    let b64, mime, thumb
+    if (scale === 1 && file.size < 1.5 * 1024 * 1024) {
+      b64 = dataUrl.split(',')[1]; mime = file.type; thumb = dataUrl
+    } else {
+      const c = document.createElement('canvas')
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale)
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+      const out = c.toDataURL('image/jpeg', 0.85)
+      b64 = out.split(',')[1]; mime = 'image/jpeg'; thumb = out
+    }
+    return { name, kind: 'image', mime, dataB64: b64, thumb }
+  }
+
+  if (ext === 'pdf' || file.type === 'application/pdf') {
+    if (file.size > 8 * 1024 * 1024) throw new Error(`PDF「${name}」超過 8MB，請先壓縮或拆頁`)
+    const dataUrl = await readAsDataURL(file)
+    return { name, kind: 'pdf', mime: 'application/pdf', dataB64: dataUrl.split(',')[1] }
+  }
+
+  if (['xls', 'xlsx', 'csv'].includes(ext)) {
+    if (file.size > 15 * 1024 * 1024) throw new Error(`表格「${name}」超過 15MB`)
+    const buf = await readAsArrayBuffer(file)
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: false })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    let csv = XLSX.utils.sheet_to_csv(ws)
+    const CAP = 20000
+    if (csv.length > CAP) csv = csv.slice(0, CAP) + `\n…（內容過長已截斷，僅含前 ${CAP.toLocaleString()} 字）`
+    return { name, kind: 'text', text: `（工作表「${wb.SheetNames[0]}」，CSV 格式）\n${csv}` }
+  }
+
+  if (['txt', 'md', 'json', 'log'].includes(ext) || file.type.startsWith('text/')) {
+    if (file.size > 2 * 1024 * 1024) throw new Error(`文字檔「${name}」超過 2MB`)
+    let text = await file.text()
+    const CAP = 20000
+    if (text.length > CAP) text = text.slice(0, CAP) + `\n…（內容過長已截斷）`
+    return { name, kind: 'text', text }
+  }
+
+  throw new Error(`不支援的檔案類型「${name}」（支援：圖片、PDF、Excel/CSV、TXT）`)
 }
 
 // ─── 問答泡泡的輕量文字渲染（**粗體**、• 條列、換行；表格退化為等寬文字）────
@@ -643,27 +704,50 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
   const fullOutputRef = useRef('')
 
   // ── AI 問答（自由提問）──
-  const [chatMsgs, setChatMsgs] = useState([])       // [{ role:'user'|'model', text }]
+  const [chatMsgs, setChatMsgs] = useState([])       // [{ role:'user'|'model', text, attachments? }]
   const [chatInput, setChatInput] = useState('')
   const [chatStreaming, setChatStreaming] = useState(false)
+  const [chatFiles, setChatFiles] = useState([])     // 待送出的附件
+  const [chatFileBusy, setChatFileBusy] = useState(false)
   const chatBottomRef = useRef(null)
+  const chatFileInputRef = useRef(null)
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMsgs, chatStreaming])
 
+  // 加入附件（檔案選擇器或貼上圖片共用）
+  async function addChatFiles(fileList) {
+    const files = [...fileList]
+    if (!files.length) return
+    if (chatFiles.length + files.length > 5) { setError('附件最多 5 個'); return }
+    setChatFileBusy(true)
+    setError('')
+    for (const f of files) {
+      try {
+        const att = await processChatFile(f)
+        setChatFiles(prev => [...prev, att])
+      } catch (e) {
+        setError(e.message)
+      }
+    }
+    setChatFileBusy(false)
+  }
+
   async function handleChatSend(text) {
     const question = (text ?? chatInput).trim()
-    if (!question || chatStreaming) return
+    if ((!question && !chatFiles.length) || chatStreaming) return
     if (!apiKey.trim()) { setError('請先在「分析」頁左側輸入 API Key'); setActiveTab('analysis'); return }
+    const attachments = chatFiles
     setChatInput('')
+    setChatFiles([])
     setError('')
     const historyForApi = chatMsgs.slice(-10)   // 最多帶 10 則歷史，避免 token 爆炸
-    setChatMsgs(prev => [...prev, { role: 'user', text: question }, { role: 'model', text: '' }])
+    setChatMsgs(prev => [...prev, { role: 'user', text: question, attachments }, { role: 'model', text: '' }])
     setChatStreaming(true)
 
     const dataJson = buildAIPayload(salesData)
-    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question })
+    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question, attachments })
 
     await new Promise((resolve) => {
       streamAnalysis({
@@ -1155,7 +1239,8 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
                     <div>
                       <p className="text-xl font-bold text-gray-700 dark:text-gray-200">問 AI 任何關於你數據的問題</p>
                       <p className="text-base text-gray-400 dark:text-gray-500 mt-1">
-                        AI 會帶著目前篩選範圍的銷售數據回答，可連續追問
+                        AI 會帶著目前篩選範圍的銷售數據回答，可連續追問；<br />
+                        也可 📎 附上圖片、PDF、Excel 當參考資料（例：競品 DM、報價單、貨架照）
                       </p>
                     </div>
                     <div className="flex flex-wrap justify-center gap-2 pt-1 max-w-xl">
@@ -1176,11 +1261,24 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
                           ? 'bg-emerald-600 text-white rounded-br-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md border border-gray-200/60 dark:border-gray-700'
                       }`}>
+                        {m.attachments?.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {m.attachments.map((a, ai) => a.kind === 'image' && a.thumb
+                              ? <img key={ai} src={a.thumb} alt={a.name} title={a.name}
+                                  className="max-h-28 rounded-lg border border-white/30" />
+                              : <span key={ai} className="text-xs px-2 py-1 rounded-lg bg-white/20 border border-white/30 font-medium">
+                                  {a.kind === 'pdf' ? '📄' : '📊'} {a.name}
+                                </span>
+                            )}
+                          </div>
+                        )}
                         {m.text
                           ? <ChatText text={m.text} />
-                          : <span className="inline-flex items-center gap-1.5 text-gray-400">
-                              <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />思考中…
-                            </span>}
+                          : m.role === 'model'
+                            ? <span className="inline-flex items-center gap-1.5 text-gray-400">
+                                <span className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />思考中…
+                              </span>
+                            : null}
                       </div>
                     </div>
                   ))}
@@ -1190,20 +1288,55 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
               {/* 輸入區 */}
               <div className="flex-shrink-0 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 sm:px-8 py-3">
                 <div className="max-w-3xl mx-auto">
+                  {/* 待送出附件 */}
+                  {(chatFiles.length > 0 || chatFileBusy) && (
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {chatFiles.map((a, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400">
+                          {a.kind === 'image' && a.thumb
+                            ? <img src={a.thumb} alt="" className="w-6 h-6 rounded object-cover" />
+                            : <span>{a.kind === 'pdf' ? '📄' : '📊'}</span>}
+                          <span className="max-w-[160px] truncate font-medium">{a.name}</span>
+                          <button onClick={() => setChatFiles(prev => prev.filter((_, x) => x !== i))}
+                            className="opacity-60 hover:opacity-100 font-bold">✕</button>
+                        </span>
+                      ))}
+                      {chatFileBusy && <span className="text-xs text-gray-400 inline-flex items-center gap-1"><span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />處理附件中…</span>}
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
+                    <input
+                      ref={chatFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,.pdf,.xls,.xlsx,.csv,.txt,.md,.json"
+                      className="hidden"
+                      onChange={e => { addChatFiles(e.target.files); e.target.value = '' }}
+                    />
+                    <button
+                      onClick={() => chatFileInputRef.current?.click()}
+                      disabled={chatStreaming || chatFileBusy}
+                      title="附加圖片或檔案（圖片/PDF/Excel/CSV/TXT，最多 5 個；也可直接貼上圖片）"
+                      className="px-3 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-emerald-600 hover:border-emerald-300 disabled:opacity-40 text-base flex-shrink-0 transition-colors">
+                      📎
+                    </button>
                     <textarea
                       value={chatInput}
                       onChange={e => setChatInput(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleChatSend() }
                       }}
-                      placeholder="輸入你想問的問題…（Enter 送出，Shift+Enter 換行）"
+                      onPaste={e => {
+                        const imgs = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'))
+                        if (imgs.length) { e.preventDefault(); addChatFiles(imgs) }
+                      }}
+                      placeholder="輸入你想問的問題…（Enter 送出，Shift+Enter 換行，可 📎 附檔或直接貼圖）"
                       rows={Math.min(4, Math.max(1, chatInput.split('\n').length))}
                       className="flex-1 resize-none px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
                     />
                     <button
                       onClick={() => handleChatSend()}
-                      disabled={chatStreaming || !chatInput.trim()}
+                      disabled={chatStreaming || chatFileBusy || (!chatInput.trim() && !chatFiles.length)}
                       className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-sm font-bold transition-colors flex-shrink-0">
                       {chatStreaming ? '回答中…' : '送出'}
                     </button>

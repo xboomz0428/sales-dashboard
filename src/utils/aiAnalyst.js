@@ -227,9 +227,26 @@ ${typePrompts[analysisType] || typePrompts.comprehensive}
 - **嚴禁使用 --- 水平分隔線**，章節之間直接用標題（##、###）分隔即可`
 }
 
+// ─── AI 問答：附件 → Gemini parts ────────────────────────────────────────────
+// attachment: { name, kind: 'image'|'pdf'|'text', mime?, dataB64?, text? }
+// 圖片/PDF 用 inline_data 傳給 Gemini；表格/文字檔已在前端轉成文字，併入 text part
+function chatParts(text, attachments = []) {
+  const parts = []
+  let merged = text || ''
+  for (const a of attachments) {
+    if (a.kind === 'text') {
+      merged += `\n\n【附件「${a.name}」內容】\n${a.text}`
+    } else if (a.dataB64) {
+      parts.push({ inline_data: { mime_type: a.mime, data: a.dataB64 } })
+    }
+  }
+  parts.push({ text: merged || '（請參考附件）' })
+  return parts
+}
+
 // ─── AI 問答：把「數據上下文＋歷史對話＋新問題」組成 Gemini messages ───────────
-// chatHistory: [{ role: 'user'|'model', text }]
-export function buildChatMessages({ dataJson, filters, chatHistory = [], question }) {
+// chatHistory: [{ role: 'user'|'model', text, attachments? }]
+export function buildChatMessages({ dataJson, filters, chatHistory = [], question, attachments = [] }) {
   const filterCtx = buildFilterContext(filters)
   const system = `${filterCtx}${COMPANY_CONTEXT}
 
@@ -239,6 +256,7 @@ export function buildChatMessages({ dataJson, filters, chatHistory = [], questio
 - 適合條列時用「•」開頭的短行；表格才用 Markdown 表格；不要用 # 標題
 - 涉及好漢草/草本/母嬰功效的文案或宣稱，附一句合規提醒（藥事法/食安法，禁療效字眼）
 - 使用者追問時，延續前文脈絡回答
+- 使用者可能附上圖片/PDF/表格檔作為參考資料：請先讀懂附件內容，再結合銷售數據回答；附件與數據矛盾時，兩者並列說明
 
 ## 銷售數據摘要
 \`\`\`json
@@ -249,8 +267,10 @@ ${dataJson}
     { role: 'user',  parts: [{ text: system }] },
     { role: 'model', parts: [{ text: '了解，我已讀完銷售數據摘要，請直接提問。' }] },
   ]
-  for (const m of chatHistory) msgs.push({ role: m.role, parts: [{ text: m.text }] })
-  msgs.push({ role: 'user', parts: [{ text: question }] })
+  for (const m of chatHistory) {
+    msgs.push({ role: m.role, parts: m.role === 'user' ? chatParts(m.text, m.attachments) : [{ text: m.text }] })
+  }
+  msgs.push({ role: 'user', parts: chatParts(question, attachments) })
   return msgs
 }
 
