@@ -277,8 +277,16 @@ async function processChatFile(file) {
 }
 
 // ─── 問答泡泡的輕量文字渲染（**粗體**、• 條列、換行；表格退化為等寬文字）────
+// AI 偶爾會不聽話輸出 HTML 標籤（例如 <span style="color:red">），這裡做保險過濾：
+// 已知格式標籤直接拆掉、<br> 換成換行，只留內容文字（不動 "<15%" 這種比較符號）。
+function stripHtmlTags(s) {
+  return String(s)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(span|font|b|i|u|em|strong|p|div|mark|small|sub|sup|code|pre)(\s[^>]*)?>/gi, '')
+}
+
 function ChatText({ text }) {
-  const parts = String(text).split(/(\*\*[^*]+\*\*)/g)
+  const parts = stripHtmlTags(text).split(/(\*\*[^*]+\*\*)/g)
   return (
     <span className="whitespace-pre-wrap leading-relaxed">
       {parts.map((p, i) =>
