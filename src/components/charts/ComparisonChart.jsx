@@ -694,6 +694,24 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
 
   const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
 
+  // 區間累計：每年加總「該年有資料的月份」，去年值以「同一組月份」對齊計算，
+  // 例：2026 只有 1~7 月 → 累計 = 2026 的 1~7 月，對比 2025 的 1~7 月（不是 2025 全年）
+  const periodTotals = useMemo(() => {
+    const map = {}
+    years.forEach((year, yi) => {
+      const prevYear = years[yi - 1]
+      let cur = 0, prev = 0, hasCur = false, hasPrev = false
+      chartData.forEach(md => {
+        if (md[year] == null) return
+        hasCur = true
+        cur += md[year]
+        if (prevYear && md[prevYear] != null) { prev += md[prevYear]; hasPrev = true }
+      })
+      map[year] = { cur: hasCur ? cur : null, prev: hasPrev ? prev : null }
+    })
+    return map
+  }, [years, chartData])
+
   return (
     <div className="space-y-4">
       <PeriodYoYCard periodYoY={periodYoY} metric={metric} />
@@ -797,6 +815,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
               {MONTH_LABELS.map(m => (
                 <th key={m} className="text-right py-2 px-2 whitespace-nowrap">{m}</th>
               ))}
+              <th className="text-right py-2 px-2 pl-4 whitespace-nowrap border-l-2 border-gray-100 dark:border-gray-700 font-bold text-gray-500 dark:text-gray-400">區間累計<br /><span className="font-normal text-xs">vs 去年同月份</span></th>
             </tr>
           </thead>
           <tbody>
@@ -828,6 +847,28 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                       </td>
                     )
                   })}
+                  <td className="py-2.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700 whitespace-nowrap align-top">
+                    {(() => {
+                      const t = periodTotals[year]
+                      if (!t || t.cur == null) return <span className="text-gray-300 dark:text-gray-600">—</span>
+                      const growth = t.prev > 0 ? (t.cur - t.prev) / t.prev * 100 : null
+                      const diff = t.prev != null ? t.cur - t.prev : null
+                      const up = diff != null && diff >= 0
+                      return (
+                        <>
+                          <span className="font-mono text-base font-black text-gray-800 dark:text-gray-100">{fmtVal(t.cur, metric)}</span>
+                          {diff != null && (
+                            <div className="mt-0.5 flex flex-col items-end gap-0.5">
+                              {growth != null && <GrowthBadge rate={growth} />}
+                              <span className={`text-xs font-bold ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                                {up ? '+' : '-'}{fmtVal(Math.abs(diff), metric)}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </td>
                 </tr>
               )
             })}
@@ -847,6 +888,17 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                     </td>
                   )
                 })}
+                <td className="py-2.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700">
+                  {(() => {
+                    const gs = years.slice(1).map(y => {
+                      const t = periodTotals[y]
+                      return t && t.prev > 0 && t.cur != null ? (t.cur - t.prev) / t.prev * 100 : null
+                    }).filter(g => g != null)
+                    return gs.length
+                      ? <GrowthBadge rate={gs.reduce((s, g) => s + g, 0) / gs.length} />
+                      : <span className="text-gray-300 dark:text-gray-600 text-base">—</span>
+                  })()}
+                </td>
               </tr>
             )}
           </tbody>
