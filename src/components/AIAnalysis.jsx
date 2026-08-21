@@ -750,7 +750,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
 
   useEffect(() => {
     if (!open || !supabaseReady || !supabase) return
-    supabase.from('kb_faqs').select('brand,product,question,answer')
+    supabase.from('kb_faqs').select('brand,category,product,question,answer')
       .eq('status', 'published').limit(500)
       .then(({ data }) => { kbFaqsRef.current = data || [] })
   }, [open])
@@ -761,7 +761,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     if (!faqs.length) return ''
     const q = question.toLowerCase()
     const scored = faqs.map(f => {
-      const hay = `${f.brand} ${f.product} ${f.question}`.toLowerCase()
+      const hay = `${f.brand} ${f.category || ""} ${f.product} ${f.question}`.toLowerCase()
       let score = 0
       for (let i = 0; i < q.length - 1; i++) {
         const bg = q.slice(i, i + 2)
@@ -771,7 +771,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 5)
     if (!scored.length) return ''
     return scored.map(({ f }, i) =>
-      `${i + 1}. [${f.brand}${f.product ? '／' + f.product : ''}] Q：${f.question}\nA：${f.answer}`
+      `${i + 1}. [${[f.brand, f.category, f.product].filter(Boolean).join('／')}] Q：${f.question}\nA：${f.answer}`
     ).join('\n\n').slice(0, 4000)
   }
 

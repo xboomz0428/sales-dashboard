@@ -11,13 +11,14 @@ import { streamAnalysis } from '../utils/aiAnalyst'
  */
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-const EMPTY_FORM = { id: null, brand: '', product: '', question: '', answer: '', tags: '', status: 'published', compliance_ok: false }
+const EMPTY_FORM = { id: null, brand: '', category: '', product: '', question: '', answer: '', tags: '', status: 'published', compliance_ok: false }
 
-export default function KnowledgeBase({ brands = [], products = [], brandProducts = {}, canManage = true, userEmail = '' }) {
+export default function KnowledgeBase({ brands = [], products = [], brandProducts = {}, brandCategories = {}, catProducts = {}, canManage = true, userEmail = '' }) {
   const client = supabaseAdmin || supabase
   const [faqs, setFaqs] = useState(null)          // null = 載入中
   const [msg, setMsg] = useState(null)
   const [fBrand, setFBrand] = useState('')        // 篩選
+  const [fCategory, setFCategory] = useState('')
   const [fProduct, setFProduct] = useState('')
   const [fKeyword, setFKeyword] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -43,9 +44,24 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
 
   // 選定品牌後，產品選項自動縮小為該品牌的產品（依銷售額排序）；未選品牌則列全部活躍產品
   const productsForBrand = (brand) => (brand && brandProducts[brand]?.length ? brandProducts[brand] : products)
+  // 分類選項：選定品牌 → 該品牌的分類（依銷售排序）；未選品牌 → 所有品牌分類聯集＋FAQ 既有分類
+  const categoriesFor = (brand) => {
+    if (brand && brandCategories[brand]?.length) return brandCategories[brand]
+    const all = [...new Set([
+      ...Object.values(brandCategories).flat(),
+      ...(faqs || []).map(f => f.category).filter(Boolean),
+    ])]
+    return all
+  }
+  // 品牌＋分類都選了 → 產品只列該分類下的
+  const productsFor = (brand, category) => {
+    if (brand && category && catProducts[`${brand}|${category}`]?.length) return catProducts[`${brand}|${category}`]
+    return productsForBrand(brand)
+  }
 
   const filtered = useMemo(() => (faqs || []).filter(f => {
     if (fBrand && f.brand !== fBrand) return false
+    if (fCategory && f.category !== fCategory) return false
     if (fProduct && !(f.product || '').toLowerCase().includes(fProduct.toLowerCase())) return false
     if (fStatus && f.status !== fStatus) return false
     if (fKeyword) {
@@ -53,14 +69,14 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
       if (!`${f.question} ${f.answer} ${(f.tags || []).join(' ')}`.toLowerCase().includes(kw)) return false
     }
     return true
-  }), [faqs, fBrand, fProduct, fKeyword, fStatus])
+  }), [faqs, fBrand, fCategory, fProduct, fKeyword, fStatus])
 
   // ── 儲存 / 刪除 ──────────────────────────────────────────────────────────
   const save = async () => {
     if (!form.question.trim()) { setMsg({ ok: false, text: '問題不能為空' }); return }
     setSaving(true)
     const row = {
-      brand: form.brand.trim(), product: form.product.trim(),
+      brand: form.brand.trim(), category: form.category.trim(), product: form.product.trim(),
       question: form.question.trim(), answer: form.answer.trim(),
       tags: form.tags.split(/[,，、]/).map(s => s.trim()).filter(Boolean),
       status: form.status, compliance_ok: form.compliance_ok,
@@ -114,10 +130,10 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
     const groups = {}
     for (const f of filtered) {
       const b = f.brand || '未分類品牌'
-      const p = f.product || '通用'
+      const p = f.category || f.product || '通用'
       ;((groups[b] ||= {})[p] ||= []).push(f)
     }
-    const filterDesc = [fBrand && `品牌：${fBrand}`, fProduct && `產品：${fProduct}`, fKeyword && `關鍵字：${fKeyword}`,
+    const filterDesc = [fBrand && `品牌：${fBrand}`, fCategory && `分類：${fCategory}`, fProduct && `產品：${fProduct}`, fKeyword && `關鍵字：${fKeyword}`,
       fStatus && `狀態：${fStatus === 'published' ? '已發布' : '草稿'}`].filter(Boolean).join('；') || '全部'
     let body = `<h1 style="font-size:20pt">產品 FAQ 知識庫</h1>
 <p style="color:#666">威斯邁國際有限公司　匯出日期：${new Date().toLocaleDateString('zh-TW')}　共 ${filtered.length} 則（篩選：${esc(filterDesc)}）</p><hr/>`
@@ -128,7 +144,8 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
         body += `<h3 style="font-size:13pt;color:#333">▍${esc(p)}</h3>`
         for (const f of groups[b][p]) {
           n++
-          body += `<p style="margin:8pt 0 2pt"><b>Q${n}. ${esc(f.question)}</b>${f.compliance_ok ? '' : '　<span style="color:#d97706;font-size:9pt">（未過合規審查）</span>'}</p>`
+          const prodTag = f.category && f.product ? `〔${esc(f.product)}〕` : ''
+          body += `<p style="margin:8pt 0 2pt"><b>Q${n}. ${prodTag}${esc(f.question)}</b>${f.compliance_ok ? '' : '　<span style="color:#d97706;font-size:9pt">（未過合規審查）</span>'}</p>`
           body += `<p style="margin:0 0 6pt">${esc(f.answer).replace(/\n/g, '<br/>')}</p>`
         }
       }
@@ -179,14 +196,19 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
 
       {/* 篩選列 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4 flex flex-wrap gap-2 items-center">
-        <select value={fBrand} onChange={e => setFBrand(e.target.value)}
+        <select value={fBrand} onChange={e => { setFBrand(e.target.value); setFCategory(''); setFProduct('') }}
           className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200">
           <option value="">全部品牌</option>
           {kbBrands.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
+        <select value={fCategory} onChange={e => { setFCategory(e.target.value); setFProduct('') }}
+          className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200">
+          <option value="">全部分類</option>
+          {categoriesFor(fBrand).map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <input list="kb-products-filter" value={fProduct} onChange={e => setFProduct(e.target.value)} placeholder="產品名稱…"
           className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 w-44" />
-        <datalist id="kb-products-filter">{productsForBrand(fBrand).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
+        <datalist id="kb-products-filter">{productsFor(fBrand, fCategory).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
         <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder="🔍 關鍵字（問題/答案/標籤）"
           className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 flex-1 min-w-[180px]" />
         <select value={fStatus} onChange={e => setFStatus(e.target.value)}
@@ -195,8 +217,8 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
           <option value="published">已發布</option>
           <option value="draft">草稿</option>
         </select>
-        {(fBrand || fProduct || fKeyword || fStatus) && (
-          <button onClick={() => { setFBrand(''); setFProduct(''); setFKeyword(''); setFStatus('') }}
+        {(fBrand || fCategory || fProduct || fKeyword || fStatus) && (
+          <button onClick={() => { setFBrand(''); setFCategory(''); setFProduct(''); setFKeyword(''); setFStatus('') }}
             className="text-xs text-gray-400 hover:text-gray-600 underline">清除篩選</button>
         )}
       </div>
@@ -205,20 +227,26 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
       {form && (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-blue-200 dark:border-blue-700/50 shadow-md p-5 space-y-3">
           <p className="text-sm font-bold text-gray-700 dark:text-gray-200">{form.id ? '✏️ 編輯 FAQ' : '＋ 新增 FAQ'}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-bold text-gray-400 uppercase">品牌</label>
-              <input list="kb-brands" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })}
+              <input list="kb-brands" value={form.brand}
+                onChange={e => setForm({ ...form, brand: e.target.value, category: '', product: '' })}
                 placeholder="例：好漢草" className="mt-1 w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" />
               <datalist id="kb-brands">{kbBrands.map(b => <option key={b} value={b} />)}</datalist>
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase">
-                產品（可空白＝品牌通用{form.brand && brandProducts[form.brand]?.length ? `，已依「${form.brand}」篩選` : ''}）
-              </label>
+              <label className="text-xs font-bold text-gray-400 uppercase">分類{form.brand ? `（${form.brand} 的分類）` : ''}</label>
+              <input list="kb-categories" value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value, product: '' })}
+                placeholder="例：艾草包、背包" className="mt-1 w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" />
+              <datalist id="kb-categories">{categoriesFor(form.brand).map(c => <option key={c} value={c} />)}</datalist>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-400 uppercase">產品（可空白＝分類通用）</label>
               <input list="kb-products" value={form.product} onChange={e => setForm({ ...form, product: e.target.value })}
-                placeholder="例：艾草淨身平安包" className="mt-1 w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" />
-              <datalist id="kb-products">{productsForBrand(form.brand).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
+                placeholder="例：艾草淨身平安包(15入)" className="mt-1 w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" />
+              <datalist id="kb-products">{productsFor(form.brand, form.category).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
             </div>
           </div>
           <div>
@@ -277,6 +305,7 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {f.brand && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-bold">{f.brand}</span>}
+                  {f.category && <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 font-bold">{f.category}</span>}
                   {f.product && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{f.product}</span>}
                   {(f.tags || []).map(t => <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-gray-50 dark:bg-gray-900 text-gray-400">#{t}</span>)}
                   {f.status === 'draft' && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 font-bold">草稿</span>}
@@ -288,7 +317,7 @@ export default function KnowledgeBase({ brands = [], products = [], brandProduct
               {canManage && (
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => setForm({
-                    id: f.id, brand: f.brand, product: f.product, question: f.question, answer: f.answer,
+                    id: f.id, brand: f.brand, category: f.category || '', product: f.product, question: f.question, answer: f.answer,
                     tags: (f.tags || []).join(', '), status: f.status, compliance_ok: !!f.compliance_ok,
                   })} className="text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700">✏️</button>
                   <button onClick={() => remove(f)}
