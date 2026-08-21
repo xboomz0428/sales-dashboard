@@ -22,6 +22,7 @@ import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
+import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
 import { categorizeProduct } from './utils/productCategory'
 import BrandScorecard from './components/charts/BrandScorecard'
 import LunarPanel from './components/charts/LunarPanel'
@@ -269,6 +270,7 @@ function AppDashboard() {
   const [keyInput, setKeyInput] = useState('')
   const [keyHasValue, setKeyHasValue] = useState(() => !!getStoredApiKey())
   const [moreOpen, setMoreOpen] = useState(false)
+  const [changelogOpen, setChangelogOpen] = useState(false)
   const [tabBarCollapsed, setTabBarCollapsed] = useState(false)
   const [bottomNavHidden, setBottomNavHidden] = useState(false)
   const chartAreaRef = useRef(null)
@@ -678,6 +680,11 @@ function AppDashboard() {
               </div>
               <p className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block leading-tight">
                 {uploadHistory.length} 個檔案 · {meta?.totalRows?.toLocaleString()} 筆 · 顯示 {filtered.length.toLocaleString()} 筆
+                <button onClick={() => setChangelogOpen(true)}
+                  title="查看修改歷程"
+                  className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40 transition-colors align-middle">
+                  v{APP_VERSION}
+                </button>
               </p>
             </div>
           </div>
@@ -1321,6 +1328,8 @@ function AppDashboard() {
           </div>
         </div>
       )}
+
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} />
 
       <AIAnalysis
         open={aiOpen}

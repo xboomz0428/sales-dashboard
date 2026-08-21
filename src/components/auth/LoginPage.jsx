@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth, ROLES } from '../../contexts/AuthContext'
+import { APP_VERSION } from '../ChangelogModal'
 
 export default function LoginPage() {
   const { login, authError, demoMode } = useAuth()
@@ -157,7 +158,7 @@ export default function LoginPage() {
       </div>
 
       <p className="text-gray-600 dark:text-gray-500 text-xs mt-6">
-        Sales Dashboard v0.0.104
+        Sales Dashboard v{APP_VERSION}
       </p>
     </div>
   )
