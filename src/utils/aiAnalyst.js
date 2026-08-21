@@ -4,7 +4,7 @@ function fmtN(v) {
   return Math.round(v).toLocaleString()
 }
 
-export function buildAIPayload({ summary, productData, brandData, channelData, channelTypeData, channelCustomerData, customerData, trendData, performanceData, filters, activeBrands, activeProducts, dataThrough }) {
+export function buildAIPayload({ summary, productData, brandData, channelData, channelTypeData, channelCustomerData, customerData, trendData, performanceData, filters, activeBrands, activeProducts, dataThrough, fullOverview }) {
   const topN = (arr, n = 10) => arr.slice(0, n)
   const botN = (arr, n = 5) => arr.slice(-n)
 
@@ -23,6 +23,10 @@ export function buildAIPayload({ summary, productData, brandData, channelData, c
       : filters.years.length > 0 ? `${filters.years.join('、')} 年` : '全部期間',
     ...(dataThrough ? { 資料截止: `${dataThrough}（僅計完整月份，進行中的當月不納入）` } : {}),
     ...(actB || actP ? { 分析範圍說明: '近 3 年無銷售的品牌與產品已排除，不列入品項分析與建議' } : {}),
+    ...(fullOverview ? {
+      數據結構說明: '「全資料庫概覽」為完整歷史全貌（全部年份/月份/品牌/分類/通路，不受篩選影響）；其後欄位為目前篩選範圍的細項摘要。判讀長期趨勢與結構請用概覽，判讀當期細節請用篩選摘要。',
+      全資料庫概覽: fullOverview,
+    } : {}),
     總體指標: {
       總銷售金額: fmtN(summary.totalSales),
       總銷售數量: summary.totalQty.toLocaleString(),
@@ -261,9 +265,10 @@ export function buildChatMessages({ dataJson, filters, chatHistory = [], questio
   const filterCtx = buildFilterContext(filters)
   const system = `${filterCtx}${COMPANY_CONTEXT}
 
-你是威斯邁國際的「銷售數據問答助手」。使用者會針對以下銷售數據摘要提問，請遵守：
+你是威斯邁國際的「銷售數據問答助手」。使用者會針對以下銷售數據提問，請遵守：
 - **必須用繁體中文**、口語簡潔，直接回答問題本身，不要長篇報告
-- 每個論斷都引用摘要中的實際數字；摘要裡沒有的數據，明說「目前數據看不到」，嚴禁編造
+- 數據分兩層：「全資料庫概覽」是完整歷史全貌（全部年份/月份/品牌/分類/通路/TOP產品客戶）；其餘欄位是使用者目前篩選範圍的細項。問歷史、跨年、全品牌的問題用概覽答；問當期細節用篩選摘要答
+- 每個論斷都引用數據中的實際數字；數據裡沒有的，明說「目前數據看不到」，嚴禁編造
 - 適合條列時用「•」開頭的短行；表格才用 Markdown 表格；不要用 # 標題
 - **只輸出純文字，嚴禁任何 HTML 標籤**（如 <span>、<br>、<font>）；要強調的字詞用「」或 ⚠️ 標註
 - 涉及好漢草/草本/母嬰功效的文案或宣稱，附一句合規提醒（藥事法/食安法，禁療效字眼）

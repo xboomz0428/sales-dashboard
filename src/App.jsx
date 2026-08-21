@@ -463,6 +463,52 @@ function AppDashboard() {
     () => aiRows.reduce((m, r) => (r.yearMonth > m ? r.yearMonth : m), ''),
     [aiRows]
   )
+
+  // AI 全資料庫概覽：不受頁面篩選影響的完整彙總（全部年份/月份/品牌/分類/通路
+  // + TOP 產品/客戶 + 毛利概況），讓 AI 永遠看得到全貌，而非只有當前篩選的摘要
+  const aiFullOverview = useMemo(() => {
+    if (!aiRows.length) return null
+    const maxDate = aiRows.reduce((m, r) => (r.date > m ? r.date : m), '')
+    const c12 = new Date(maxDate); c12.setFullYear(c12.getFullYear() - 1)
+    const cut12 = c12.toISOString().slice(0, 10)
+    const fmtW = v => (v >= 1e8 ? (v / 1e8).toFixed(2) + '億' : v >= 1e4 ? Math.round(v / 1e4) + '萬' : Math.round(v).toString())
+
+    const byYear = {}, byMonth = {}, brand = {}, cat = {}, chType = {}, prod = {}, cust = {}
+    let totalRev = 0, coveredRev = 0, cost = 0
+    for (const r of aiRows) {
+      const s = r.subtotal || 0, q = r.quantity || 0, in12 = r.date >= cut12
+      totalRev += s
+      const y = (byYear[r.year] ||= { rev: 0, qty: 0, orders: 0 }); y.rev += s; y.qty += q; y.orders++
+      byMonth[r.yearMonth] = (byMonth[r.yearMonth] || 0) + s
+      if (r.brand) { const b = (brand[r.brand] ||= { all: 0, r12: 0 }); b.all += s; if (in12) b.r12 += s }
+      if (r.product) {
+        const cName = categorizeProduct(r.product)
+        const c = (cat[cName] ||= { all: 0, r12: 0 }); c.all += s; if (in12) c.r12 += s
+        const p = (prod[r.product] ||= { brand: r.brand || '', all: 0, r12: 0, qty: 0 }); p.all += s; p.qty += q; if (in12) p.r12 += s
+        const uc = productCosts[r.product]
+        if (uc != null && !isNaN(uc)) { cost += q * uc; coveredRev += s }
+      }
+      const ch = r.channelType || r.channel || '其他'
+      const t = (chType[ch] ||= { all: 0, r12: 0 }); t.all += s; if (in12) t.r12 += s
+      if (r.customer) { const u = (cust[r.customer] ||= { all: 0, r12: 0 }); u.all += s; if (in12) u.r12 += s }
+    }
+    const activeP = new Set(activeSets.products)
+    const sortEntries = (o, key = 'all') => Object.entries(o).sort((a, b) => b[1][key] - a[1][key])
+    return {
+      年度彙總: Object.keys(byYear).sort().map(yy => ({ 年: yy, 營收: fmtW(byYear[yy].rev), 數量: byYear[yy].qty, 訂單: byYear[yy].orders })),
+      全月度營收: Object.fromEntries(Object.keys(byMonth).sort().map(m => [m, fmtW(byMonth[m])])),
+      品牌彙總_全部: sortEntries(brand).map(([n, v]) => ({ 品牌: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      產品分類彙總: sortEntries(cat).map(([n, v]) => ({ 分類: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      通路類型彙總: sortEntries(chType).map(([n, v]) => ({ 通路: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      TOP60產品_近3年有售: sortEntries(prod).filter(([n]) => activeP.has(n)).slice(0, 60)
+        .map(([n, v]) => ({ 產品: n, 品牌: v.brand, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12), 總數量: Math.round(v.qty) })),
+      TOP30客戶: sortEntries(cust).slice(0, 30).map(([n, v]) => ({ 客戶: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      毛利概況: coveredRev > 0 ? {
+        已設成本商品毛利率: ((coveredRev - cost) / coveredRev * 100).toFixed(1) + '%',
+        成本覆蓋率: (coveredRev / totalRev * 100).toFixed(0) + '%',
+      } : '尚未設定產品成本',
+    }
+  }, [aiRows, productCosts, activeSets])
   const {
     summary, filtered, prevYearSummary,
     trendData, trendDataYoY, trendDataMoM, periodYoY, trendByChannel, trendByBrand, trendByProduct,
@@ -1246,6 +1292,7 @@ function AppDashboard() {
           trendData: aiSalesData.trendData, performanceData: aiSalesData.performanceData,
           activeBrands: activeSets.brands, activeProducts: activeSets.products,
           dataThrough: aiDataThrough,
+          fullOverview: aiFullOverview,
         }}
       />
     </div>
