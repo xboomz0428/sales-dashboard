@@ -4,14 +4,25 @@ function fmtN(v) {
   return Math.round(v).toLocaleString()
 }
 
-export function buildAIPayload({ summary, productData, brandData, channelData, channelTypeData, channelCustomerData, customerData, trendData, performanceData, filters }) {
+export function buildAIPayload({ summary, productData, brandData, channelData, channelTypeData, channelCustomerData, customerData, trendData, performanceData, filters, activeBrands, activeProducts, dataThrough }) {
   const topN = (arr, n = 10) => arr.slice(0, n)
   const botN = (arr, n = 5) => arr.slice(-n)
+
+  // 排除近 3 年無銷售的品牌/產品：不再對已死品項做分析與建議
+  const actB = activeBrands?.length ? new Set(activeBrands) : null
+  const actP = activeProducts?.length ? new Set(activeProducts) : null
+  if (actP) productData = productData.filter(d => actP.has(d.name))
+  if (actB) brandData = brandData.filter(d => actB.has(d.name))
+  if (actP && performanceData?.productPerf) {
+    performanceData = { ...performanceData, productPerf: performanceData.productPerf.filter(d => actP.has(d.name)) }
+  }
 
   const data = {
     分析期間: filters.dateRange
       ? `${filters.dateRange.start} ~ ${filters.dateRange.end}`
       : filters.years.length > 0 ? `${filters.years.join('、')} 年` : '全部期間',
+    ...(dataThrough ? { 資料截止: `${dataThrough}（僅計完整月份，進行中的當月不納入）` } : {}),
+    ...(actB || actP ? { 分析範圍說明: '近 3 年無銷售的品牌與產品已排除，不列入品項分析與建議' } : {}),
     總體指標: {
       總銷售金額: fmtN(summary.totalSales),
       總銷售數量: summary.totalQty.toLocaleString(),

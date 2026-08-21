@@ -158,19 +158,33 @@ function AppDashboard() {
     [visibleRows, meta]
   )
 
-  // 知識庫用的品牌清單：只列「近 3 年有銷售」的品牌，依銷售額由高到低排序
-  const kbBrands = useMemo(() => {
-    if (!visibleRows.length) return []
+  // 「近 3 年有銷售」的活躍品牌/產品（知識庫下拉與 AI 分析共用）：
+  // 皆依 3 年銷售額由高到低排序；brandProducts = 品牌 → 該品牌產品清單
+  const activeSets = useMemo(() => {
+    if (!visibleRows.length) return { brands: [], products: [], brandProducts: {} }
     const maxDate = visibleRows.reduce((m, r) => (r.date > m ? r.date : m), '')
     const cutoff = new Date(maxDate)
     cutoff.setFullYear(cutoff.getFullYear() - 3)
     const cutoffStr = cutoff.toISOString().slice(0, 10)
-    const map = {}
+    const brands = {}, products = {}, brandProducts = {}
     for (const r of visibleRows) {
-      if (!r.brand || r.date < cutoffStr) continue
-      map[r.brand] = (map[r.brand] || 0) + (r.subtotal || 0)
+      if (r.date < cutoffStr) continue
+      const amt = r.subtotal || 0
+      if (r.brand) brands[r.brand] = (brands[r.brand] || 0) + amt
+      if (r.product) {
+        products[r.product] = (products[r.product] || 0) + amt
+        if (r.brand) {
+          const bp = (brandProducts[r.brand] ||= {})
+          bp[r.product] = (bp[r.product] || 0) + amt
+        }
+      }
     }
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([b]) => b)
+    const sortKeys = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k]) => k)
+    return {
+      brands: sortKeys(brands),
+      products: sortKeys(products),
+      brandProducts: Object.fromEntries(Object.entries(brandProducts).map(([b, o]) => [b, sortKeys(o)])),
+    }
   }, [visibleRows])
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
@@ -427,6 +441,19 @@ function AppDashboard() {
   }, [saveCosts])
 
   const salesData = useSalesData(visibleRows, filters)
+
+  // AI 分析專用資料：只用「完整月份」（當月尚未過完，破碎資料會誤導分析）。
+  // 僅在 AI 視窗開啟時才計算（平時傳空陣列，省效能）。
+  const currentYM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const aiRows = useMemo(
+    () => (aiOpen ? visibleRows.filter(r => r.yearMonth < currentYM) : []),
+    [aiOpen, visibleRows, currentYM]
+  )
+  const aiSalesData = useSalesData(aiRows, filters)
+  const aiDataThrough = useMemo(
+    () => aiRows.reduce((m, r) => (r.yearMonth > m ? r.yearMonth : m), ''),
+    [aiRows]
+  )
   const {
     summary, filtered,
     trendData, trendDataYoY, trendDataMoM, periodYoY, trendByChannel, trendByBrand, trendByProduct,
@@ -1025,8 +1052,9 @@ function AppDashboard() {
           )}
           {activeTab === 'kb' && (
             <KnowledgeBase
-              brands={kbBrands}
-              products={visibleMeta?.products || []}
+              brands={activeSets.brands}
+              products={activeSets.products}
+              brandProducts={activeSets.brandProducts}
               canManage={role === 'admin' || role === 'manager'}
               userEmail={user?.email || ''}
             />
@@ -1200,9 +1228,13 @@ function AppDashboard() {
         onExportFullPDF={handleAIExportFullPDF}
         user={user}
         salesData={{
-          summary, filters,
-          productData, brandData, channelData, channelTypeData,
-          channelCustomerData, customerData, trendData, performanceData,
+          summary: aiSalesData.summary, filters,
+          productData: aiSalesData.productData, brandData: aiSalesData.brandData,
+          channelData: aiSalesData.channelData, channelTypeData: aiSalesData.channelTypeData,
+          channelCustomerData: aiSalesData.channelCustomerData, customerData: aiSalesData.customerData,
+          trendData: aiSalesData.trendData, performanceData: aiSalesData.performanceData,
+          activeBrands: activeSets.brands, activeProducts: activeSets.products,
+          dataThrough: aiDataThrough,
         }}
       />
     </div>

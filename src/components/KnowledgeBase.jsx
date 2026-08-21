@@ -13,7 +13,7 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 
 const EMPTY_FORM = { id: null, brand: '', product: '', question: '', answer: '', tags: '', status: 'published', compliance_ok: false }
 
-export default function KnowledgeBase({ brands = [], products = [], canManage = true, userEmail = '' }) {
+export default function KnowledgeBase({ brands = [], products = [], brandProducts = {}, canManage = true, userEmail = '' }) {
   const client = supabaseAdmin || supabase
   const [faqs, setFaqs] = useState(null)          // null = 載入中
   const [msg, setMsg] = useState(null)
@@ -40,6 +40,9 @@ export default function KnowledgeBase({ brands = [], products = [], canManage = 
       .filter(b => b && !brands.includes(b)).sort()
     return [...brands, ...extra]
   }, [faqs, brands])
+
+  // 選定品牌後，產品選項自動縮小為該品牌的產品（依銷售額排序）；未選品牌則列全部活躍產品
+  const productsForBrand = (brand) => (brand && brandProducts[brand]?.length ? brandProducts[brand] : products)
 
   const filtered = useMemo(() => (faqs || []).filter(f => {
     if (fBrand && f.brand !== fBrand) return false
@@ -181,8 +184,9 @@ export default function KnowledgeBase({ brands = [], products = [], canManage = 
           <option value="">全部品牌</option>
           {kbBrands.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
-        <input value={fProduct} onChange={e => setFProduct(e.target.value)} placeholder="產品名稱…"
-          className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 w-40" />
+        <input list="kb-products-filter" value={fProduct} onChange={e => setFProduct(e.target.value)} placeholder="產品名稱…"
+          className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 w-44" />
+        <datalist id="kb-products-filter">{productsForBrand(fBrand).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
         <input value={fKeyword} onChange={e => setFKeyword(e.target.value)} placeholder="🔍 關鍵字（問題/答案/標籤）"
           className="text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 flex-1 min-w-[180px]" />
         <select value={fStatus} onChange={e => setFStatus(e.target.value)}
@@ -209,10 +213,12 @@ export default function KnowledgeBase({ brands = [], products = [], canManage = 
               <datalist id="kb-brands">{kbBrands.map(b => <option key={b} value={b} />)}</datalist>
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase">產品（可空白＝品牌通用）</label>
+              <label className="text-xs font-bold text-gray-400 uppercase">
+                產品（可空白＝品牌通用{form.brand && brandProducts[form.brand]?.length ? `，已依「${form.brand}」篩選` : ''}）
+              </label>
               <input list="kb-products" value={form.product} onChange={e => setForm({ ...form, product: e.target.value })}
                 placeholder="例：艾草淨身平安包" className="mt-1 w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" />
-              <datalist id="kb-products">{products.slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
+              <datalist id="kb-products">{productsForBrand(form.brand).slice(0, 300).map(p => <option key={p} value={p} />)}</datalist>
             </div>
           </div>
           <div>
