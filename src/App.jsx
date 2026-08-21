@@ -167,10 +167,13 @@ function AppDashboard() {
     const cutoff = new Date(maxDate)
     cutoff.setFullYear(cutoff.getFullYear() - 3)
     const cutoffStr = cutoff.toISOString().slice(0, 10)
-    const brands = {}, products = {}, brandProducts = {}, brandCategories = {}, catProducts = {}
+    const brands = {}, products = {}, brandProducts = {}, brandCategories = {}, catProducts = {}, customers = {}, channelTypes = {}
     for (const r of visibleRows) {
       if (r.date < cutoffStr) continue
       const amt = r.subtotal || 0
+      if (r.customer) customers[r.customer] = (customers[r.customer] || 0) + amt
+      const ch = r.channelType || r.channel
+      if (ch) channelTypes[ch] = (channelTypes[ch] || 0) + amt
       if (r.brand) brands[r.brand] = (brands[r.brand] || 0) + amt
       if (r.product) {
         products[r.product] = (products[r.product] || 0) + amt
@@ -190,11 +193,21 @@ function AppDashboard() {
     return {
       brands: sortKeys(brands),
       products: sortKeys(products),
+      customers: sortKeys(customers),
+      channelTypes: sortKeys(channelTypes),
       brandProducts: Object.fromEntries(Object.entries(brandProducts).map(([b, o]) => [b, sortKeys(o)])),
       brandCategories: Object.fromEntries(Object.entries(brandCategories).map(([b, o]) => [b, sortKeys(o)])),
       catProducts: Object.fromEntries(Object.entries(catProducts).map(([k, o]) => [k, sortKeys(o)])),
     }
   }, [visibleRows])
+
+  // 3 年無交易的實體（品牌/產品/客戶/通路）在 AI 分析中一律排除——用 Set 供列級過濾
+  const aiActiveSets = useMemo(() => ({
+    brands: new Set(activeSets.brands),
+    products: new Set(activeSets.products),
+    customers: new Set(activeSets.customers),
+    channelTypes: new Set(activeSets.channelTypes),
+  }), [activeSets])
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -454,9 +467,16 @@ function AppDashboard() {
   // AI 分析專用資料：只用「完整月份」（當月尚未過完，破碎資料會誤導分析）。
   // 僅在 AI 視窗開啟時才計算（平時傳空陣列，省效能）。
   const currentYM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  // 列級過濾：①只取完整月份 ②排除近 3 年無交易的品牌/產品/客戶/通路的資料列
   const aiRows = useMemo(
-    () => (aiOpen ? visibleRows.filter(r => r.yearMonth < currentYM) : []),
-    [aiOpen, visibleRows, currentYM]
+    () => (aiOpen ? visibleRows.filter(r =>
+      r.yearMonth < currentYM &&
+      (!r.brand || aiActiveSets.brands.has(r.brand)) &&
+      (!r.product || aiActiveSets.products.has(r.product)) &&
+      (!r.customer || aiActiveSets.customers.has(r.customer)) &&
+      (!(r.channelType || r.channel) || aiActiveSets.channelTypes.has(r.channelType || r.channel))
+    ) : []),
+    [aiOpen, visibleRows, currentYM, aiActiveSets]
   )
   const aiSalesData = useSalesData(aiRows, filters)
   const aiDataThrough = useMemo(
@@ -494,15 +514,38 @@ function AppDashboard() {
     }
     const activeP = new Set(activeSets.products)
     const sortEntries = (o, key = 'all') => Object.entries(o).sort((a, b) => b[1][key] - a[1][key])
+
+    // 年度成長基準：本年度（1月～最新完整月）vs 去年同期 / 去年全年（成長策略用，不跨年）
+    const thisYear = maxDate.slice(0, 4)
+    const lastYear = String(parseInt(thisYear) - 1)
+    const throughMM = maxDate.slice(5, 7)
+    let ytd = 0, lastYtd = 0, lastFull = 0
+    for (const r of aiRows) {
+      if (r.year === thisYear) ytd += r.subtotal || 0
+      else if (r.year === lastYear) {
+        lastFull += r.subtotal || 0
+        if (r.yearMonth <= `${lastYear}-${throughMM}`) lastYtd += r.subtotal || 0
+      }
+    }
+    const 年度成長基準 = {
+      本年度: thisYear,
+      本年累計_至完整月: `${fmtW(ytd)}（1月~${parseInt(throughMM)}月）`,
+      去年同期累計: fmtW(lastYtd),
+      去年全年: fmtW(lastFull),
+      同期成長率: lastYtd > 0 ? ((ytd - lastYtd) / lastYtd * 100).toFixed(1) + '%' : '—',
+      年內剩餘完整月份數: 12 - parseInt(throughMM),
+    }
+
     return {
+      年度成長基準,
       年度彙總: Object.keys(byYear).sort().map(yy => ({ 年: yy, 營收: fmtW(byYear[yy].rev), 數量: byYear[yy].qty, 訂單: byYear[yy].orders })),
       全月度營收: Object.fromEntries(Object.keys(byMonth).sort().map(m => [m, fmtW(byMonth[m])])),
-      品牌彙總_全部: sortEntries(brand).map(([n, v]) => ({ 品牌: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      品牌彙總_近3年有售: sortEntries(brand).map(([n, v]) => ({ 品牌: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
       產品分類彙總: sortEntries(cat).map(([n, v]) => ({ 分類: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
       通路類型彙總: sortEntries(chType).map(([n, v]) => ({ 通路: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
       TOP60產品_近3年有售: sortEntries(prod).filter(([n]) => activeP.has(n)).slice(0, 60)
         .map(([n, v]) => ({ 產品: n, 品牌: v.brand, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12), 總數量: Math.round(v.qty) })),
-      TOP30客戶: sortEntries(cust).slice(0, 30).map(([n, v]) => ({ 客戶: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
+      TOP30客戶_近3年有交易: sortEntries(cust).slice(0, 30).map(([n, v]) => ({ 客戶: n, 歷史總額: fmtW(v.all), 近12月: fmtW(v.r12) })),
       毛利概況: coveredRev > 0 ? {
         已設成本商品毛利率: ((coveredRev - cost) / coveredRev * 100).toFixed(1) + '%',
         成本覆蓋率: (coveredRev / totalRev * 100).toFixed(0) + '%',
