@@ -455,7 +455,7 @@ function AppDashboard() {
     [aiRows]
   )
   const {
-    summary, filtered,
+    summary, filtered, prevYearSummary,
     trendData, trendDataYoY, trendDataMoM, periodYoY, trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,
     brandData, brandChannelData, brandChannelMonthData, heatmapData, heatmapBrandData,
@@ -857,7 +857,7 @@ function AppDashboard() {
         {/* KPI Cards */}
         {meta && dashboardOpen && (
           <SummaryCards
-            summary={summary} metric={filters.metric} trendData={trendData}
+            summary={summary} prevSummary={prevYearSummary} metric={filters.metric} trendData={trendData}
             productData={productData} customerData={customerData}
             customerByChannelTop={customerByChannelTop} costs={perms.viewCosts ? productCosts : {}}
           />

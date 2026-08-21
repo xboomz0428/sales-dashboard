@@ -71,6 +71,40 @@ export function useSalesData(rows, filters) {
     return { totalSales, totalQty, orderCount, avgDiscount, customerCount, productCount }
   }, [filtered, filters.includeDiscount])
 
+  // 去年同期對比：取目前篩選結果的「實際起訖日」整段往前推一年，
+  // 套同樣的非日期篩選（通路/品牌/客戶/商品/月份）計算同一組 KPI。
+  // 例：選 2026 年、資料到 8/21 → 對比 2025-01-01 ~ 2025-08-21。
+  const prevYearSummary = useMemo(() => {
+    if (!filtered.length || !rows?.length) return null
+    let minD = filtered[0].date, maxD = filtered[0].date
+    for (const r of filtered) {
+      if (r.date < minD) minD = r.date
+      if (r.date > maxD) maxD = r.date
+    }
+    const shift = d => `${parseInt(d.slice(0, 4)) - 1}${d.slice(4)}`
+    const pMin = shift(minD), pMax = shift(maxD)
+
+    const base = applyNonDateFilters(rows, filters)
+    let totalSales = 0, totalQty = 0, orderCount = 0
+    const customers = new Set(), products = new Set()
+    for (const r of base) {
+      if (r.date < pMin || r.date > pMax) continue
+      if (filters.months.length > 0 && !filters.months.includes(r.month)) continue
+      totalSales += r.subtotal || 0
+      totalQty += r.quantity || 0
+      orderCount++
+      if (r.customer) customers.add(r.customer)
+      if (r.product) products.add(r.product)
+    }
+    return {
+      totalSales, totalQty, orderCount,
+      customerCount: customers.size, productCount: products.size,
+      range: { start: pMin, end: pMax },
+      currentRange: { start: minD, end: maxD },
+      hasData: orderCount > 0,
+    }
+  }, [rows, filtered, filters])
+
   // Trend: overall
   const trendData = useMemo(() => {
     const map = {}
@@ -593,7 +627,7 @@ export function useSalesData(rows, filters) {
   }, [filtered, metric])
 
   return {
-    filtered, summary, activeProducts,
+    filtered, summary, activeProducts, prevYearSummary,
     trendData, trendDataYoY, trendDataMoM, periodYoY,
     trendByChannel, trendByBrand, trendByProduct,
     channelData, channelTypeData, channelCustomerData,

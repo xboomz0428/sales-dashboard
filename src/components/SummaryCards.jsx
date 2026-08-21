@@ -46,10 +46,16 @@ function fmt2(n) {
 }
 function fmtInt(n) { return n != null ? Math.round(n).toLocaleString() : '—' }
 
-export default function SummaryCards({ summary, metric, trendData = [], productData = [], customerData = [], customerByChannelTop = {}, costs = {} }) {
+export default function SummaryCards({ summary, prevSummary, metric, trendData = [], productData = [], customerData = [], customerByChannelTop = {}, costs = {} }) {
   const [visibility, setVisibility] = useState(loadVisibility)
   const [showSettings, setShowSettings] = useState(false)
+  const [compareYoY, setCompareYoY] = useState(() => localStorage.getItem('dashboard_yoy_compare') === '1')
   const vis = (id) => visibility[id] !== false
+
+  const toggleYoY = () => setCompareYoY(v => {
+    localStorage.setItem('dashboard_yoy_compare', v ? '0' : '1')
+    return !v
+  })
 
   const toggleCard = (id) => {
     setVisibility(prev => {
@@ -62,6 +68,18 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
   const { totalSales, totalQty, orderCount, avgDiscount, customerCount, productCount } = summary
   const avgOrderValue = orderCount > 0 ? totalSales / orderCount : 0
   const avgRevenuePerCustomer = customerCount > 0 ? totalSales / customerCount : 0
+
+  // 去年同期對比：每張卡對應 [本期值, 去年同期值, 格式('money'|'int')]
+  const yoyMap = prevSummary ? {
+    totalSales:    [totalSales, prevSummary.totalSales, 'money'],
+    totalQty:      [totalQty, prevSummary.totalQty, 'int'],
+    orderCount:    [orderCount, prevSummary.orderCount, 'int'],
+    customerCount: [customerCount, prevSummary.customerCount, 'int'],
+    productCount:  [productCount, prevSummary.productCount, 'int'],
+    avgOrderValue: [avgOrderValue, prevSummary.orderCount > 0 ? prevSummary.totalSales / prevSummary.orderCount : 0, 'money'],
+    avgRevenuePerCustomer: [avgRevenuePerCustomer, prevSummary.customerCount > 0 ? prevSummary.totalSales / prevSummary.customerCount : 0, 'money'],
+  } : {}
+  const fmtYoY = (v, kind) => kind === 'money' ? 'NT$ ' + fmt(Math.abs(v)) : Math.round(Math.abs(v)).toLocaleString()
   const topProductByRevenue = productData.length > 0 ? [...productData].sort((a, b) => b.subtotal - a.subtotal)[0] : null
   const topCustomerByRevenue = customerData.length > 0 ? [...customerData].sort((a, b) => b.subtotal - a.subtotal)[0] : null
 
@@ -122,6 +140,22 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
     <div className="px-3 sm:px-4 py-3 flex-shrink-0 space-y-2">
       {/* Settings button */}
       <div className="flex items-center justify-end">
+        {compareYoY && prevSummary && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 mr-auto ml-1">
+            本期 {prevSummary.currentRange.start} ~ {prevSummary.currentRange.end}　vs　去年 {prevSummary.range.start} ~ {prevSummary.range.end}
+            {!prevSummary.hasData && <span className="text-amber-500 font-semibold">（去年同期無資料）</span>}
+          </span>
+        )}
+        <button
+          onClick={toggleYoY}
+          className={`flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-lg border transition-colors ${
+            compareYoY
+              ? 'border-emerald-400 bg-emerald-50 text-emerald-700 font-bold dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-600'
+              : 'border-transparent text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+          }`}
+        >
+          ⚖️ 對比去年同期{compareYoY ? '：開' : ''}
+        </button>
         <button
           onClick={() => setShowSettings(true)}
           className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 transition-colors px-2.5 py-1 rounded-lg hover:bg-[var(--mint-50)] dark:hover:bg-emerald-900/20"
@@ -153,6 +187,18 @@ export default function SummaryCards({ summary, metric, trendData = [], productD
                   <div className="text-xl sm:text-2xl font-black text-gray-800 dark:text-gray-100 leading-tight">{card.value}</div>
                 )}
                 <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-0.5 truncate">{card.sub}</div>
+                {compareYoY && prevSummary?.hasData && yoyMap[card.id] && (() => {
+                  const [cur, prev, kind] = yoyMap[card.id]
+                  const diff = cur - prev
+                  const pct = prev !== 0 ? (diff / Math.abs(prev)) * 100 : null
+                  const up = diff >= 0
+                  return (
+                    <div className={`text-xs font-bold mt-1.5 pt-1.5 border-t border-gray-50 dark:border-gray-700 ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {up ? '▲' : '▼'} {pct != null ? `${up ? '+' : '-'}${Math.abs(pct).toFixed(1)}%` : '—'}（{up ? '+' : '-'}{fmtYoY(diff, kind)}）
+                      <div className="text-gray-400 dark:text-gray-500 font-normal mt-0.5">去年同期 {fmtYoY(prev, kind)}</div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           ))}
