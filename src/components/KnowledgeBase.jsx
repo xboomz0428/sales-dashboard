@@ -33,7 +33,13 @@ export default function KnowledgeBase({ brands = [], products = [], canManage = 
   }, [client])
   useEffect(() => { load() }, [load])
 
-  const kbBrands = useMemo(() => [...new Set([...(faqs || []).map(f => f.brand), ...brands])].filter(Boolean).sort(), [faqs, brands])
+  // brands prop 已依「近 3 年銷售額」排序（App 計算）；保持該順序，
+  // 既有 FAQ 用到但不在清單內的品牌（如已停售）附加在最後，避免舊資料選不到
+  const kbBrands = useMemo(() => {
+    const extra = [...new Set((faqs || []).map(f => f.brand))]
+      .filter(b => b && !brands.includes(b)).sort()
+    return [...brands, ...extra]
+  }, [faqs, brands])
 
   const filtered = useMemo(() => (faqs || []).filter(f => {
     if (fBrand && f.brand !== fBrand) return false

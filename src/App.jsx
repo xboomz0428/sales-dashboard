@@ -157,6 +157,21 @@ function AppDashboard() {
     () => visibleRows.length ? buildMeta(visibleRows) : meta ? buildMeta([]) : null,
     [visibleRows, meta]
   )
+
+  // 知識庫用的品牌清單：只列「近 3 年有銷售」的品牌，依銷售額由高到低排序
+  const kbBrands = useMemo(() => {
+    if (!visibleRows.length) return []
+    const maxDate = visibleRows.reduce((m, r) => (r.date > m ? r.date : m), '')
+    const cutoff = new Date(maxDate)
+    cutoff.setFullYear(cutoff.getFullYear() - 3)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    const map = {}
+    for (const r of visibleRows) {
+      if (!r.brand || r.date < cutoffStr) continue
+      map[r.brand] = (map[r.brand] || 0) + (r.subtotal || 0)
+    }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([b]) => b)
+  }, [visibleRows])
   const [uploadHistory, setUploadHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -1010,7 +1025,7 @@ function AppDashboard() {
           )}
           {activeTab === 'kb' && (
             <KnowledgeBase
-              brands={visibleMeta?.brands || []}
+              brands={kbBrands}
               products={visibleMeta?.products || []}
               canManage={role === 'admin' || role === 'manager'}
               userEmail={user?.email || ''}
