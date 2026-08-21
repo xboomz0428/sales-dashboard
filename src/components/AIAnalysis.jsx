@@ -746,6 +746,34 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
   const [chatFileBusy, setChatFileBusy] = useState(false)
   const chatBottomRef = useRef(null)
   const chatFileInputRef = useRef(null)
+  const kbFaqsRef = useRef([])                       // 知識庫 FAQ（開啟時載入一次）
+
+  useEffect(() => {
+    if (!open || !supabaseReady || !supabase) return
+    supabase.from('kb_faqs').select('brand,product,question,answer')
+      .eq('status', 'published').limit(500)
+      .then(({ data }) => { kbFaqsRef.current = data || [] })
+  }, [open])
+
+  // 以中文雙字元重疊粗略比對，挑出與問題最相關的 FAQ（最多 5 則、4000 字內）
+  function pickKbContext(question) {
+    const faqs = kbFaqsRef.current
+    if (!faqs.length) return ''
+    const q = question.toLowerCase()
+    const scored = faqs.map(f => {
+      const hay = `${f.brand} ${f.product} ${f.question}`.toLowerCase()
+      let score = 0
+      for (let i = 0; i < q.length - 1; i++) {
+        const bg = q.slice(i, i + 2)
+        if (bg.trim().length === 2 && hay.includes(bg)) score++
+      }
+      return { f, score }
+    }).filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 5)
+    if (!scored.length) return ''
+    return scored.map(({ f }, i) =>
+      `${i + 1}. [${f.brand}${f.product ? '／' + f.product : ''}] Q：${f.question}\nA：${f.answer}`
+    ).join('\n\n').slice(0, 4000)
+  }
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -782,7 +810,7 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     setChatStreaming(true)
 
     const dataJson = buildAIPayload(salesData)
-    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question, attachments })
+    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question, attachments, kbContext: pickKbContext(question) })
 
     await new Promise((resolve) => {
       streamAnalysis({

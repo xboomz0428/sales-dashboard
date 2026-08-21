@@ -247,7 +247,7 @@ function chatParts(text, attachments = []) {
 
 // ─── AI 問答：把「數據上下文＋歷史對話＋新問題」組成 Gemini messages ───────────
 // chatHistory: [{ role: 'user'|'model', text, attachments? }]
-export function buildChatMessages({ dataJson, filters, chatHistory = [], question, attachments = [] }) {
+export function buildChatMessages({ dataJson, filters, chatHistory = [], question, attachments = [], kbContext = '' }) {
   const filterCtx = buildFilterContext(filters)
   const system = `${filterCtx}${COMPANY_CONTEXT}
 
@@ -263,7 +263,10 @@ export function buildChatMessages({ dataJson, filters, chatHistory = [], questio
 ## 銷售數據摘要
 \`\`\`json
 ${dataJson}
-\`\`\``
+\`\`\`${kbContext ? `
+
+## 內部知識庫 FAQ（回答產品/品牌相關問題時，優先依這些官方答案，不要自行編造產品資訊）
+${kbContext}` : ''}`
 
   const msgs = [
     { role: 'user',  parts: [{ text: system }] },

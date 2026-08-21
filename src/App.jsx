@@ -21,6 +21,7 @@ import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import DbFileManager from './components/DbFileManager'
+import KnowledgeBase from './components/KnowledgeBase'
 import BrandScorecard from './components/charts/BrandScorecard'
 import LunarPanel from './components/charts/LunarPanel'
 import RepurchasePanel from './components/RepurchasePanel'
@@ -58,6 +59,7 @@ const TABS = [
   { id: 'lunar',       label: '農曆節氣', icon: '🏮' },
   { id: 'table',       label: '資料表格', icon: '📋' },
   { id: 'crm',         label: '業務管理', icon: '🤝' },
+  { id: 'kb',          label: '知識庫',   icon: '📚' },
   { id: 'costs',       label: '商品成本', icon: '💲' },
   { id: 'expenses',    label: '月費用',   icon: '💰' },
   { id: 'invoice',     label: '發票對帳', icon: '🧾' },
@@ -75,7 +77,7 @@ const TABS = [
 
 const TAB_GROUPS = [
   { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
-  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','costs','expenses','invoice','goals','alerts','health','forecast'] },
+  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','kb','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
 
@@ -1004,6 +1006,14 @@ function AppDashboard() {
               user={user}
               role={role}
               invoices={invoiceRecords}
+            />
+          )}
+          {activeTab === 'kb' && (
+            <KnowledgeBase
+              brands={visibleMeta?.brands || []}
+              products={visibleMeta?.products || []}
+              canManage={role === 'admin' || role === 'manager'}
+              userEmail={user?.email || ''}
             />
           )}
           {activeTab === 'invoice' && (
