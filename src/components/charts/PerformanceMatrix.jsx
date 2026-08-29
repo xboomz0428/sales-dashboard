@@ -237,7 +237,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{d.name}</span>
                         <span className={`text-sm px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${q?.bg} ${q?.text}`}>{q?.label}</span>
                       </div>
-                      <div className="text-base text-gray-400 dark:text-gray-500">{fmtY(d.subtotal)} · {d.quantity?.toLocaleString()} 件</div>
+                      <div className="text-base text-gray-400 dark:text-gray-500">{fmtY(d.subtotal)} · {Math.round(d.quantity || 0).toLocaleString()} 件</div>
                       <div className="h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full mt-1.5 overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${(d[metric] / (topByMetric[0]?.[metric] || 1)) * 100}%`, background: q?.color || '#3B82F6' }} />
                       </div>
@@ -255,7 +255,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
             {byQuadrant['review'].slice(0, 5).map(d => (
               <div key={d.name} className="p-2.5 rounded-xl bg-red-100/60 dark:bg-red-900/30 border border-red-100 dark:border-red-800/50 mb-2">
                 <div className="text-sm font-medium text-red-700 dark:text-red-400">{d.name}</div>
-                <div className="text-base text-red-400 dark:text-red-500 mt-0.5">{fmtY(d.subtotal)} · {d.quantity?.toLocaleString()} 件</div>
+                <div className="text-base text-red-400 dark:text-red-500 mt-0.5">{fmtY(d.subtotal)} · {Math.round(d.quantity || 0).toLocaleString()} 件</div>
               </div>
             ))}
           </div>

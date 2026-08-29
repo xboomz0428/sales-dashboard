@@ -107,9 +107,16 @@ async function loadRowsFromDbCompact(totalCount) {
     while (true) {
       const p = nextPage++
       if (p >= pages) break
-      const { data, error } = await client.rpc('get_sales_compact', {
+      // 單一 chunk 失敗（冷啟動偶發 5xx）重試一次再放棄，避免整條快速路退回慢速分頁
+      let { data, error } = await client.rpc('get_sales_compact', {
         p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK,
       })
+      if (error) {
+        await new Promise(r => setTimeout(r, 600))
+        ;({ data, error } = await client.rpc('get_sales_compact', {
+          p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK,
+        }))
+      }
       if (error) throw error
       results[p] = (data || []).map(rowFromCompact)
     }

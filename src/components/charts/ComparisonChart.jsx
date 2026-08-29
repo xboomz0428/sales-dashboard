@@ -485,7 +485,11 @@ function QoQSection({ comparisonData, metric, chartStyle, periodYoY }) {
     return growths.length ? growths.reduce((s, g) => s + g, 0) / growths.length : null
   })()
 
-  const yoyGrowth = calcSimpleAvgGrowth(byYear, metric)
+  // 最新年度季數 <4（未過完）時排除，避免全年 vs 部分年的假衰退
+  const lastYr = years[years.length - 1]
+  const lastYearQuarters = byQuarter.filter(d => d.year === lastYr).length
+  const completeByYearQoQ = lastYearQuarters < 4 ? byYear.slice(0, -1) : byYear
+  const yoyGrowth = calcSimpleAvgGrowth(completeByYearQoQ, metric)
 
   return (
     <div className="space-y-4">
@@ -714,7 +718,10 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
     return result
   }, [chartData, years])
 
-  const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
+  // 最新年度未過完（月份數 <12）時，年增率/CAGR 排除它，避免「全年 vs 部分年」假衰退
+  const lastYearMonthCount = chartData.filter(md => md[years[years.length - 1]] != null).length
+  const completeByYearMoM = lastYearMonthCount < 12 ? byYear.slice(0, -1) : byYear
+  const yoyGrowth2 = calcSimpleAvgGrowth(completeByYearMoM, metric)
 
   // 區間累計：對齊視窗 = 「最新年度有資料的月份」（例：2026 有 1~8 月 → 視窗 = 1~8 月），
   // 每一年的累計都只加總這個視窗內的月份——所以 2025 顯示的也是 1~8 月，而不是全年，
