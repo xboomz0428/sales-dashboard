@@ -95,13 +95,13 @@ function miniRank(items, color, maxRows = 5) {
     const rankBg = i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#e5e7eb'
     const rankFg = i < 3 ? '#fff' : '#6b7280'
     return `<tr style="border-bottom:1px solid #f3f4f6">
-      <td style="padding:6px 10px;text-align:center;width:28px">
+      <td style="padding:6px 10px;text-align:center;width:34px">
         <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:20px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:130px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
-      <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
-      <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
-      <td style="padding:6px 8px;min-width:70px">${hBar(barW, color, 6)}</td>
+      <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap;width:66px">${fmtN(d.subtotal)}</td>
+      <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap;width:40px">${pct.toFixed(0)}%</td>
+      <td style="padding:6px 8px;width:76px">${hBar(barW, color, 6)}</td>
     </tr>`
   }).join('')
 }
@@ -169,14 +169,14 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
     <!-- Top 5 產品 -->
     <div style="border-radius:10px;border:1.5px solid #e11d4820;overflow:hidden">
       <div style="background:#fef2f2;padding:8px 10px;font-size:13px;font-weight:700;color:#991b1b;border-bottom:1px solid #fecaca">🏷️ 產品 TOP 5</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <tbody>${miniRank(productData, '#e11d48', 5)}</tbody>
       </table>
     </div>
     <!-- Top 5 客戶 -->
     <div style="border-radius:10px;border:1.5px solid #0891b220;overflow:hidden">
       <div style="background:#ecfeff;padding:8px 10px;font-size:13px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc">👥 客戶 TOP 5</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <tbody>${miniRank(customerData, '#0891b2', 5)}</tbody>
       </table>
     </div>
@@ -188,7 +188,7 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
           const pct = ctTotal > 0 ? d.subtotal / ctTotal * 100 : 0
           return `<div style="margin-bottom:6px">
             <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
-              <span style="font-weight:600;color:#374151;white-space:normal;word-break:break-word;line-height:1.35;max-width:80px">${esc(d.name)}</span>
+              <span style="font-weight:600;color:#374151;white-space:normal;word-break:break-word;line-height:1.35;max-width:none">${esc(d.name)}</span>
               <span style="color:#6b7280;font-family:monospace">${fmtN(d.subtotal)} (${pct.toFixed(0)}%)</span>
             </div>
             ${hBar(pct, '#d97706', 5)}
@@ -203,14 +203,14 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
     <!-- Top 5 品牌 -->
     <div style="border-radius:10px;border:1.5px solid #7c3aed20;overflow:hidden">
       <div style="background:#faf5ff;padding:8px 10px;font-size:13px;font-weight:700;color:#6b21a8;border-bottom:1px solid #e9d5ff">✨ 品牌 TOP 5</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <tbody>${miniRank(brandData, '#7c3aed', 5)}</tbody>
       </table>
     </div>
     <!-- 歷年摘要 -->
     <div style="border-radius:10px;border:1.5px solid #05966920;overflow:hidden">
       <div style="background:#f0fdf4;padding:8px 10px;font-size:13px;font-weight:700;color:#166534;border-bottom:1px solid #bbf7d0">📅 歷年銷售摘要</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         ${byYear.slice(-5).map((r, i, arr) => {
           const prev = arr[i - 1]
           const chg = prev ? fmtPct(r.subtotal, prev.subtotal) : ''
@@ -260,7 +260,7 @@ function renderTrendHTML({ trendData = [] }) {
       <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:6px">月銷售金額趨勢圖</div>
       ${chartSVG}
     </div>
-    <table style="width:100%;border-collapse:collapse">
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
       <thead><tr style="background:#f0fdf4;border-bottom:2px solid #bbf7d0">
         <th style="padding:9px 14px;text-align:left;font-size:13px;color:#166534;font-weight:700">月份</th>
         <th style="padding:9px 14px;text-align:right;font-size:13px;color:#166534;font-weight:700">銷售金額</th>
@@ -329,7 +329,7 @@ function renderComparisonHTML({ comparisonData }) {
     <div style="display:grid;grid-template-columns:3fr 2fr">
       <div style="border-right:1px solid #f3f4f6">
         <div style="padding:8px 14px;font-size:13px;font-weight:700;color:#6b21a8;border-bottom:1px solid #f3f4f6;background:#faf5ff">年度對比</div>
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead><tr style="background:#faf5ff;border-bottom:1px solid #e9d5ff">
             <th style="padding:8px 14px;text-align:left;font-size:13px;color:#6b21a8;font-weight:700">年份</th>
             <th style="padding:8px 14px;text-align:right;font-size:13px;color:#6b21a8;font-weight:700">銷售金額</th>
@@ -342,7 +342,7 @@ function renderComparisonHTML({ comparisonData }) {
       </div>
       <div>
         <div style="padding:8px 10px;font-size:13px;font-weight:700;color:#4338ca;border-bottom:1px solid #f3f4f6;background:#eef2ff">季度趨勢（近 8 季）</div>
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead><tr style="background:#eef2ff;border-bottom:1px solid #e0e7ff">
             <th style="padding:7px 10px;text-align:left;font-size:13px;color:#4338ca;font-weight:700">季度</th>
             <th style="padding:7px 10px;text-align:right;font-size:13px;color:#4338ca;font-weight:700">金額</th>
@@ -377,12 +377,12 @@ function renderPerformanceHTML({ performanceData }) {
     return `
     <div style="border-radius:8px;overflow:hidden;border:1px solid ${color}20;margin-bottom:8px">
       <div style="background:${color}12;padding:7px 10px;font-size:13px;font-weight:700;color:${color};border-bottom:1px solid ${color}20">${label}（共 ${items.length} 項，中位數 ${fmtN(med)}）</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <thead><tr style="border-bottom:1px solid #f3f4f6">
           <th style="padding:5px 8px;text-align:left;font-size:13px;color:#6b7280;font-weight:700">名稱</th>
-          <th style="padding:5px 8px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">銷售額</th>
-          <th style="padding:5px 8px;text-align:center;font-size:13px;color:#6b7280;font-weight:700">表現</th>
-          <th style="padding:5px 8px;font-size:13px;color:#6b7280;font-weight:700">相對規模</th>
+          <th style="padding:5px 8px;text-align:right;font-size:13px;color:#6b7280;font-weight:700;width:64px">銷售額</th>
+          <th style="padding:5px 8px;text-align:center;font-size:13px;color:#6b7280;font-weight:700;width:62px">表現</th>
+          <th style="padding:5px 8px;font-size:13px;color:#6b7280;font-weight:700;width:78px">相對規模</th>
         </tr></thead>
         <tbody>
           ${items.slice(0, 12).map((d, i) => {
@@ -390,7 +390,7 @@ function renderPerformanceHTML({ performanceData }) {
             const tag = isAbove ? `<span style="background:#dcfce7;color:#166534;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">高績效</span>`
                                 : `<span style="background:#fef9c3;color:#854d0e;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">待提升</span>`
             return `<tr style="border-bottom:1px solid #f9fafb;${i % 2 === 0 ? 'background:#fafafa' : ''}">
-              <td style="padding:5px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
+              <td style="padding:5px 8px;font-size:13px;font-weight:600;color:#1f2937;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
               <td style="padding:5px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">${fmtN(d.subtotal)}</td>
               <td style="padding:5px 8px;text-align:center">${tag}</td>
               <td style="padding:5px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
@@ -462,7 +462,7 @@ function renderHeatmapHTML({ heatmapData }) {
   return secCard(
     secHeader('通路類型 × 月份 熱力圖', `近 ${recentMonths.length} 個月，顏色深淺代表銷售強度`, '#0891b2') +
     `<div style="overflow-x:auto;padding:4px">
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <thead>${thead}</thead>
         <tbody>${tbody}</tbody>
         <tfoot>${tfoot}</tfoot>
@@ -488,7 +488,7 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
         <td style="padding:6px 10px;text-align:center;width:24px">
           <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${i < 3 ? color : '#e5e7eb'};color:${i < 3 ? '#fff' : '#6b7280'};font-size:13px;font-weight:800;line-height:18px;text-align:center">${i + 1}</span>
         </td>
-        <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
+        <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
         <td style="padding:6px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
@@ -503,24 +503,24 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
       <div style="border-right:1px solid #f3f4f6">
         <div style="padding:8px 12px;font-size:13px;font-weight:700;color:#92400e;border-bottom:1px solid #fef3c7;background:#fffbeb">✨ 品牌排行（前 12）</div>
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead><tr style="border-bottom:1px solid #fef3c7;background:#fffbeb">
             <th style="padding:6px 10px;font-size:13px;color:#78350f;font-weight:700" colspan="2">品牌</th>
-            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700">金額</th>
-            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700">佔比</th>
-            <th style="padding:6px 8px;font-size:13px;color:#78350f;font-weight:700">規模</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700;width:60px">金額</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#78350f;font-weight:700;width:38px">佔比</th>
+            <th style="padding:6px 8px;font-size:13px;color:#78350f;font-weight:700;width:64px">規模</th>
           </tr></thead>
           <tbody>${renderMiniTable(brandData, '#d97706')}</tbody>
         </table>
       </div>
       <div>
         <div style="padding:8px 12px;font-size:13px;font-weight:700;color:#0e7490;border-bottom:1px solid #a5f3fc;background:#ecfeff">🏪 通路排行（前 12）</div>
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead><tr style="border-bottom:1px solid #a5f3fc;background:#ecfeff">
             <th style="padding:6px 10px;font-size:13px;color:#0e7490;font-weight:700" colspan="2">通路</th>
-            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700">金額</th>
-            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700">佔比</th>
-            <th style="padding:6px 8px;font-size:13px;color:#0e7490;font-weight:700">規模</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700;width:60px">金額</th>
+            <th style="padding:6px 8px;text-align:right;font-size:13px;color:#0e7490;font-weight:700;width:38px">佔比</th>
+            <th style="padding:6px 8px;font-size:13px;color:#0e7490;font-weight:700;width:64px">規模</th>
           </tr></thead>
           <tbody>${renderMiniTable(channelData, '#0891b2')}</tbody>
         </table>
@@ -562,7 +562,7 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
       <td style="padding:7px 12px;text-align:center;width:32px">
         <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:22px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#1f2937;max-width:180px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#1f2937;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;color:#111827;font-family:monospace;white-space:nowrap">NT$ ${fmtN(d.subtotal)}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;color:#6b7280;font-family:monospace">${Math.round(d.quantity || 0).toLocaleString()}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;color:#9ca3af">${pct.toFixed(1)}%</td>
@@ -575,14 +575,14 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
     `<div style="padding:8px 14px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:13px;color:#6b7280">
       共 ${items.length} 項 · 顯示前 ${top.length} 名 · 合計 NT$ ${fmtN(total)}
     </div>
-    <table style="width:100%;border-collapse:collapse">
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
       <thead><tr style="background:${color}08;border-bottom:2px solid ${color}30">
-        <th style="padding:8px 12px;text-align:center;font-size:13px;color:#6b7280;font-weight:700;width:36px">排名</th>
+        <th style="padding:8px 12px;text-align:center;font-size:13px;color:#6b7280;font-weight:700;width:40px">排名</th>
         <th style="padding:8px 10px;text-align:left;font-size:13px;color:#6b7280;font-weight:700">名稱</th>
-        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">銷售金額</th>
-        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">數量</th>
-        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700">佔比</th>
-        <th style="padding:8px 10px;font-size:13px;color:#6b7280;font-weight:700">相對規模</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700;width:86px">銷售金額</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700;width:58px">數量</th>
+        <th style="padding:8px 10px;text-align:right;font-size:13px;color:#6b7280;font-weight:700;width:48px">佔比</th>
+        <th style="padding:8px 10px;font-size:13px;color:#6b7280;font-weight:700;width:96px">相對規模</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`,
@@ -639,14 +639,19 @@ export function fixBadgeCentering(scope) {
     if (el.children.length > 0) return
     const cls = typeof el.className === 'string' ? el.className : ''
     const st = el.getAttribute('style') || ''
-    const inlineBadge = st.includes('border-radius') && st.includes('padding') && !/display\s*:\s*(flex|inline-flex|block)/.test(st)
+    const inlineBadge = st.includes('border-radius')
+      && (st.includes('padding') || (/width\s*:\s*\d/.test(st) && /height\s*:\s*\d/.test(st)))
+      && !/display\s*:\s*(flex|inline-flex|block|grid)/.test(st)
     const classBadge = /(^|\s)inline-block(\s|$)/.test(cls) && /rounded/.test(cls)
     if (inlineBadge || classBadge) {
       el.style.display = 'inline-flex'
       el.style.alignItems = 'center'
       el.style.justifyContent = 'center'
-      el.style.lineHeight = '1.2'
+      el.style.lineHeight = '1'
       el.style.verticalAlign = 'middle'
+      el.style.boxSizing = 'border-box'
+      // html2canvas 常把行內色塊文字畫偏下：微調基線補償
+      el.style.paddingBottom = (parseFloat(el.style.paddingBottom) || 0) + 1 + 'px'
     }
   })
 }
@@ -752,6 +757,19 @@ async function htmlToPagedCanvases(html, width = 750) {
   Array.from(div.children).forEach(child => {
     rowBreaks.push({ y: Math.round(_relBottom(child)), tid: null })
   })
+
+  // 標題色塊禁切區：任何落在「標題頂 ~ 標題底+8px」內的分頁點剔除，
+  // 讓分頁只能停在標題之前 → 標題連同內容整塊進下一頁
+  const headerZones = []
+  div.querySelectorAll('[style*="12px 12px 0 0"], [style*="10px 10px 0 0"]').forEach(el => {
+    const bottom = Math.round(_relBottom(el))
+    const top = bottom - Math.round(el.offsetHeight || 0)
+    headerZones.push({ top: top + 1, bottom: bottom + 8 })
+  })
+  const inHeaderZone = (yv) => headerZones.some(z => yv > z.top && yv < z.bottom)
+  for (let i = rowBreaks.length - 1; i >= 0; i--) {
+    if (inHeaderZone(rowBreaks[i].y)) rowBreaks.splice(i, 1)
+  }
 
   rowBreaks.sort((a, b) => a.y - b.y)
 
@@ -1021,7 +1039,7 @@ function renderYoYMoMHTML({ trendData = [] }) {
     `<div style="padding:12px 16px">
       <div style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:8px">月份 × 年份 銷售矩陣（顏色深淺代表銷售規模，小字為 YoY 年增率）</div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead>
             <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
               <th style="padding:7px 10px;text-align:left;font-size:13px;color:#1d4ed8;font-weight:700">月份</th>
@@ -1034,7 +1052,7 @@ function renderYoYMoMHTML({ trendData = [] }) {
     </div>
     <div style="border-top:2px solid #bfdbfe">
       <div style="padding:8px 16px 4px;font-size:13px;font-weight:700;color:#1d4ed8">近 ${recent18.length} 個月 MoM / YoY 明細</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed">
         <thead>
           <tr style="background:#eff6ff;border-bottom:2px solid #bfdbfe">
             <th style="padding:7px 14px;text-align:left;font-size:13px;color:#1d4ed8;font-weight:700">月份</th>
