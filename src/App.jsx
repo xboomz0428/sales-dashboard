@@ -24,6 +24,7 @@ import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
 import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
 import SeasonalForecastPanel from './components/charts/SeasonalForecastPanel'
+import NavigatorPanel from './components/NavigatorPanel'
 import { categorizeProduct } from './utils/productCategory'
 import BrandScorecard from './components/charts/BrandScorecard'
 import LunarPanel from './components/charts/LunarPanel'
@@ -50,6 +51,7 @@ import DatabaseStatusPanel from './components/DatabaseStatusPanel'
 import CrmPanel from './components/CrmPanel'
 
 const TABS = [
+  { id: 'navigator',   label: '領航員',   icon: '🧭' },
   { id: 'summary',     label: '老闆視角', icon: '👔' },
   { id: 'performance', label: '績效矩陣', icon: '🎯' },
   { id: 'comparison',  label: '對比分析', icon: '⚖️' },
@@ -79,7 +81,7 @@ const TABS = [
 ]
 
 const TAB_GROUPS = [
-  { id: 'analysis', label: '分析', icon: '📊', tabs: ['summary','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
+  { id: 'analysis', label: '分析', icon: '📊', tabs: ['navigator','summary','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
   { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','kb','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
@@ -1087,6 +1089,11 @@ function AppDashboard() {
           {activeTab === 'comparison' && meta && (
             <div data-pdf-section data-pdf-title="對比分析">
               <ComparisonChart comparisonData={comparisonData} trendData={trendData} periodYoY={periodYoY} filtered={filtered} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'navigator' && meta && (
+            <div data-pdf-section data-pdf-title="營運領航員">
+              <NavigatorPanel allRows={visibleRows} canManage={role === 'admin'} />
             </div>
           )}
           {activeTab === 'trend' && meta && (
