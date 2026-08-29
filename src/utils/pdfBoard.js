@@ -361,21 +361,26 @@ export function buildBoardModel({ allRows = [], navConfig = {}, agenda = [] }) {
   if (targetC && fcC?.projected < targetC) actions.push(`年底預測距目標尚差 ${W(targetC - fcC.projected)}，需於剩餘月份補足`)
   if (targetC && fcC?.projected >= targetC) actions.push(`依目前節奏可達標，建議提前規劃明年 ${parseInt(cy) + 1} 目標展開`)
 
-  // 近 5 年年度營收（今年＝YTD 實際＋年底預測）
-  const yearTotals = {}
-  for (const r of allRows) yearTotals[r.year] = (yearTotals[r.year] || 0) + (r.subtotal || 0)
+  // 近 5 年年度營收（今年＝YTD 實際＋年底預測）＋好漢草轉型軌跡
+  const yearTotals = {}, heroTotals = {}
+  for (const r of allRows) {
+    yearTotals[r.year] = (yearTotals[r.year] || 0) + (r.subtotal || 0)
+    if (r.brand === HERO) heroTotals[r.year] = (heroTotals[r.year] || 0) + (r.subtotal || 0)
+  }
   const years5 = []
   for (let k = 4; k >= 0; k--) {
     const yy = String(parseInt(cy) - k)
     if (yearTotals[yy] == null && yy !== cy) continue
     const isCurrent = yy === cy
     const display = isCurrent ? (fcC?.projected || yearTotals[yy] || 0) : yearTotals[yy]
+    const heroVal = isCurrent ? (fcH?.projected || heroTotals[yy] || 0) : (heroTotals[yy] || 0)
     const prevT = yearTotals[String(parseInt(yy) - 1)]
     years5.push({
       year: yy, isCurrent,
       actual: isCurrent ? ytd : yearTotals[yy],
       projected: isCurrent ? (fcC?.projected || 0) : yearTotals[yy],
-      display,
+      display, heroVal,
+      heroShare: display > 0 ? heroVal / display : 0,
       yoy: prevT > 0 ? (display - prevT) / prevT * 100 : null,
     })
   }
@@ -424,12 +429,33 @@ export function buildBoardSections(model) {
       ${bullets('亮點', m.highlights, GREEN, '#f0fdf4', '✅')}
       ${bullets('警訊', m.warnings, RED, '#fef2f2', '⚠️')}
       ${bullets('本月行動', m.actions, '#1d4ed8', '#eff6ff', '🎯')}
-    </div>
-    <div style="border-top:2px solid #f1f5f9;padding-top:14px;margin-top:4px">
-      <div style="font-size:18px;font-weight:900;color:${INK};margin-bottom:4px">📈 近 5 年營收表現</div>
-      <div style="text-align:center">${svgYears(m.years5)}</div>
-      <div style="font-size:14px;color:${MUT};text-align:center">深藍＝今年已完成實際；淺藍＝年底預測；灰＝歷史年度；下方為年增率</div>
     </div>`)
+
+  /* P1b 近 5 年營收（獨立頁） */
+  const y5rows = m.years5.map(d => `
+    <tr style="border-bottom:1.5px solid #f1f5f9;${d.isCurrent ? 'background:#eff6ff' : ''}">
+      <td style="padding:11px 12px;font-size:17px;font-weight:900;color:${d.isCurrent ? '#1d4ed8' : INK}">${d.year}${d.isCurrent ? '（預測）' : ''}</td>
+      <td style="padding:11px 12px;text-align:right;font-size:17px;font-weight:800;color:${INK};font-variant-numeric:tabular-nums">${W(d.display)}</td>
+      <td style="padding:11px 12px;text-align:right;font-size:16px;font-weight:900;color:${d.yoy == null ? MUT : d.yoy >= 0 ? GREEN : RED}">${d.yoy == null ? '—' : (d.yoy >= 0 ? '▲+' : '▼−') + Math.abs(d.yoy).toFixed(0) + '%'}</td>
+      <td style="padding:11px 12px;text-align:right;font-size:16px;font-weight:800;color:${PINE};font-variant-numeric:tabular-nums">${W(d.heroVal)}</td>
+      <td style="padding:11px 12px;text-align:right;font-size:16px;font-weight:900;color:${PINE}">${(d.heroShare * 100).toFixed(0)}%</td>
+    </tr>`).join('')
+  const p1b = page('近 5 年營收表現', '長期趨勢與好漢草轉型軌跡', `
+    <div style="text-align:center;margin-bottom:8px">${svgYears(m.years5, 660, 280)}</div>
+    <div style="font-size:14px;color:${MUT};text-align:center;margin-bottom:16px">深藍＝今年已完成實際；淺藍＝年底預測；灰＝歷史年度；柱底為年增率</div>
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <thead><tr style="border-bottom:2.5px solid #e2e8f0">
+        <th style="padding:9px 12px;text-align:left;font-size:15px;color:${MUT};font-weight:800;width:130px">年度</th>
+        <th style="padding:9px 12px;text-align:right;font-size:15px;color:${MUT};font-weight:800">公司營收</th>
+        <th style="padding:9px 12px;text-align:right;font-size:15px;color:${MUT};font-weight:800;width:96px">年增率</th>
+        <th style="padding:9px 12px;text-align:right;font-size:15px;color:${MUT};font-weight:800">好漢草</th>
+        <th style="padding:9px 12px;text-align:right;font-size:15px;color:${MUT};font-weight:800;width:80px">占比</th>
+      </tr></thead>
+      <tbody>${y5rows}</tbody>
+    </table>
+    <div style="margin-top:12px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:10px 16px;font-size:15px;color:${PINE};font-weight:700">
+      🌿 好漢草占比逐年上升＝品牌轉型進行中（雙軌目標：公司 ${Math.round(m.cfg.cagrCompany * 100)}%／好漢草 ${Math.round(m.cfg.cagrHero * 100)}%）
+    </div>`, '#1e40af')
 
   /* P2 領航員 */
   const p2 = page('營運領航員', '我們在十年航道上嗎？', `
@@ -520,6 +546,7 @@ export function buildBoardSections(model) {
 
   return [
     { name: 'P1 經營結論', html: p1 },
+    { name: 'P1b 近5年營收', html: p1b },
     { name: 'P2 領航員', html: p2 },
     { name: 'P3 營收走勢', html: p3 },
     { name: 'P4 結構排名', html: p4 },
