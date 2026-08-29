@@ -38,7 +38,15 @@ function MultiSelect({ label, options, selected, onChange, expanded = false, col
         {visibleOptions.map(opt => {
           const val = typeof opt === 'object' ? opt.value : opt
           const lbl = typeof opt === 'object' ? opt.label : opt
+          const isDisabled = typeof opt === 'object' && opt.disabled && !selected.includes(val)
           const isActive = selected.includes(val)
+          if (isDisabled) return (
+            <button key={val} disabled title="選取的年份中此月份沒有資料"
+              className={`rounded-[var(--r-sm)] border border-dashed border-gray-200 dark:border-gray-700 text-gray-300 dark:text-gray-600 cursor-not-allowed min-h-[40px] ${
+                expanded ? 'px-4 py-2 text-base' : 'px-2.5 py-1.5 text-base'
+              }`}
+            >{lbl}</button>
+          )
           return (
             <button key={val} onClick={() => toggle(val)}
               className={`rounded-[var(--r-sm)] border transition-all min-h-[40px] ${
@@ -170,6 +178,14 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
     const yearSet = new Set(filters.years.map(String))
     return allRows.filter(r => yearSet.has(String(r.year)))
   }, [allRows, filters.years])
+
+  // 選取年份中實際有資料的月份（其餘月份灰化不可點）
+  const monthsWithData = useMemo(() => {
+    if (!yearFilteredRows.length) return new Set(MONTHS)
+    const s = new Set()
+    for (const r of yearFilteredRows) { s.add(r.month); if (s.size === 12) break }
+    return s
+  }, [yearFilteredRows])
 
   // 品牌依選定年份銷售總額降冪排序，且只顯示該年份有銷售的品牌
   const brands = useMemo(() => {
@@ -372,7 +388,7 @@ export default function FilterPanel({ meta, filters, onChange, allRows = [], ope
             </div>
 
             <MultiSelect label="年份" options={years} selected={filters.years} onChange={set('years', true)} />
-            <MultiSelect label="月份" options={MONTHS.map((m, i) => ({ value: m, label: MONTH_LABELS[i] }))} selected={filters.months} onChange={set('months', true)} />
+            <MultiSelect label="月份" options={MONTHS.map((m, i) => ({ value: m, label: MONTH_LABELS[i], disabled: !monthsWithData.has(m) }))} selected={filters.months} onChange={set('months', true)} />
             <MultiSelect label="網路/實體" options={availableChannels} selected={filters.channels} onChange={set('channels')} />
             {availableChannelTypes.length > 0 && <MultiSelect label="通路類型" options={availableChannelTypes} selected={filters.channelTypes} onChange={set('channelTypes')} collapsible />}
             <MultiSelect label="品牌" options={brands} selected={filters.brands} onChange={set('brands')} expanded={isExpanded} collapsible />

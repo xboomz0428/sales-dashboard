@@ -87,7 +87,7 @@ async function fetchDbStamp() {
 // ─── 壓縮版讀取（get_sales_compact RPC）──────────────────────────────────────
 // 回傳陣列格式、單一 jsonb 不受 max-rows 限制：141k 筆約 8 個請求（原本 142 個）
 const COMPACT_CHUNK = 20000
-const COMPACT_CONCURRENCY = 4
+const COMPACT_CONCURRENCY = 6
 const COMPACT_COLS = ['_key','date','yearMonth','year','month','channel','channelType','brand','agentType','product','orderId','customer','quantity','subtotal','total','discountRate']
 
 function rowFromCompact(a) {

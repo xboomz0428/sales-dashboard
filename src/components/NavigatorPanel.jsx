@@ -43,10 +43,13 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
   const [form, setForm] = useState(null)
   const [msg, setMsg] = useState(null)
 
+  const [forecasts, setForecasts] = useState([])
   const load = useCallback(async () => {
     if (!client) return
     const { data } = await client.from('dashboard_settings').select('value').eq('key', 'navigator_config').maybeSingle()
     if (data?.value) { try { setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(data.value) }) } catch { /* 用預設 */ } }
+    const { data: fc } = await client.from('forecast_records').select('*').order('created_at', { ascending: false }).limit(10)
+    setForecasts(fc || [])
   }, [client])
   useEffect(() => { load() }, [load])
 
@@ -187,6 +190,37 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
           （雙軌成長下，10 年後目標占比約 {(model.rows[model.rows.length - 1].heroShareTarget * 100).toFixed(0)}%——好漢草將成為公司主體）
         </p>
       )}
+
+      {/* 年度成績單（閉迴路）：最近一個「已過完」的目標年度 目標vs實際＋預測誤差 */}
+      {(() => {
+        const nowY = parseInt(model.currentYear)
+        const doneRows = model.rows.filter(r => r.year < nowY && r.aC != null)
+        const last = doneRows[doneRows.length - 1]
+        const verifiable = forecasts.filter(f => parseInt(f.target_year) < nowY)
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">📜 年度成績單（每年 1 月自動結算）</p>
+            {last ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {[['公司整體', last.tC, last.aC, last.rC], ['好漢草', last.tH, last.aH, last.rH]].map(([n, t, a, r]) => (
+                  <div key={n} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900/40 rounded-xl px-3 py-2">
+                    <span className="font-bold text-gray-600 dark:text-gray-300">{last.year} {n}</span>
+                    <span className="tabular-nums text-gray-500">目標 {fmtW(t)} → 實際 <b className="text-gray-800 dark:text-gray-100">{fmtW(a)}</b></span>
+                    <Light ratio={r} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">首張成績單將在 {nowY + 1} 年 1 月（{nowY} 年度過完）自動出現：目標 vs 實際 vs 達成率、預測誤差、五管檢討。</p>
+            )}
+            {forecasts.length > 0 && (
+              <p className="text-xs text-gray-400 mt-2">
+                🔮 已儲存 {forecasts.length} 筆年底預測（趨勢分析頁）{verifiable.length ? `，其中 ${verifiable.length} 筆可驗證誤差` : '，年度過完後在此顯示預測誤差'}——預測能力逐年校準。
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       {/* 目標階梯 */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">

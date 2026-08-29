@@ -50,6 +50,9 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
   const [visibility, setVisibility] = useState(loadVisibility)
   const [showSettings, setShowSettings] = useState(false)
   const [compareYoY, setCompareYoY] = useState(() => localStorage.getItem('dashboard_yoy_compare') === '1')
+  // 手機版預設只顯示前 4 張 KPI 卡，其餘收合（桌機不受影響）
+  const [mobileExpand, setMobileExpand] = useState(() => localStorage.getItem('kpi_mobile_expand') === '1')
+  const toggleMobileExpand = () => setMobileExpand(v => { localStorage.setItem('kpi_mobile_expand', v ? '0' : '1'); return !v })
   const vis = (id) => visibility[id] !== false
 
   const toggleYoY = () => setCompareYoY(v => {
@@ -170,8 +173,8 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
       {/* Row 1: KPI cards */}
       {kpiCards.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3">
-          {kpiCards.map(card => (
-            <div key={card.id} className="bg-white dark:bg-gray-800 dark:border-gray-700 overflow-hidden transition-shadow hover:shadow-md"
+          {kpiCards.map((card, cardIdx) => (
+            <div key={card.id} className={`bg-white dark:bg-gray-800 dark:border-gray-700 overflow-hidden transition-shadow hover:shadow-md ${!mobileExpand && cardIdx >= 4 ? 'hidden sm:block' : ''}`}
               style={{borderRadius:'var(--r-md)',border:'1px solid var(--line)',boxShadow:'var(--shadow-xs)'}}>
               <div className="h-1" style={card.barStyle} />
               <div className="p-3 sm:p-4">
@@ -205,9 +208,15 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
         </div>
       )}
 
+      {/* 手機版展開/收合（sm 以上永遠全顯示） */}
+      <button onClick={toggleMobileExpand}
+        className="sm:hidden w-full py-2 text-sm font-bold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+        {mobileExpand ? '▲ 收合指標（只留 4 張核心卡）' : `▼ 展開全部指標（還有 ${Math.max(0, kpiCards.length - 4)} 張卡＋趨勢洞察）`}
+      </button>
+
       {/* Row 2: Trend insights + Top5 */}
       {trendData.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2">
+        <div className={`${mobileExpand ? 'grid' : 'hidden sm:grid'} grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-2`}>
           {vis('peakMonth') && (
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-100 dark:border-emerald-800/50 rounded-xl p-3 sm:p-4">
               <div className="flex items-center gap-1.5 mb-2">
