@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase, supabaseAdmin } from '../config/supabase'
 import { forecastYearEnd } from '../utils/forecast'
+import { StrategySection, BmcSection } from './NavigatorStrategy'
 
 /**
  * 🧭 營運領航員
@@ -11,7 +12,7 @@ import { forecastYearEnd } from '../utils/forecast'
 const DEFAULT_CONFIG = {
   vision: '成為台灣年輕漢方飲品與足浴、傳統文化的領頭羊',
   baseYear: 2025, baseCompany: 16364148, baseHero: 5595691,
-  cagrCompany: 0.25, cagrHero: 0.35,
+  cagrCompany: 0.25, cagrHero: 0.35, headcount: 0,
 }
 const HERO_BRAND = '好漢草'
 
@@ -57,6 +58,7 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
       baseHero: Math.round(parseFloat(form.baseHero) * 1e4) || config.baseHero,
       cagrCompany: (parseFloat(form.cagrCompany) || 25) / 100,
       cagrHero: (parseFloat(form.cagrHero) || 35) / 100,
+      headcount: parseInt(form.headcount) || 0,
     }
     const { error } = await client.from('dashboard_settings').upsert(
       { key: 'navigator_config', value: JSON.stringify(next), updated_at: new Date().toISOString() },
@@ -123,6 +125,7 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
               vision: config.vision, baseYear: config.baseYear,
               baseCompany: (config.baseCompany / 1e4).toFixed(0), baseHero: (config.baseHero / 1e4).toFixed(0),
               cagrCompany: Math.round(config.cagrCompany * 100), cagrHero: Math.round(config.cagrHero * 100),
+              headcount: config.headcount || 0,
             }); setEditing(true) }}
               className="text-sm px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 font-bold">✏️ 編輯目標</button>
           )}
@@ -141,8 +144,8 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
           <p className="text-sm font-bold text-gray-700 dark:text-gray-200">編輯領航員目標（admin）</p>
           <input value={form.vision} onChange={e => setForm({ ...form, vision: e.target.value })}
             className="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200" placeholder="十年願景一句話" />
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-sm">
-            {[['baseYear', '基期年'], ['baseCompany', '公司基期(萬)'], ['baseHero', '好漢草基期(萬)'], ['cagrCompany', '公司成長%'], ['cagrHero', '好漢草成長%']].map(([k, label]) => (
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-sm">
+            {[['baseYear', '基期年'], ['baseCompany', '公司基期(萬)'], ['baseHero', '好漢草基期(萬)'], ['cagrCompany', '公司成長%'], ['cagrHero', '好漢草成長%'], ['headcount', '編制人數']].map(([k, label]) => (
               <div key={k}>
                 <label className="text-xs text-gray-400">{label}</label>
                 <input value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })}
@@ -227,6 +230,12 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
           今年列＝實際 YTD＋季節指數年底預測（詳見趨勢分析的預測面板）；歷史年份補上後會自動亮燈。目標數字可由 admin「✏️ 編輯目標」調整。
         </p>
       </div>
+
+      {/* 五管執行戰略 */}
+      <StrategySection model={model} config={config} allRows={allRows} />
+
+      {/* 商業模式圖 ＋ 延伸產品路線圖 */}
+      <BmcSection />
     </div>
   )
 }
