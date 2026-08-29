@@ -25,7 +25,7 @@ const lightWord = r => r == null ? '—' : r >= 1 ? '達標' : r >= 0.9 ? '接�
 /* ── SVG 圖表 ─────────────────────────────────────────────────── */
 
 /** 半圓儀表：達成率 */
-function svgGauge(ratio, size = 190) {
+function svgGauge(ratio, size = 170) {
   const r = size / 2 - 16, cx = size / 2, cy = size / 2
   const pct = Math.max(0, Math.min(ratio ?? 0, 1.3))
   const color = lightColor(ratio)
@@ -129,6 +129,36 @@ function svgHBars(items, color, w = 320) {
       <text x="${w - 12}" y="${yy + 61}" text-anchor="end" font-size="14" font-weight="900" fill="${gc}">${fmtG(g)}</text>`
   }).join('')
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${rows}</svg>`
+}
+
+/** 近 5 年營收：年度柱狀＋年增率（今年＝實際深色＋預測淺色帽） */
+function svgYears(years5, w = 660, h = 200) {
+  if (!years5.length) return ''
+  const P = { l: 8, r: 8, t: 34, b: 42 }
+  const ih = h - P.t - P.b
+  const maxV = Math.max(...years5.map(d => d.display), 1) * 1.05
+  const bw2 = (w - P.l - P.r) / years5.length
+  const y = v => P.t + ih * (1 - v / maxV)
+  const bars = years5.map((d, i) => {
+    const xx = P.l + bw2 * i + bw2 * 0.2
+    const wd = bw2 * 0.6
+    let g = ''
+    if (d.isCurrent && d.projected > d.actual) {
+      g += `<rect x="${xx}" y="${y(d.projected)}" width="${wd}" height="${(y(d.actual) - y(d.projected)).toFixed(1)}" rx="8" fill="#bfdbfe"/>`
+      g += `<rect x="${xx}" y="${y(d.actual)}" width="${wd}" height="${(ih + P.t - y(d.actual)).toFixed(1)}" fill="#2563eb"/>`
+      g += `<rect x="${xx}" y="${ih + P.t - 8}" width="${wd}" height="8" rx="4" fill="#2563eb"/>`
+    } else {
+      g += `<rect x="${xx}" y="${y(d.display)}" width="${wd}" height="${(ih + P.t - y(d.display)).toFixed(1)}" rx="8" fill="${d.isCurrent ? '#2563eb' : '#94a3b8'}"/>`
+    }
+    g += `<text x="${xx + wd / 2}" y="${y(d.display) - 8}" text-anchor="middle" font-size="15" font-weight="900" fill="${INK}">${W(d.display)}${d.isCurrent ? '' : ''}</text>`
+    g += `<text x="${xx + wd / 2}" y="${h - 24}" text-anchor="middle" font-size="15" font-weight="${d.isCurrent ? 900 : 700}" fill="${d.isCurrent ? '#1d4ed8' : SUB}">${d.year}${d.isCurrent ? '·預測' : ''}</text>`
+    if (d.yoy != null) {
+      const c = d.yoy >= 0 ? GREEN : RED
+      g += `<text x="${xx + wd / 2}" y="${h - 6}" text-anchor="middle" font-size="14" font-weight="800" fill="${c}">${d.yoy >= 0 ? '▲+' : '▼−'}${Math.abs(d.yoy).toFixed(0)}%</text>`
+    }
+    return g
+  }).join('')
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${bars}</svg>`
 }
 
 /** 目標階梯：未來 6 年目標柱＋今年實際/預測疊加 */
@@ -331,8 +361,27 @@ export function buildBoardModel({ allRows = [], navConfig = {}, agenda = [] }) {
   if (targetC && fcC?.projected < targetC) actions.push(`年底預測距目標尚差 ${W(targetC - fcC.projected)}，需於剩餘月份補足`)
   if (targetC && fcC?.projected >= targetC) actions.push(`依目前節奏可達標，建議提前規劃明年 ${parseInt(cy) + 1} 目標展開`)
 
+  // 近 5 年年度營收（今年＝YTD 實際＋年底預測）
+  const yearTotals = {}
+  for (const r of allRows) yearTotals[r.year] = (yearTotals[r.year] || 0) + (r.subtotal || 0)
+  const years5 = []
+  for (let k = 4; k >= 0; k--) {
+    const yy = String(parseInt(cy) - k)
+    if (yearTotals[yy] == null && yy !== cy) continue
+    const isCurrent = yy === cy
+    const display = isCurrent ? (fcC?.projected || yearTotals[yy] || 0) : yearTotals[yy]
+    const prevT = yearTotals[String(parseInt(yy) - 1)]
+    years5.push({
+      year: yy, isCurrent,
+      actual: isCurrent ? ytd : yearTotals[yy],
+      projected: isCurrent ? (fcC?.projected || 0) : yearTotals[yy],
+      display,
+      yoy: prevT > 0 ? (display - prevT) / prevT * 100 : null,
+    })
+  }
+
   return {
-    cfg, cy, py, ytd, prevSame, fcC, fcH, targetC, targetH,
+    cfg, cy, py, ytd, prevSame, fcC, fcH, targetC, targetH, years5,
     ratioC: targetC ? (fcC?.projected || 0) / targetC : null,
     ratioH: targetH ? (fcH?.projected || 0) / targetH : null,
     heroShare, curM, prevM, fcM, ladder,
@@ -375,6 +424,11 @@ export function buildBoardSections(model) {
       ${bullets('亮點', m.highlights, GREEN, '#f0fdf4', '✅')}
       ${bullets('警訊', m.warnings, RED, '#fef2f2', '⚠️')}
       ${bullets('本月行動', m.actions, '#1d4ed8', '#eff6ff', '🎯')}
+    </div>
+    <div style="border-top:2px solid #f1f5f9;padding-top:14px;margin-top:4px">
+      <div style="font-size:18px;font-weight:900;color:${INK};margin-bottom:4px">📈 近 5 年營收表現</div>
+      <div style="text-align:center">${svgYears(m.years5)}</div>
+      <div style="font-size:14px;color:${MUT};text-align:center">深藍＝今年已完成實際；淺藍＝年底預測；灰＝歷史年度；下方為年增率</div>
     </div>`)
 
   /* P2 領航員 */
