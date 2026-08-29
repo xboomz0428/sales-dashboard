@@ -104,23 +104,29 @@ function svgDonut(items, size = 230) {
 
 /** 橫向長條 TOP5（含 ±% 徽章） */
 function svgHBars(items, color, w = 320) {
-  // 品名不截斷：超過一行自動折成第二行（最多兩行，涵蓋現有最長品名）
-  const L1 = 21
-  const rowH = 66, maxV = Math.max(...items.map(d => d.value), 1)
-  const h = items.length * rowH + 4
+  // 一列一卡：名稱＋長條＋數值同一個圓角色塊內，一眼配對；品名兩行不截斷
+  const L1 = 20
+  const rowH = 78, gap = 8, maxV = Math.max(...items.map(d => d.value), 1)
+  const h = items.length * (rowH + gap)
+  const fmtG = g => {
+    if (g == null) return '新'
+    if (g > 500) return '>+500%'
+    return `${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(0)}%`
+  }
   const rows = items.map((d, i) => {
-    const yy = i * rowH
-    const bw = Math.max(6, (w - 130) * d.value / maxV)
+    const yy = i * (rowH + gap)
+    const bw = Math.max(8, (w - 150) * d.value / maxV)
     const g = d.growth
-    const gc = g == null ? MUT : g >= 0 ? GREEN : RED
-    const gt = g == null ? 'new' : `${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(0)}%`
+    const gc = g == null ? '#7c3aed' : g >= 0 ? GREEN : RED
     const l1 = d.name.slice(0, L1), l2 = d.name.slice(L1, L1 * 2)
     return `
-      <text x="0" y="${yy + 15}" font-size="14" font-weight="700" fill="${SUB}">${esc(l1)}</text>
-      ${l2 ? `<text x="0" y="${yy + 31}" font-size="14" font-weight="700" fill="${SUB}">${esc(l2)}</text>` : ''}
-      <rect x="0" y="${yy + 38}" width="${bw}" height="14" rx="7" fill="${color}"/>
-      <text x="${bw + 8}" y="${yy + 50}" font-size="14" font-weight="800" fill="${INK}">${W(d.value)}</text>
-      <text x="${w - 4}" y="${yy + 50}" text-anchor="end" font-size="13" font-weight="800" fill="${gc}">${gt}</text>`
+      <rect x="0" y="${yy}" width="${w}" height="${rowH}" rx="12" fill="${i % 2 === 0 ? '#f8fafc' : '#ffffff'}" stroke="#e2e8f0" stroke-width="1.5"/>
+      <rect x="0" y="${yy}" width="6" height="${rowH}" rx="3" fill="${color}"/>
+      <text x="16" y="${yy + 22}" font-size="14" font-weight="800" fill="${INK}">${esc(l1)}</text>
+      ${l2 ? `<text x="16" y="${yy + 39}" font-size="14" font-weight="800" fill="${INK}">${esc(l2)}</text>` : ''}
+      <rect x="16" y="${yy + 50}" width="${bw}" height="13" rx="6.5" fill="${color}" opacity="0.85"/>
+      <text x="${16 + bw + 8}" y="${yy + 61}" font-size="14" font-weight="900" fill="${INK}">${W(d.value)}</text>
+      <text x="${w - 12}" y="${yy + 61}" text-anchor="end" font-size="14" font-weight="900" fill="${gc}">${fmtG(g)}</text>`
   }).join('')
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${rows}</svg>`
 }
@@ -141,7 +147,7 @@ function svgLadder(rows, currentYear, w = 660, h = 250) {
     s += `<rect x="${xx + wd * 0.14}" y="${y(r.tH)}" width="${wd * 0.72}" height="${ih + P.t - y(r.tH)}" rx="5" fill="#a7f3d0"/>`
     if (isCur && r.aC != null) {
       s += `<line x1="${xx - 4}" y1="${y(r.aC)}" x2="${xx + wd + 4}" y2="${y(r.aC)}" stroke="${lightColor(r.rC)}" stroke-width="4" stroke-linecap="round"/>`
-      s += `<text x="${xx + wd / 2}" y="${y(r.aC) - 8}" text-anchor="middle" font-size="14" font-weight="900" fill="${lightColor(r.rC)}">預測 ${W(r.aC)}</text>`
+      s += `<text x="${xx + wd / 2}" y="${y(r.aC) + 22}" text-anchor="middle" font-size="14" font-weight="900" fill="${lightColor(r.rC)}" stroke="#ffffff" stroke-width="4" paint-order="stroke">預測 ${W(r.aC)}</text>`
     }
     s += `<text x="${xx + wd / 2}" y="${h - 10}" text-anchor="middle" font-size="14" font-weight="${isCur ? 900 : 600}" fill="${isCur ? '#1d4ed8' : MUT}">${r.year}${r.milestone ? '·' + r.milestone : ''}</text>`
     s += `<text x="${xx + wd / 2}" y="${y(r.tC) - 6}" text-anchor="middle" font-size="12" fill="${MUT}">${W(r.tC)}</text>`
@@ -309,7 +315,18 @@ export function buildBoardModel({ allRows = [], navConfig = {}, agenda = [] }) {
   if (chTop && chTop.value / (ytd || 1) > 0.4) warnings.push(`最大通路「${chTop.name}」占比 ${(chTop.value / ytd * 100).toFixed(0)}%，集中度偏高`)
   if (declines[0]) warnings.push(`${declines[0].kind}「${declines[0].name}」較去年同期 ${declines[0].g.toFixed(0)}%（−${W(declines[0].prev - declines[0].cur)}）`)
   if (overdue[0]) warnings.push(`${overdue.length} 位常貿客戶回購逾期，最大貢獻者「${overdue[0].name}」已 ${overdue[0].since} 天未回購`)
+  // 主力品項備貨建議：歷史單月銷量峰值 ×1.4
+  const topProdName = Object.entries(agg.prod).sort((a, b) => b[1] - a[1])[0]?.[0]
+  let stockAdvice = null
+  if (topProdName) {
+    const qtyByYM = {}
+    for (const r of allRows) if (r.product === topProdName) qtyByYM[r.yearMonth] = (qtyByYM[r.yearMonth] || 0) + (r.quantity || 0)
+    const peakQty = Math.max(...Object.values(qtyByYM), 0)
+    if (peakQty > 0) stockAdvice = { name: topProdName, peak: Math.round(peakQty), rec: Math.ceil(peakQty * 1.4) }
+  }
+
   const actions = []
+  if (stockAdvice) actions.push(`檔期備貨建議：主力「${stockAdvice.name}」歷史單月峰值 ${stockAdvice.peak.toLocaleString()} 件，建議備貨 ${stockAdvice.rec.toLocaleString()} 件（峰值 ×1.4）`)
   if (fests[0]) actions.push(`${fests[0].label}逢 ${fests[0].items.join('、')}，請於 30 天前完成備貨與行銷投放`)
   if (targetC && fcC?.projected < targetC) actions.push(`年底預測距目標尚差 ${W(targetC - fcC.projected)}，需於剩餘月份補足`)
   if (targetC && fcC?.projected >= targetC) actions.push(`依目前節奏可達標，建議提前規劃明年 ${parseInt(cy) + 1} 目標展開`)
@@ -322,7 +339,7 @@ export function buildBoardModel({ allRows = [], navConfig = {}, agenda = [] }) {
     chTypeTop: Object.entries(agg.chType).sort((a, b) => b[1] - a[1]).map(([name, value]) => ({ name, value })),
     brandTop5: top5(agg.brand), prodTop5: top5(agg.prod),
     declines: declines.slice(0, 5), overdue: overdue.slice(0, 5), fests,
-    highlights: highlights.slice(0, 3), warnings: warnings.slice(0, 3), actions: actions.slice(0, 2),
+    highlights: highlights.slice(0, 3), warnings: warnings.slice(0, 3), actions: actions.slice(0, 3),
     agenda,
   }
 }
@@ -337,10 +354,10 @@ export function buildBoardSections(model) {
       <div style="font-size:40px;font-weight:900;color:${color};line-height:1.25;font-variant-numeric:tabular-nums">${value}</div>
       <div style="font-size:14px;color:${SUB}">${sub}</div>
     </div>`
-  const bullets = (title, items, color, icon) => `
-    <div style="flex:1;min-width:200px">
-      <div style="font-size:17px;font-weight:900;color:${color};margin-bottom:6px">${icon} ${title}</div>
-      ${items.length ? items.map(t => `<div style="font-size:15px;color:${SUB};margin:5px 0;padding-left:14px;position:relative"><span style="position:absolute;left:0;color:${color}">▪</span>${esc(t)}</div>`).join('') : `<div style="font-size:15px;color:${MUT}">—</div>`}
+  const bullets = (title, items, color, bg, icon) => `
+    <div style="border-left:7px solid ${color};background:${bg};border-radius:0 12px 12px 0;padding:12px 18px;margin-bottom:12px">
+      <div style="font-size:18px;font-weight:900;color:${color};margin-bottom:4px">${icon} ${title}</div>
+      ${items.length ? items.map(t => `<div style="font-size:16px;color:${INK};margin:6px 0;padding-left:16px;position:relative;line-height:1.55"><span style="position:absolute;left:0;color:${color}">▪</span>${esc(t)}</div>`).join('') : `<div style="font-size:15px;color:${MUT}">—</div>`}
     </div>`
 
   /* P1 一頁結論 */
@@ -354,10 +371,10 @@ export function buildBoardSections(model) {
       <div style="text-align:center"><div style="font-size:15px;font-weight:800;color:${SUB};margin-bottom:2px">公司目標達成率（預測）</div>${svgGauge(m.ratioC)}</div>
       <div style="text-align:center"><div style="font-size:15px;font-weight:800;color:${SUB};margin-bottom:2px">好漢草目標達成率（預測）</div>${svgGauge(m.ratioH)}</div>
     </div>
-    <div style="display:flex;gap:22px;flex-wrap:wrap;border-top:2px solid #f1f5f9;padding-top:16px">
-      ${bullets('亮點', m.highlights, GREEN, '✅')}
-      ${bullets('警訊', m.warnings, RED, '⚠️')}
-      ${bullets('本月行動', m.actions, '#1d4ed8', '🎯')}
+    <div style="border-top:2px solid #f1f5f9;padding-top:16px">
+      ${bullets('亮點', m.highlights, GREEN, '#f0fdf4', '✅')}
+      ${bullets('警訊', m.warnings, RED, '#fef2f2', '⚠️')}
+      ${bullets('本月行動', m.actions, '#1d4ed8', '#eff6ff', '🎯')}
     </div>`)
 
   /* P2 領航員 */
@@ -423,7 +440,7 @@ export function buildBoardSections(model) {
       <td style="padding:9px 10px;text-align:right;font-size:15px;font-weight:900;color:${AMBER};width:120px">${o.since} 天未回購</td>
       <td style="padding:9px 10px;text-align:right;font-size:15px;color:${SUB};width:120px">平常 ${o.gap} 天</td>
     </tr>`).join('') : `<tr><td style="padding:12px;font-size:15px;color:${GREEN};font-weight:700">✅ 無回購逾期客戶</td></tr>`
-  const festHTML = m.fests.length ? m.fests.map(f => `<span style="display:inline-block;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:6px 14px;font-size:15px;font-weight:800;color:#9a3412;margin:4px 6px 0 0">${f.label}：${f.items.join('、')}</span>`).join('') : `<span style="font-size:15px;color:${MUT}">近兩月無主要檔期</span>`
+  const festHTML = m.fests.length ? m.fests.map(f => `<span style="display:inline-flex;align-items:center;justify-content:center;line-height:1;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px;padding:11px 18px 13px;font-size:16px;font-weight:800;color:#9a3412;margin:4px 8px 4px 0;vertical-align:middle">${f.label}：${f.items.join('、')}</span>`).join('') : `<span style="font-size:15px;color:${MUT}">近兩月無主要檔期</span>`
   const p5 = page('風險與異常', '有什麼需要注意或介入？', `
     <div style="font-size:17px;font-weight:900;color:${RED};margin-bottom:6px">📉 衰退警示（較去年同期 −30% 以上）</div>
     <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:16px"><tbody>${declRows}</tbody></table>
