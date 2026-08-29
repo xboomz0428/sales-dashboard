@@ -870,6 +870,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                       {year}
                     </span>
                   </td>
+                  {/* 每格固定三個版位：①數值 ②差異% ③農曆節日——缺資料也保留空位，整表等高對齊 */}
                   {chartData.map(md => {
                     const val = md[year]
                     const prevVal = prevYear ? md[prevYear] : null
@@ -877,38 +878,43 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                     const mRank = monthRankMap[md.month]?.[year]
                     const fest = festMaps[year]?.[md.mIdx + 1]
                     return (
-                      <td key={md.month} className="py-2.5 px-2 text-right" title={fest?.lunar ? `${year}年${md.month}＝農曆${fest.lunar}${fest.fests.length ? '｜' + fest.fests.join('、') : ''}` : undefined}>
-                        <div className="flex items-center justify-end gap-1">
+                      <td key={md.month} className="py-1.5 px-2 text-right align-top" title={fest?.lunar ? `${year}年${md.month}＝農曆${fest.lunar}${fest.fests.length ? '｜' + fest.fests.join('、') : ''}` : undefined}>
+                        <div className="h-6 flex items-center justify-end gap-1">
                           {mRank === 1 && val > 0 && <span className="text-yellow-500 text-xs">★</span>}
                           <span className="font-mono text-base text-gray-800 dark:text-gray-200 font-semibold whitespace-nowrap">
                             {val != null ? fmtVal(val, metric) : '—'}
                           </span>
                         </div>
-                        {growth != null && <div className="mt-0.5"><GrowthBadge rate={growth} /></div>}
-                        {fest?.fests?.length > 0 && (
-                          <div className="mt-0.5 text-[10px] leading-tight text-rose-500 dark:text-rose-400 whitespace-nowrap">{fest.fests.join(' ')}</div>
-                        )}
+                        <div className="h-7 flex items-center justify-end">
+                          {growth != null ? <GrowthBadge rate={growth} /> : <span className="text-gray-200 dark:text-gray-600 text-xs select-none">·</span>}
+                        </div>
+                        <div className="h-4 flex items-center justify-end text-[10px] leading-none text-rose-500 dark:text-rose-400 whitespace-nowrap">
+                          {fest?.fests?.length ? fest.fests.join(' ') : ''}
+                        </div>
                       </td>
                     )
                   })}
-                  <td className="py-2.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700 whitespace-nowrap align-top">
+                  <td className="py-1.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700 whitespace-nowrap align-top">
                     {(() => {
                       const t = periodTotals.map[year]
-                      if (!t || t.cur == null) return <span className="text-gray-300 dark:text-gray-600">—</span>
-                      const growth = t.prev > 0 ? (t.cur - t.prev) / t.prev * 100 : null
-                      const diff = t.prev != null ? t.cur - t.prev : null
+                      const growth = t && t.prev > 0 && t.cur != null ? (t.cur - t.prev) / t.prev * 100 : null
+                      const diff = t && t.prev != null && t.cur != null ? t.cur - t.prev : null
                       const up = diff != null && diff >= 0
                       return (
                         <>
-                          <span className="font-mono text-base font-black text-gray-800 dark:text-gray-100">{fmtVal(t.cur, metric)}</span>
-                          {diff != null && (
-                            <div className="mt-0.5 flex flex-col items-end gap-0.5">
-                              {growth != null && <GrowthBadge rate={growth} />}
-                              <span className={`text-xs font-bold ${up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                          <div className="h-6 flex items-center justify-end">
+                            <span className="font-mono text-base font-black text-gray-800 dark:text-gray-100">{t?.cur != null ? fmtVal(t.cur, metric) : '—'}</span>
+                          </div>
+                          <div className="h-7 flex items-center justify-end">
+                            {growth != null ? <GrowthBadge rate={growth} /> : <span className="text-gray-200 dark:text-gray-600 text-xs select-none">·</span>}
+                          </div>
+                          <div className="h-4 flex items-center justify-end text-xs font-bold leading-none">
+                            {diff != null ? (
+                              <span className={up ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}>
                                 {up ? '+' : '-'}{fmtVal(Math.abs(diff), metric)}
                               </span>
-                            </div>
-                          )}
+                            ) : ''}
+                          </div>
                         </>
                       )
                     })()}
