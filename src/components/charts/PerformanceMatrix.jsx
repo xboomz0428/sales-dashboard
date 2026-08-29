@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, ZAxis,
+  ResponsiveContainer, ReferenceLine, ReferenceArea, ZAxis,
 } from 'recharts'
 import ChartCard from '../ChartCard'
 import ChartDataTable from '../ChartDataTable'
@@ -162,42 +162,64 @@ export default function PerformanceMatrix({ performanceData, metric }) {
         {/* Scatter chart */}
         <div className="hidden sm:block xl:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
           <h4 className="text-base font-bold text-gray-700 dark:text-gray-200 mb-1">{label}績效散佈圖</h4>
-          <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">虛線為中位數分界 · 氣泡大小代表訂單數</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+            虛線＝中位數分界 · 氣泡大小＝訂單數 · 座標採平方根刻度展開長尾
+            {classified.length > 150 && `（僅繪出前 150 大${label}，其餘 ${classified.length - 150} 項見下方清單）`}
+          </p>
           {data.length === 0 ? (
             <div className="flex items-center justify-center h-64 text-gray-400 text-base">無資料</div>
-          ) : (
-            <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 260 : 400}>
-              <ScatterChart margin={{ top: 20, right: 20, bottom: 30, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="subtotal" name="銷售金額" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false}
-                  label={{ value: '← 銷售金額 →', position: 'insideBottom', offset: -16, fontSize: 14, fill: '#9ca3af' }} />
-                <YAxis dataKey="quantity" name="銷售數量" tickFormatter={fmtY} tick={{ fontSize: 14, fill: '#9ca3af' }} axisLine={false}
-                  label={{ value: '銷量 ↑', angle: -90, position: 'insideLeft', fontSize: 14, fill: '#9ca3af' }} />
-                <ZAxis dataKey="count" range={[50, 400]} />
-                <Tooltip content={<ScatterTooltip />} />
-                <ReferenceLine x={med.subtotal} stroke="#d1d5db" strokeDasharray="5 4" strokeWidth={1.5} />
-                <ReferenceLine y={med.quantity} stroke="#d1d5db" strokeDasharray="5 4" strokeWidth={1.5} />
-                <Scatter
-                  data={classified}
-                  shape={(props) => {
-                    const { cx, cy, payload } = props
-                    const q = QUADRANTS.find(q => q.key === payload.quadrant)
-                    const r = Math.max(7, Math.min(24, Math.sqrt(payload.count || 1) * 3.5))
-                    return (
-                      <g>
-                        <circle cx={cx} cy={cy} r={r} fill={q?.color || '#9ca3af'} fillOpacity={0.7} stroke={q?.color || '#9ca3af'} strokeWidth={1.5} />
-                        {r >= 12 && (
-                          <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fontSize={13} fill="white" fontWeight={700}>
-                            {payload.name?.slice(0, 4)}
-                          </text>
-                        )}
-                      </g>
-                    )
-                  }}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
-          )}
+          ) : (() => {
+            const shown = [...classified].sort((a, b) => b.subtotal - a.subtotal).slice(0, 150)
+            const labelSet = new Set(shown.slice(0, 8).map(d => d.name))
+            const maxX = Math.max(...shown.map(d => d.subtotal), 1)
+            const maxY = Math.max(...shown.map(d => d.quantity), 1)
+            const qColor = k => QUADRANTS.find(q => q.key === k)?.color || '#9ca3af'
+            return (
+              <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 640 ? 280 : 440}>
+                <ScatterChart margin={{ top: 24, right: 30, bottom: 30, left: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                  <XAxis dataKey="subtotal" name="銷售金額" type="number" scale="sqrt" domain={[0, maxX * 1.05]}
+                    tickFormatter={fmtY} tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickCount={7}
+                    label={{ value: '銷售金額 →（平方根刻度）', position: 'insideBottom', offset: -16, fontSize: 13, fill: '#9ca3af' }} />
+                  <YAxis dataKey="quantity" name="銷售數量" type="number" scale="sqrt" domain={[0, maxY * 1.05]}
+                    tickFormatter={fmtY} tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickCount={6}
+                    label={{ value: '銷量 ↑', angle: -90, position: 'insideLeft', fontSize: 13, fill: '#9ca3af' }} />
+                  <ZAxis dataKey="count" range={[30, 220]} />
+                  <Tooltip content={<ScatterTooltip />} />
+                  {/* 象限底色 */}
+                  <ReferenceArea x1={med.subtotal} y1={med.quantity} fill={qColor('star')} fillOpacity={0.05} />
+                  <ReferenceArea x1={med.subtotal} y2={med.quantity} fill={qColor('cash')} fillOpacity={0.05} />
+                  <ReferenceArea x2={med.subtotal} y1={med.quantity} fill={qColor('potential')} fillOpacity={0.05} />
+                  <ReferenceArea x2={med.subtotal} y2={med.quantity} fill={qColor('review')} fillOpacity={0.05} />
+                  <ReferenceLine x={med.subtotal} stroke="#cbd5e1" strokeDasharray="5 4" strokeWidth={1.5}
+                    label={{ value: `金額中位 ${fmtY(med.subtotal)}`, position: 'top', fontSize: 11, fill: '#94a3b8' }} />
+                  <ReferenceLine y={med.quantity} stroke="#cbd5e1" strokeDasharray="5 4" strokeWidth={1.5}
+                    label={{ value: `銷量中位 ${fmtY(med.quantity)}`, position: 'right', fontSize: 11, fill: '#94a3b8' }} />
+                  <Scatter
+                    data={shown}
+                    shape={(props) => {
+                      const { cx, cy, payload } = props
+                      const color = qColor(payload.quadrant)
+                      const isTop = labelSet.has(payload.name)
+                      const r = Math.max(4, Math.min(14, Math.sqrt(payload.count || 1) * 1.6))
+                      return (
+                        <g>
+                          <circle cx={cx} cy={cy} r={r} fill={color} fillOpacity={isTop ? 0.85 : 0.35}
+                            stroke={color} strokeWidth={isTop ? 2 : 0.5} />
+                          {isTop && (
+                            <text x={cx} y={cy - r - 4} textAnchor="middle" fontSize={11} fontWeight={700}
+                              fill={color} stroke="#fff" strokeWidth={3} paintOrder="stroke">
+                              {payload.name?.length > 10 ? payload.name.slice(0, 10) + '…' : payload.name}
+                            </text>
+                          )}
+                        </g>
+                      )
+                    }}
+                  />
+                </ScatterChart>
+              </ResponsiveContainer>
+            )
+          })()}
         </div>
 
         {/* Rankings sidebar */}

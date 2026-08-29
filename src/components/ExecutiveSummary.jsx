@@ -204,7 +204,43 @@ function MultiYearMonthlyChart({ trendData, comparisonData, metric }) {
   )
 }
 
-export default function ExecutiveSummary({ summary, trendData, productData, customerData, brandData, channelData, metric, allRows, filters, comparisonData }) {
+export default function ExecutiveSummary({ summary, prevSummary, trendData, productData, customerData, brandData, channelData, metric, allRows, filters, comparisonData }) {
+  // 通路/產品排名（含 vs 前一年同期）：視窗＝選取範圍內最新年度的月份，對比前一年同月份
+  const rankYoY = (() => {
+    if (!allRows?.length || !trendData?.length) return null
+    const latestYear = trendData.reduce((m, d) => (d.yearMonth.slice(0, 4) > m ? d.yearMonth.slice(0, 4) : m), trendData[0].yearMonth.slice(0, 4))
+    const curMonths = new Set(trendData.filter(d => d.yearMonth.startsWith(latestYear)).map(d => d.yearMonth.slice(5, 7)))
+    const prevYear = String(parseInt(latestYear) - 1)
+    const match = r =>
+      (!filters?.channels?.length || filters.channels.includes(r.channel)) &&
+      (!filters?.channelTypes?.length || filters.channelTypes.includes(r.channelType)) &&
+      (!filters?.brands?.length || filters.brands.includes(r.brand)) &&
+      (!filters?.customers?.length || filters.customers.includes(r.customer)) &&
+      (!filters?.products?.length || filters.products.some(kw => (r.product || '').includes(kw)))
+    const cur = { ch: {}, pr: {} }, prev = { ch: {}, pr: {} }
+    for (const r of allRows) {
+      if (!curMonths.has(r.month) || !match(r)) continue
+      const v = r[metric] || 0
+      const bucket = r.year === latestYear ? cur : r.year === prevYear ? prev : null
+      if (!bucket) continue
+      const ch = r.channelType || r.channel || '其他'
+      bucket.ch[ch] = (bucket.ch[ch] || 0) + v
+      if (r.product) bucket.pr[r.product] = (bucket.pr[r.product] || 0) + v
+    }
+    const mm = [...curMonths].sort()
+    const rank = (curMap, prevMap) => Object.entries(curMap)
+      .sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([name, val]) => {
+        const p = prevMap[name] || 0
+        return { name, val, prev: p, pct: p > 0 ? (val - p) / p * 100 : null }
+      })
+    return {
+      latestYear, prevYear,
+      windowLabel: mm.length ? `${parseInt(mm[0])}~${parseInt(mm[mm.length - 1])}月` : '',
+      channels: rank(cur.ch, prev.ch),
+      products: rank(cur.pr, prev.pr),
+    }
+  })()
   const [aiText, setAiText]     = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError]   = useState('')
@@ -416,17 +452,43 @@ export default function ExecutiveSummary({ summary, trendData, productData, cust
         </button>
       </div>
 
-      {/* KPI grid */}
+      {/* KPI grid（含 vs 去年同期） */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <KPICard icon="💰" label={`總${metricLabel}`} value={fmtM(summary.totalSales)} color="blue" />
-        <KPICard icon="👥" label="客戶數" value={summary.customerCount?.toLocaleString()} color="purple" />
-        <KPICard icon="📦" label="訂單數" value={summary.orderCount?.toLocaleString()} color="green" />
+        <KPICard icon="💰" label={`總${metricLabel}`} value={fmtM(summary.totalSales)} color="blue"
+          sub={prevSummary?.hasData ? `去年同期 ${fmtM(prevSummary.totalSales)}（${prevSummary.current.totalSales >= prevSummary.totalSales ? '+' : ''}${((prevSummary.current.totalSales - prevSummary.totalSales) / prevSummary.totalSales * 100).toFixed(1)}%）` : undefined} />
+        <KPICard icon="👥" label="客戶數" value={summary.customerCount?.toLocaleString()} color="purple"
+          sub={prevSummary?.hasData ? `去年同期 ${prevSummary.customerCount}` : undefined} />
+        <KPICard icon="📦" label="訂單數" value={summary.orderCount?.toLocaleString()} color="green"
+          sub={prevSummary?.hasData ? `去年同期 ${prevSummary.orderCount.toLocaleString()}（${prevSummary.current.orderCount >= prevSummary.orderCount ? '+' : ''}${((prevSummary.current.orderCount - prevSummary.orderCount) / prevSummary.orderCount * 100).toFixed(0)}%）` : undefined} />
         <KPICard icon="📈" label="月增率" value={momStats ? fmtPct(momStats.chg) : '—'}
           color={momStats?.chg >= 0 ? 'green' : 'red'} sub={`上月 ${fmtM(momStats?.prev)}`} />
         <KPICard icon="📅" label="年增率" value={yoyStats ? fmtPct(yoyStats.chg) : '—'}
           color={yoyStats?.chg >= 0 ? 'green' : 'red'} sub={yoyStats?.yearMonth} />
-        <KPICard icon="🏷️" label="產品數" value={summary.productCount?.toLocaleString()} color="amber" />
+        <KPICard icon="🏷️" label="產品數" value={summary.productCount?.toLocaleString()} color="amber"
+          sub={prevSummary?.hasData ? `去年同期 ${prevSummary.productCount}` : undefined} />
       </div>
+
+      {/* 通路 / 產品排名（vs 前一年同期） */}
+      {rankYoY && (rankYoY.channels.length > 0 || rankYoY.products.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[['🏪 通路排名', rankYoY.channels], ['🏷️ 產品排名', rankYoY.products]].map(([title, list]) => (
+            <Section key={title} title={`${title}（${rankYoY.latestYear}年${rankYoY.windowLabel} vs ${rankYoY.prevYear}年同期）`}>
+              <div className="space-y-1.5">
+                {list.map((d, i) => (
+                  <div key={d.name} className="flex items-center gap-2 text-sm">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'}`}>{i + 1}</span>
+                    <span className="flex-1 truncate font-semibold text-gray-700 dark:text-gray-200" title={d.name}>{d.name}</span>
+                    <span className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">{fmtM(d.val)}</span>
+                    <span className={`text-xs font-bold w-16 text-right whitespace-nowrap ${d.pct == null ? 'text-gray-300' : d.pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {d.pct == null ? 'new' : `${d.pct >= 0 ? '▲+' : '▼-'}${Math.abs(d.pct).toFixed(0)}%`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          ))}
+        </div>
+      )}
 
       {/* ── AI 決策摘要（按鈕後顯示，置於年度比對前方）── */}
       {(aiText || aiError) && (

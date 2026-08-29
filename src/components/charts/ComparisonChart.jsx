@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import ChartCard from '../ChartCard'
 import { calcValueAxisWidth, getMaxValue } from '../../utils/chartUtils'
+import { festivalsByMonth } from '../../utils/lunarFestivals'
 
 const COLORS = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#84CC16']
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
@@ -257,7 +258,7 @@ function PeriodYoYCard({ periodYoY, metric }) {
 }
 
 // ─── YoY Section ─────────────────────────────────────────────────────────────
-function YoYSection({ comparisonData, metric, chartStyle, periodYoY }) {
+function YoYSection({ comparisonData, metric, chartStyle, periodYoY, aligned }) {
   const { byYear } = comparisonData
   const metricLabel = metric === 'subtotal' ? '銷售金額' : '銷售數量'
 
@@ -276,8 +277,10 @@ function YoYSection({ comparisonData, metric, chartStyle, periodYoY }) {
   if (!yoyRows.length) return <p className="text-gray-400 dark:text-gray-500 text-base py-8 text-center">暫無資料</p>
 
   const maxVal = Math.max(...yoyRows.map(r => r[metric] || 0), 0)
-  const avgGrowth = calcSimpleAvgGrowth(byYear, metric)
-  const cagr = calcCAGR(byYear, metric)
+  // 最新年度未過完時，排除它再算平均年增率/CAGR（不然「全年 vs 部分年」會算出假衰退）
+  const completeYears = aligned?.latestIncomplete ? byYear.slice(0, -1) : byYear
+  const avgGrowth = calcSimpleAvgGrowth(completeYears, metric)
+  const cagr = calcCAGR(completeYears, metric)
 
   return (
     <div className="space-y-4">
@@ -378,35 +381,54 @@ function YoYSection({ comparisonData, metric, chartStyle, periodYoY }) {
             <tr className="text-base text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
               <th className="text-center py-2 pr-4 w-12">排名</th>
               <th className="text-left py-2 pr-6">年份</th>
-              <th className="text-right py-2 pr-6">{metricLabel}</th>
+              <th className="text-right py-2 pr-6">{metricLabel}（全年）</th>
               <th className="text-right py-2 pr-6">較上年差異</th>
-              <th className="text-right py-2">
+              <th className="text-right py-2 pr-6">
                 <span className="flex items-center justify-end gap-1.5">同比成長 <CalcHint type="yoy" /></span>
               </th>
+              {aligned?.windowLabel && (
+                <th className="text-right py-2 border-l-2 border-gray-100 dark:border-gray-700 pl-4">
+                  同期對比<br /><span className="font-normal text-xs">({aligned.windowLabel})</span>
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {yoyRows.map((row, i) => {
               const prev = yoyRows.find(r => String(parseInt(row.year) - 1) === r.year)
               const diff = prev ? row[metric] - prev[metric] : null
+              const isIncomplete = aligned?.latestIncomplete && row.year === aligned.lastYear
+              const aCur = aligned?.map?.[row.year]
+              const aPrev = aligned?.map?.[String(parseInt(row.year) - 1)]
+              const aGrowth = aCur != null && aPrev > 0 ? (aCur - aPrev) / aPrev * 100 : null
               return (
                 <tr key={row.year} className="border-b border-gray-50 dark:border-gray-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/20 transition-colors">
                   <td className="py-2.5 pr-4 text-center"><RankBadge rank={row.rank} /></td>
                   <td className="py-2.5 pr-6">
                     <span className="flex items-center gap-2 font-bold text-gray-800 dark:text-gray-200 text-base">
                       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-                      {row.year}
+                      {row.year}{isIncomplete && <span className="text-xs font-normal text-amber-500">（進行中）</span>}
                     </span>
                   </td>
                   <td className="py-2.5 pr-6 text-right font-mono font-semibold text-base text-gray-800 dark:text-gray-200">{fmtVal(row[metric], metric)}</td>
                   <td className="py-2.5 pr-6 text-right font-mono text-base">
-                    {diff != null ? (
+                    {diff != null && !isIncomplete ? (
                       <span className={diff >= 0 ? 'text-emerald-600' : 'text-red-500'}>
                         {diff >= 0 ? '+' : ''}{fmtVal(Math.abs(diff), metric)}
                       </span>
                     ) : '—'}
                   </td>
-                  <td className="py-2.5 text-right"><GrowthBadge rate={row.growth} /></td>
+                  <td className="py-2.5 pr-6 text-right">{isIncomplete ? <span className="text-gray-300 text-sm" title="年度未過完，全年同比無意義，請看右側同期對比">—</span> : <GrowthBadge rate={row.growth} />}</td>
+                  {aligned?.windowLabel && (
+                    <td className="py-2.5 text-right border-l-2 border-gray-100 dark:border-gray-700 pl-4 whitespace-nowrap">
+                      {aCur != null ? (
+                        <>
+                          <span className="font-mono text-sm text-gray-600 dark:text-gray-300">{fmtVal(aCur, metric)}</span>
+                          {aGrowth != null && <span className="ml-1.5"><GrowthBadge rate={aGrowth} /></span>}
+                        </>
+                      ) : '—'}
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -694,23 +716,34 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
 
   const yoyGrowth2 = calcSimpleAvgGrowth(byYear, metric)
 
-  // 區間累計：每年加總「該年有資料的月份」，去年值以「同一組月份」對齊計算，
-  // 例：2026 只有 1~7 月 → 累計 = 2026 的 1~7 月，對比 2025 的 1~7 月（不是 2025 全年）
+  // 區間累計：對齊視窗 = 「最新年度有資料的月份」（例：2026 有 1~8 月 → 視窗 = 1~8 月），
+  // 每一年的累計都只加總這個視窗內的月份——所以 2025 顯示的也是 1~8 月，而不是全年，
+  // 各年數字才能互相公平比較；徽章 = 該年 vs 前一年（同視窗）。
   const periodTotals = useMemo(() => {
+    const lastYear = years[years.length - 1]
+    const winSet = new Set(chartData.filter(md => md[lastYear] != null).map(md => md.month))
+    const winMonths = chartData.filter(md => winSet.has(md.month)).map(md => md.month)
     const map = {}
     years.forEach((year, yi) => {
       const prevYear = years[yi - 1]
       let cur = 0, prev = 0, hasCur = false, hasPrev = false
       chartData.forEach(md => {
-        if (md[year] == null) return
-        hasCur = true
-        cur += md[year]
+        if (!winSet.has(md.month)) return
+        if (md[year] != null) { hasCur = true; cur += md[year] }
         if (prevYear && md[prevYear] != null) { prev += md[prevYear]; hasPrev = true }
       })
       map[year] = { cur: hasCur ? cur : null, prev: hasPrev ? prev : null }
     })
-    return map
+    const windowLabel = winMonths.length ? `${winMonths[0]}~${winMonths[winMonths.length - 1]}` : ''
+    return { map, windowLabel }
   }, [years, chartData])
+
+  // 各年份的民俗檔期標記（農曆對應，跨年不同）
+  const festMaps = useMemo(() => {
+    const m = {}
+    years.forEach(y => { m[y] = festivalsByMonth(parseInt(y)) })
+    return m
+  }, [years])
 
   return (
     <div className="space-y-4">
@@ -805,7 +838,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 overflow-x-auto">
         <SectionHeader title="月度明細" />
         <p className="text-base text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
-          括號內數字為與上年同月對比 <CalcHint type="mom" />
+          括號內數字為與上年同月對比 <CalcHint type="mom" />　·　<span className="text-rose-400">紅字＝民俗檔期</span>，滑鼠停留數字可見該月農曆月份
         </p>
         <table className="w-full">
           <thead>
@@ -815,7 +848,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
               {MONTH_LABELS.map(m => (
                 <th key={m} className="text-right py-2 px-2 whitespace-nowrap">{m}</th>
               ))}
-              <th className="text-right py-2 px-2 pl-4 whitespace-nowrap border-l-2 border-gray-100 dark:border-gray-700 font-bold text-gray-500 dark:text-gray-400">區間累計<br /><span className="font-normal text-xs">vs 去年同月份</span></th>
+              <th className="text-right py-2 px-2 pl-4 whitespace-nowrap border-l-2 border-gray-100 dark:border-gray-700 font-bold text-gray-500 dark:text-gray-400">區間累計{periodTotals.windowLabel ? `（${periodTotals.windowLabel}）` : ''}<br /><span className="font-normal text-xs">各年皆只計此區間 · vs 前一年</span></th>
             </tr>
           </thead>
           <tbody>
@@ -835,8 +868,9 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                     const prevVal = prevYear ? md[prevYear] : null
                     const growth = prevVal > 0 && val != null ? ((val - prevVal) / prevVal * 100) : null
                     const mRank = monthRankMap[md.month]?.[year]
+                    const fest = festMaps[year]?.[md.mIdx + 1]
                     return (
-                      <td key={md.month} className="py-2.5 px-2 text-right">
+                      <td key={md.month} className="py-2.5 px-2 text-right" title={fest?.lunar ? `${year}年${md.month}＝農曆${fest.lunar}${fest.fests.length ? '｜' + fest.fests.join('、') : ''}` : undefined}>
                         <div className="flex items-center justify-end gap-1">
                           {mRank === 1 && val > 0 && <span className="text-yellow-500 text-xs">★</span>}
                           <span className="font-mono text-base text-gray-800 dark:text-gray-200 font-semibold whitespace-nowrap">
@@ -844,12 +878,15 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                           </span>
                         </div>
                         {growth != null && <div className="mt-0.5"><GrowthBadge rate={growth} /></div>}
+                        {fest?.fests?.length > 0 && (
+                          <div className="mt-0.5 text-[10px] leading-tight text-rose-500 dark:text-rose-400 whitespace-nowrap">{fest.fests.join(' ')}</div>
+                        )}
                       </td>
                     )
                   })}
                   <td className="py-2.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700 whitespace-nowrap align-top">
                     {(() => {
-                      const t = periodTotals[year]
+                      const t = periodTotals.map[year]
                       if (!t || t.cur == null) return <span className="text-gray-300 dark:text-gray-600">—</span>
                       const growth = t.prev > 0 ? (t.cur - t.prev) / t.prev * 100 : null
                       const diff = t.prev != null ? t.cur - t.prev : null
@@ -891,7 +928,7 @@ function MoMSection({ trendData, comparisonData, metric, chartStyle, periodYoY }
                 <td className="py-2.5 px-2 pl-4 text-right border-l-2 border-gray-100 dark:border-gray-700">
                   {(() => {
                     const gs = years.slice(1).map(y => {
-                      const t = periodTotals[y]
+                      const t = periodTotals.map[y]
                       return t && t.prev > 0 && t.cur != null ? (t.cur - t.prev) / t.prev * 100 : null
                     }).filter(g => g != null)
                     return gs.length
@@ -974,6 +1011,32 @@ export default function ComparisonChart({ comparisonData, trendData, periodYoY, 
 
     return { activeCompData: { byYear, byQuarter }, activeTrendData: newTrendData }
   }, [baseRows, filtered, selectedProduct, comparisonData, trendData])
+
+  // 年度「同期對齊」：視窗 = 最新年度有資料的月份，各年只加總該視窗，供 YoY 明細公平比較
+  const alignedByYear = useMemo(() => {
+    const byYM = {}
+    activeTrendData.forEach(d => {
+      const [y, m] = d.yearMonth.split('-')
+      ;(byYM[y] ||= {})[m] = d[metric] || 0
+    })
+    const yrs = Object.keys(byYM).sort()
+    if (!yrs.length) return { map: {}, windowLabel: '', latestIncomplete: false }
+    const lastYear = yrs[yrs.length - 1]
+    const win = Object.keys(byYM[lastYear]).sort()
+    const map = {}
+    yrs.forEach(y => {
+      let t = 0
+      win.forEach(m => { t += byYM[y]?.[m] || 0 })
+      map[y] = t
+    })
+    return {
+      map,
+      years: yrs,
+      windowLabel: win.length ? `${parseInt(win[0])}月~${parseInt(win[win.length - 1])}月` : '',
+      latestIncomplete: win.length < 12,
+      lastYear,
+    }
+  }, [activeTrendData, metric])
 
   // Chart style options per section
   const currentStyleOptions = activeSection === 'yoy' ? YOY_STYLES : activeSection === 'qoq' ? QOQ_STYLES : MOM_STYLES
@@ -1081,6 +1144,7 @@ export default function ComparisonChart({ comparisonData, trendData, periodYoY, 
             metric={metric}
             chartStyle={yoyStyle}
             periodYoY={selectedProduct ? null : periodYoY}
+            aligned={alignedByYear}
           />
         )}
         {activeSection === 'qoq' && (

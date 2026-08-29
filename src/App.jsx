@@ -23,6 +23,7 @@ import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
 import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
+import SeasonalForecastPanel from './components/charts/SeasonalForecastPanel'
 import { categorizeProduct } from './utils/productCategory'
 import BrandScorecard from './components/charts/BrandScorecard'
 import LunarPanel from './components/charts/LunarPanel'
@@ -1080,7 +1081,7 @@ function AppDashboard() {
 
           {activeTab === 'summary' && meta && (
             <div data-pdf-section data-pdf-title="執行摘要">
-              <ExecutiveSummary summary={summary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} comparisonData={comparisonData} />
+              <ExecutiveSummary summary={summary} prevSummary={prevYearSummary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} comparisonData={comparisonData} />
             </div>
           )}
           {activeTab === 'comparison' && meta && (
@@ -1091,6 +1092,7 @@ function AppDashboard() {
           {activeTab === 'trend' && meta && (
             <div data-pdf-section data-pdf-title="趨勢分析">
               <TrendChart trendData={trendData} trendDataYoY={trendDataYoY} trendDataMoM={trendDataMoM} trendByChannel={trendByChannel} trendByBrand={trendByBrand} trendByProduct={trendByProduct} metric={filters.metric} />
+              <SeasonalForecastPanel allRows={visibleRows} canManage={role === 'admin' || role === 'manager'} userEmail={user?.email || ''} />
             </div>
           )}
           {activeTab === 'channel' && meta && (

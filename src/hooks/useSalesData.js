@@ -71,19 +71,27 @@ export function useSalesData(rows, filters) {
     return { totalSales, totalQty, orderCount, avgDiscount, customerCount, productCount }
   }, [filtered, filters.includeDiscount])
 
-  // 去年同期對比：取目前篩選結果的「實際起訖日」整段往前推一年，
-  // 套同樣的非日期篩選（通路/品牌/客戶/商品/月份）計算同一組 KPI。
-  // 例：選 2026 年、資料到 8/21 → 對比 2025-01-01 ~ 2025-08-21。
+  // 去年同期對比：以「選取範圍內最新的一個年度」為本期（例：選 2025+2026 → 本期=2026），
+  // 對比其前一年的同一段月份區間（2026 有 1~8 月 → 對比 2025 的 1~8 月），
+  // 同樣套用非日期篩選（通路/品牌/客戶/商品/月份）。永遠是「一年 vs 前一年」。
   const prevYearSummary = useMemo(() => {
     if (!filtered.length || !rows?.length) return null
-    let minD = filtered[0].date, maxD = filtered[0].date
-    for (const r of filtered) {
+    const latestYear = filtered.reduce((m, r) => (r.year > m ? r.year : m), filtered[0].year)
+    const curRows = filtered.filter(r => r.year === latestYear)
+    if (!curRows.length) return null
+    let minD = curRows[0].date, maxD = curRows[0].date
+    for (const r of curRows) {
       if (r.date < minD) minD = r.date
       if (r.date > maxD) maxD = r.date
     }
     const shift = d => `${parseInt(d.slice(0, 4)) - 1}${d.slice(4)}`
     const pMin = shift(minD), pMax = shift(maxD)
 
+    // 本期（最新年度）KPI
+    let cTotal = 0, cQty = 0, cOrders = 0
+    for (const r of curRows) { cTotal += r.subtotal || 0; cQty += r.quantity || 0; cOrders++ }
+
+    // 去年同一段（從全量資料取，套非日期與月份篩選）
     const base = applyNonDateFilters(rows, filters)
     let totalSales = 0, totalQty = 0, orderCount = 0
     const customers = new Set(), products = new Set()
@@ -99,8 +107,10 @@ export function useSalesData(rows, filters) {
     return {
       totalSales, totalQty, orderCount,
       customerCount: customers.size, productCount: products.size,
+      current: { totalSales: cTotal, totalQty: cQty, orderCount: cOrders },
       range: { start: pMin, end: pMax },
       currentRange: { start: minD, end: maxD },
+      latestYear,
       hasData: orderCount > 0,
     }
   }, [rows, filtered, filters])
@@ -169,14 +179,19 @@ export function useSalesData(rows, filters) {
     return Object.values(map).sort((a, b) => a.yearMonth.localeCompare(b.yearMonth))
   }, [rows, filtered, filters])
 
-  // 選取期間 vs 去年同期（同比）：加總目前選取範圍，與對齊去年同月的加總比較
+  // 選取期間 vs 去年同期（同比）：本期＝選取範圍內「最新的一個年度」的月份，
+  // 對比前一年的同一組月份（選 2025+2026 → 2026 的 1~8 月 vs 2025 的 1~8 月）
   const periodYoY = useMemo(() => {
-    const current = trendData.reduce((s, d) => s + (d[metric] || 0), 0)
-    const prior   = trendDataYoY.reduce((s, d) => s + (d[metric] || 0), 0)
-    const hasPrior = trendDataYoY.length > 0 && prior !== 0
+    if (!trendData.length) return { metric, current: 0, prior: 0, deltaAmount: 0, deltaPct: null, hasPrior: false, rangeStart: null, rangeEnd: null, priorRangeStart: null, priorRangeEnd: null }
+    const latestYear = trendData.reduce((m, d) => (d.yearMonth.slice(0, 4) > m ? d.yearMonth.slice(0, 4) : m), trendData[0].yearMonth.slice(0, 4))
+    const curMonths = trendData.filter(d => d.yearMonth.startsWith(latestYear))
+    const priorMonths = trendDataYoY.filter(d => d.yearMonth.startsWith(latestYear))   // trendDataYoY 已對齊到本期年月
+    const current = curMonths.reduce((s, d) => s + (d[metric] || 0), 0)
+    const prior   = priorMonths.reduce((s, d) => s + (d[metric] || 0), 0)
+    const hasPrior = priorMonths.length > 0 && prior !== 0
     const deltaAmount = current - prior
     const deltaPct = hasPrior ? (deltaAmount / Math.abs(prior)) * 100 : null
-    const months = trendData.map(d => d.yearMonth)
+    const months = curMonths.map(d => d.yearMonth)
     const shiftYear = (ym) => ym ? `${parseInt(ym.slice(0, 4)) - 1}${ym.slice(4)}` : null
     return {
       metric,
