@@ -477,7 +477,7 @@ export default function ExecutiveSummary({ summary, prevSummary, trendData, prod
                 {list.map((d, i) => (
                   <div key={d.name} className="flex items-center gap-2 text-sm">
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i === 0 ? 'bg-yellow-100 text-yellow-700' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'}`}>{i + 1}</span>
-                    <span className="flex-1 truncate font-semibold text-gray-700 dark:text-gray-200" title={d.name}>{d.name}</span>
+                    <span className="flex-1 break-words font-semibold text-gray-700 dark:text-gray-200" title={d.name}>{d.name}</span>
                     <span className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">{fmtM(d.val)}</span>
                     <span className={`text-xs font-bold w-16 text-right whitespace-nowrap ${d.pct == null ? 'text-gray-300' : d.pct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
                       {d.pct == null ? 'new' : `${d.pct >= 0 ? '▲+' : '▼-'}${Math.abs(d.pct).toFixed(0)}%`}

@@ -98,7 +98,7 @@ function miniRank(items, color, maxRows = 5) {
       <td style="padding:6px 10px;text-align:center;width:28px">
         <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:20px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+      <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:130px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
       <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
       <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
       <td style="padding:6px 8px;min-width:70px">${hBar(barW, color, 6)}</td>
@@ -188,7 +188,7 @@ function renderCoverHTML({ summary = {}, trendData = [], comparisonData, product
           const pct = ctTotal > 0 ? d.subtotal / ctTotal * 100 : 0
           return `<div style="margin-bottom:6px">
             <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px">
-              <span style="font-weight:600;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${esc(d.name)}</span>
+              <span style="font-weight:600;color:#374151;white-space:normal;word-break:break-word;line-height:1.35;max-width:80px">${esc(d.name)}</span>
               <span style="color:#6b7280;font-family:monospace">${fmtN(d.subtotal)} (${pct.toFixed(0)}%)</span>
             </div>
             ${hBar(pct, '#d97706', 5)}
@@ -390,7 +390,7 @@ function renderPerformanceHTML({ performanceData }) {
             const tag = isAbove ? `<span style="background:#dcfce7;color:#166534;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">高績效</span>`
                                 : `<span style="background:#fef9c3;color:#854d0e;font-size:13px;font-weight:700;padding:1px 6px;border-radius:4px">待提升</span>`
             return `<tr style="border-bottom:1px solid #f9fafb;${i % 2 === 0 ? 'background:#fafafa' : ''}">
-              <td style="padding:5px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+              <td style="padding:5px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
               <td style="padding:5px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827">${fmtN(d.subtotal)}</td>
               <td style="padding:5px 8px;text-align:center">${tag}</td>
               <td style="padding:5px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
@@ -488,7 +488,7 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
         <td style="padding:6px 10px;text-align:center;width:24px">
           <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${i < 3 ? color : '#e5e7eb'};color:${i < 3 ? '#fff' : '#6b7280'};font-size:13px;font-weight:800;line-height:18px;text-align:center">${i + 1}</span>
         </td>
-        <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+        <td style="padding:6px 8px;font-size:13px;font-weight:600;color:#1f2937;max-width:100px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:13px;font-weight:700;font-family:monospace;color:#111827;white-space:nowrap">${fmtN(d.subtotal)}</td>
         <td style="padding:6px 8px;text-align:right;font-size:13px;color:#9ca3af;white-space:nowrap">${pct.toFixed(0)}%</td>
         <td style="padding:6px 8px;min-width:60px">${hBar(d.subtotal / maxV * 100, color, 5)}</td>
@@ -533,7 +533,7 @@ function renderBrandChannelHTML({ brandData = [], channelData = [], channelTypeD
         ${channelTypeData.slice(0, 6).map(d => {
           const pct = ctTotal > 0 ? d.subtotal / ctTotal * 100 : 0
           return `<div style="background:white;border-radius:8px;padding:8px 10px;border:1px solid #fde68a;min-width:80px;flex:1">
-            <div style="font-size:13px;color:#6b7280;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</div>
+            <div style="font-size:13px;color:#6b7280;font-weight:600;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</div>
             <div style="font-size:13px;font-weight:800;color:#d97706;margin-top:2px">${fmtN(d.subtotal)}</div>
             <div style="font-size:13px;color:#9ca3af">${pct.toFixed(0)}%</div>
             <div style="margin-top:4px">${hBar(pct, '#d97706', 4)}</div>
@@ -562,7 +562,7 @@ function renderRankingHTML({ items = [], title, subtitle, color }) {
       <td style="padding:7px 12px;text-align:center;width:32px">
         <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:13px;font-weight:800;line-height:22px;text-align:center">${i + 1}</span>
       </td>
-      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#1f2937;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.name)}</td>
+      <td style="padding:7px 10px;font-size:13px;font-weight:600;color:#1f2937;max-width:180px;white-space:normal;word-break:break-word;line-height:1.35">${esc(d.name)}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;font-weight:700;color:#111827;font-family:monospace;white-space:nowrap">NT$ ${fmtN(d.subtotal)}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;color:#6b7280;font-family:monospace">${Math.round(d.quantity || 0).toLocaleString()}</td>
       <td style="padding:7px 10px;text-align:right;font-size:13px;color:#9ca3af">${pct.toFixed(1)}%</td>
@@ -627,6 +627,30 @@ function _makeDiv(html, width, pad = '20px 24px') {
   return d
 }
 
+
+/**
+ * 修正 html2canvas 渲染時「色塊徽章文字偏移」：
+ * 把純文字的圓角色塊（PDF 模板的 inline-style 徽章、畫面上的 Tailwind inline-block 徽章）
+ * 一律轉成 inline-flex 置中。只處理沒有子元素的節點，不影響版面容器。
+ */
+export function fixBadgeCentering(scope) {
+  if (!scope?.querySelectorAll) return
+  scope.querySelectorAll('span,div,code').forEach(el => {
+    if (el.children.length > 0) return
+    const cls = typeof el.className === 'string' ? el.className : ''
+    const st = el.getAttribute('style') || ''
+    const inlineBadge = st.includes('border-radius') && st.includes('padding') && !/display\s*:\s*(flex|inline-flex|block)/.test(st)
+    const classBadge = /(^|\s)inline-block(\s|$)/.test(cls) && /rounded/.test(cls)
+    if (inlineBadge || classBadge) {
+      el.style.display = 'inline-flex'
+      el.style.alignItems = 'center'
+      el.style.justifyContent = 'center'
+      el.style.lineHeight = '1.2'
+      el.style.verticalAlign = 'middle'
+    }
+  })
+}
+
 async function _renderToCanvas(div, width) {
   // 等待所有字型載入完成再截圖，防止字型切換造成文字失真
   if (document.fonts?.ready) await document.fonts.ready
@@ -659,6 +683,7 @@ async function _renderToCanvas(div, width) {
         }
       `
       clonedDoc.head.appendChild(s)
+      fixBadgeCentering(clonedDoc.body)
     },
   })
 }

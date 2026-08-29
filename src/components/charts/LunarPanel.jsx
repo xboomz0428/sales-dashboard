@@ -183,7 +183,7 @@ export default function LunarPanel({ allRows = [] }) {
                   {fest.topProducts.length ? fest.topProducts.map(([name, amt], i) => (
                     <div key={name} className="flex items-center gap-2 text-sm">
                       <span className="w-5 text-xs text-gray-400 text-right">{i + 1}.</span>
-                      <span className="flex-1 text-gray-700 dark:text-gray-200 truncate" title={name}>{name}</span>
+                      <span className="flex-1 text-gray-700 dark:text-gray-200 break-words" title={name}>{name}</span>
                       <span className="font-mono text-gray-500 dark:text-gray-400 text-xs">{fmtW(amt)}</span>
                     </div>
                   )) : <p className="text-xs text-gray-400">此檔期無銷售資料</p>}

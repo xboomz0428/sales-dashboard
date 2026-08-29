@@ -125,7 +125,7 @@ function RankingChart({ data, metric }) {
                   <td className="py-2 pr-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-                      <span className="text-base text-gray-700 dark:text-gray-200 truncate max-w-[120px]">{d.name}</span>
+                      <span className="text-base text-gray-700 dark:text-gray-200 break-words max-w-[120px]">{d.name}</span>
                     </div>
                   </td>
                   <td className="text-right py-2 pr-2 font-mono text-base text-gray-700 dark:text-gray-200">{fmtY(d.subtotal)}</td>

@@ -370,7 +370,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
           {/* 最大支出 */}
           <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl p-4 text-white">
             <p className="text-sm text-white/70 font-medium">最大支出</p>
-            <p className="text-xl font-black mt-1 truncate">{biggestCat?.name || '—'}</p>
+            <p className="text-xl font-black mt-1 break-words">{biggestCat?.name || '—'}</p>
             <p className="text-sm text-white/60 mt-0.5">{fmtN(biggestCat?.value)}</p>
           </div>
           {/* 費用項目數 */}
@@ -479,7 +479,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
                   </div>
                   {/* 名稱 */}
                   <div className="min-w-0">
-                    <p className="font-semibold text-base text-gray-800 dark:text-gray-100 truncate">{item.label}</p>
+                    <p className="font-semibold text-base text-gray-800 dark:text-gray-100 break-words">{item.label}</p>
                   </div>
                   {/* 數量 × 單價 */}
                   <div className="w-28 text-right text-sm text-gray-400 dark:text-gray-500">
@@ -492,7 +492,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
                     ${itemAmount(item).toLocaleString()}
                   </div>
                   {/* 備註 */}
-                  <div className="w-32 text-sm text-gray-400 dark:text-gray-500 truncate">
+                  <div className="w-32 text-sm text-gray-400 dark:text-gray-500 break-words">
                     {item.note || ''}
                   </div>
                   {/* 操作 */}

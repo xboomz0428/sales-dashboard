@@ -240,7 +240,7 @@ export default function DatabaseStatusPanel({ cloudFiles, allRows }) {
             {data.storage.fileList.map(f => (
               <li key={f.path || f.name} className="px-5 py-2.5 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-colors">
                 <span className="text-sm">📄</span>
-                <span className="text-sm text-gray-700 dark:text-gray-200 font-medium flex-1 truncate">{f.name}</span>
+                <span className="text-sm text-gray-700 dark:text-gray-200 font-medium flex-1 break-words">{f.name}</span>
                 <span className="text-xs text-gray-400 dark:text-gray-500 font-mono">{f.path}</span>
               </li>
             ))}

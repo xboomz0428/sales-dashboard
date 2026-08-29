@@ -234,7 +234,7 @@ export default function PerformanceMatrix({ performanceData, metric }) {
                     <span className="text-base font-black text-gray-200 w-5 flex-shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 truncate">{d.name}</span>
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 break-words">{d.name}</span>
                         <span className={`text-sm px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${q?.bg} ${q?.text}`}>{q?.label}</span>
                       </div>
                       <div className="text-base text-gray-400 dark:text-gray-500">{fmtY(d.subtotal)} · {Math.round(d.quantity || 0).toLocaleString()} 件</div>

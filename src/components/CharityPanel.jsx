@@ -132,7 +132,7 @@ export default function CharityPanel({ allRows = [], costs = {} }) {
           <tbody>
             {shown.slice(0, 60).map(i => (
               <tr key={i.name} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50/60 dark:hover:bg-gray-700/40">
-                <td className="py-2.5 pr-2 font-semibold text-gray-700 dark:text-gray-200 max-w-[260px] truncate" title={i.name}>{i.name}</td>
+                <td className="py-2.5 pr-2 font-semibold text-gray-700 dark:text-gray-200 max-w-[260px] break-words" title={i.name}>{i.name}</td>
                 <td className="py-2.5 px-2 text-xs text-gray-500 dark:text-gray-400">{i.brand || '—'}</td>
                 <td className="py-2.5 px-2 text-center">
                   <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${i.type === 'stale' ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>

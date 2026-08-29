@@ -138,7 +138,7 @@ export default function RepurchasePanel({ allRows = [] }) {
                   <td className="py-2.5 px-2 text-right text-gray-400 dark:text-gray-500 text-xs">{c.lastDate}</td>
                   <td className="py-2.5 px-2 text-right text-gray-400 dark:text-gray-500 text-xs">{c.expected}</td>
                   <td className="py-2.5 px-2 text-right font-mono text-gray-600 dark:text-gray-300">{fmtW(c.rev12)}</td>
-                  <td className="py-2.5 pl-3 text-xs text-gray-500 dark:text-gray-400 max-w-[220px] truncate" title={c.topProduct}>{c.topProduct}</td>
+                  <td className="py-2.5 pl-3 text-xs text-gray-500 dark:text-gray-400 max-w-[220px] break-words" title={c.topProduct}>{c.topProduct}</td>
                 </tr>
               )
             })}

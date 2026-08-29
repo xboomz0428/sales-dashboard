@@ -183,13 +183,13 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
                   <span className="text-base sm:text-lg rounded-[8px] px-1.5 py-0.5 dark:bg-gray-700 dark:text-gray-300" style={card.iconBg}>{card.icon}</span>
                 </div>
                 {card.truncateValue ? (
-                  <div className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight truncate mt-1" title={card.value}>
+                  <div className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100 leading-tight break-words mt-1" title={card.value}>
                     {card.value}
                   </div>
                 ) : (
                   <div className="text-xl sm:text-2xl font-black text-gray-800 dark:text-gray-100 leading-tight">{card.value}</div>
                 )}
-                <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-0.5 truncate">{card.sub}</div>
+                <div className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 mt-0.5 break-words">{card.sub}</div>
                 {compareYoY && prevSummary?.hasData && yoyMap[card.id] && (() => {
                   const [cur, prev, kind] = yoyMap[card.id]
                   const diff = cur - prev
@@ -261,7 +261,7 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
                   <div key={p.name} className="flex items-center gap-1.5">
                     <span className="text-xs w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center font-black flex-shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 truncate leading-tight">{p.name}</div>
+                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 break-words leading-tight">{p.name}</div>
                       <div className="text-sm sm:text-xl font-black font-mono text-violet-700 dark:text-violet-400 leading-tight tabular-nums">{fmtInt(p.quantity)} <span className="text-xs sm:text-sm font-semibold">件</span></div>
                     </div>
                   </div>
@@ -280,7 +280,7 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
                   <div key={c.name} className="flex items-center gap-1.5">
                     <span className="text-xs w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center font-black flex-shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 truncate leading-tight">{c.name}</div>
+                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 break-words leading-tight">{c.name}</div>
                       <div className="text-sm sm:text-xl font-black font-mono text-amber-700 dark:text-amber-400 leading-tight tabular-nums">{fmtInt(c.quantity)} <span className="text-xs sm:text-sm font-semibold">件</span></div>
                     </div>
                   </div>
@@ -299,7 +299,7 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
                   <div key={c.name} className="flex items-center gap-1.5">
                     <span className="text-xs w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center font-black flex-shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 truncate leading-tight">{c.name}</div>
+                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 break-words leading-tight">{c.name}</div>
                       <div className="text-sm sm:text-xl font-black font-mono text-rose-700 dark:text-rose-400 leading-tight tabular-nums">{fmtInt(c[metric])} <span className="text-xs sm:text-sm font-semibold">{metric === 'subtotal' ? '元' : '件'}</span></div>
                     </div>
                   </div>
@@ -318,7 +318,7 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
                   <div key={c.name} className="flex items-center gap-1.5">
                     <span className="text-xs w-5 h-5 rounded-full bg-sky-500 text-white flex items-center justify-center font-black flex-shrink-0">{i + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 truncate leading-tight">{c.name}</div>
+                      <div className="text-xs sm:text-base text-gray-600 dark:text-gray-300 break-words leading-tight">{c.name}</div>
                       <div className="text-sm sm:text-xl font-black font-mono text-sky-700 dark:text-sky-400 leading-tight tabular-nums">{fmtInt(c[metric])} <span className="text-xs sm:text-sm font-semibold">{metric === 'subtotal' ? '元' : '件'}</span></div>
                     </div>
                   </div>

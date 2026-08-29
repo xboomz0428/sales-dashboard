@@ -175,7 +175,7 @@ function DimGoalSection({ title, icon, dimKey, items, dimGoals, onEdit }) {
             return (
               <div key={item.name}>
                 <div className="flex justify-between text-base mb-1">
-                  <span className="font-semibold text-gray-700 dark:text-gray-200 truncate max-w-[40%]">{item.name}</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-200 break-words max-w-[40%]">{item.name}</span>
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-gray-600 dark:text-gray-300">{fmtM(item.subtotal)}</span>
                     {target > 0 ? (
@@ -465,7 +465,7 @@ ${growthRates || '資料不足'}
                 <div className="space-y-2">
                   {(brandData || []).slice(0, 10).map(b => (
                     <div key={b.name} className="flex items-center gap-3">
-                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 truncate">{b.name}</span>
+                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 break-words">{b.name}</span>
                       <span className="text-sm text-gray-400 dark:text-gray-500 w-20 text-right flex-shrink-0">實績 {fmtM(b.subtotal)}</span>
                       <input type="number" value={draft.brands[b.name]?.subtotal || ''} onChange={e => setDim('brands', b.name, e.target.value)}
                         className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />
@@ -479,7 +479,7 @@ ${growthRates || '資料不足'}
                 <div className="space-y-2">
                   {(channelData || []).slice(0, 8).map(ch => (
                     <div key={ch.name} className="flex items-center gap-3">
-                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 truncate">{ch.name}</span>
+                      <span className="text-base text-gray-700 dark:text-gray-200 w-32 flex-shrink-0 break-words">{ch.name}</span>
                       <span className="text-sm text-gray-400 dark:text-gray-500 w-20 text-right flex-shrink-0">實績 {fmtM(ch.subtotal)}</span>
                       <input type="number" value={draft.channels[ch.name]?.subtotal || ''} onChange={e => setDim('channels', ch.name, e.target.value)}
                         className="flex-1 text-right px-3 py-1.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-400 text-base" placeholder="目標金額" />

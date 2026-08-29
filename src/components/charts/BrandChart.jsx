@@ -88,7 +88,7 @@ function LinesTooltip({ active, payload, label }) {
         <div key={i} className="flex justify-between gap-4 py-0.5">
           <span className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300">
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.stroke }} />
-            <span className="truncate max-w-[140px]">{e.name}</span>
+            <span className="break-words max-w-[140px]">{e.name}</span>
           </span>
           <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{e.value?.toLocaleString()}</span>
         </div>
@@ -375,7 +375,7 @@ function BrandChannelChart({ brandChannelData, metric }) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-                      <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{c.ch}</span>
+                      <span className="text-sm font-bold text-gray-700 dark:text-gray-200 break-words">{c.ch}</span>
                     </div>
                     <span className={`text-xs font-bold flex-shrink-0 ml-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
                       {isActive ? '✓' : '–'}

@@ -432,7 +432,7 @@ function ContactDrawer({ contact, onClose, onSave, onDelete, userName }) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <div>
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate max-w-[300px]">{form.name || '新聯絡人'}</h3>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 break-words max-w-[300px]">{form.name || '新聯絡人'}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold text-white ${si.color}`}>{si.label}</span>
               <span className="text-xs text-gray-400">{ci.icon} {ci.label}</span>
@@ -697,7 +697,7 @@ function PlanEditor({ plan, onSave, onClose }) {
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-xs text-gray-400 leading-tight">業務管理 › 獎金設定</p>
-          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate leading-snug">{plan.name}</h2>
+          <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 break-words leading-snug">{plan.name}</h2>
         </div>
         <button onClick={() => { onSave(form); onClose() }}
           className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors flex-shrink-0 min-h-[44px]">
@@ -797,7 +797,7 @@ function ContactCard({ contact, onClick }) {
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${si.color}`} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{contact.name}</span>
+          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 break-words">{contact.name}</span>
           <span className="text-xs text-gray-400">{ci.icon}</span>
           {contact.scale && <span className="text-xs text-gray-300 dark:text-gray-600 hidden sm:inline">· {contact.scale}</span>}
         </div>

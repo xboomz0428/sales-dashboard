@@ -741,7 +741,7 @@ export default function UserManagement({ currentUserId }) {
                   <div key={u.id} className={`p-4 space-y-3 ${isSelf ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{u.email}</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm break-words">{u.email}</p>
                         {isSelf && <span className="text-xs text-blue-500 font-semibold">（我）</span>}
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${roleInfo?.badge}`}>{roleInfo?.label}</span>

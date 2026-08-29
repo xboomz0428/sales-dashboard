@@ -27,7 +27,7 @@ function CustomTooltip({ active, payload, label }) {
         <div key={i} className="flex items-center justify-between gap-4 py-1">
           <span className="flex items-center gap-2 text-base text-gray-600 dark:text-gray-300">
             <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: e.stroke || e.fill }} />
-            <span className="truncate max-w-[140px]">{e.name}</span>
+            <span className="break-words max-w-[140px]">{e.name}</span>
           </span>
           <span className="font-mono font-bold text-base text-gray-800 dark:text-gray-100">{Math.round(e.value || 0).toLocaleString()}</span>
         </div>
@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload, label }) {
             <div key={i} className="flex items-center justify-between gap-4 py-0.5">
               <span className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500">
                 <span className="w-3 h-0.5 inline-block" style={{ background: e.stroke }} />
-                <span className="truncate max-w-[140px]">{e.name?.replace('▸', '').trim()}</span>
+                <span className="break-words max-w-[140px]">{e.name?.replace('▸', '').trim()}</span>
               </span>
               <span className="font-mono text-sm text-gray-500 dark:text-gray-400">{Math.round(e.value || 0).toLocaleString()}</span>
             </div>

@@ -64,7 +64,7 @@ function RankingChart({ customerData, metric }) {
                 <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: COLORS[i % COLORS.length] }}>
                   {i + 1}
                 </span>
-                <span className="text-base font-semibold text-gray-700 dark:text-gray-200 truncate">{c.name}</span>
+                <span className="text-base font-semibold text-gray-700 dark:text-gray-200 break-words">{c.name}</span>
               </div>
               <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-base">
                 <span className="text-gray-400 dark:text-gray-500">金額</span><span className="font-mono font-semibold text-gray-700 dark:text-gray-200 text-right">{fmtY(c.subtotal)}</span>

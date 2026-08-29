@@ -130,7 +130,7 @@ function SearchableCheckList({ label, options, selected, onChange, placeholder =
               className="flex-shrink-0 w-5 h-5"
               style={{accentColor:'var(--mint-500)'}}
             />
-            <span className={`truncate text-base ${
+            <span className={`break-words text-base ${
               selSet.has(opt) ? 'font-semibold dark:text-emerald-400' : 'text-gray-700 dark:text-gray-300'
             }`} style={selSet.has(opt) ? {color:'var(--mint-700)'} : {}}>{opt}</span>
           </label>

@@ -146,7 +146,7 @@ export default function DbFileManager({ canManage = true }) {
                 const working = busy === f.source_file
                 return (
                   <tr key={f.source_file} className={`border-b border-gray-50 dark:border-gray-700/50 ${dup ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
-                    <td className="py-2.5 pr-2 font-semibold text-gray-700 dark:text-gray-200 max-w-[240px] truncate" title={f.source_file}>{f.source_file}</td>
+                    <td className="py-2.5 pr-2 font-semibold text-gray-700 dark:text-gray-200 max-w-[240px] break-words" title={f.source_file}>{f.source_file}</td>
                     <td className="py-2.5 px-2 text-right font-mono text-gray-600 dark:text-gray-300">{Number(f.rows).toLocaleString()}</td>
                     <td className="py-2.5 px-2 text-center text-xs text-gray-500 dark:text-gray-400">{f.min_date} ~ {f.max_date}</td>
                     <td className="py-2.5 px-2 text-right font-mono text-gray-600 dark:text-gray-300">{fmtW(Number(f.subtotal))}</td>

@@ -98,7 +98,7 @@ function AIChartDashboard({ salesData }) {
                   return (
                     <div key={b.name}>
                       <div className="flex justify-between text-base mb-1">
-                        <span className="text-gray-700 dark:text-gray-200 font-medium truncate max-w-[60%]">{b.name}</span>
+                        <span className="text-gray-700 dark:text-gray-200 font-medium break-words max-w-[60%]">{b.name}</span>
                         <span className="font-mono font-bold text-gray-800 dark:text-gray-100">{fmtAI(b.subtotal)}</span>
                       </div>
                       <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
@@ -686,7 +686,7 @@ function HistoryPanel({ history, onLoad, onClear, onDelete }) {
                 <span className="text-lg flex-shrink-0">{typeInfo?.label.split(' ')[0] || '🤖'}</span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200 truncate">{typeInfo?.label || item.type}</span>
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200 break-words">{typeInfo?.label || item.type}</span>
                     {item.fromDb
                       ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium flex-shrink-0">☁ 雲端</span>
                       : <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-medium flex-shrink-0">本機</span>
@@ -1123,7 +1123,7 @@ ${deepCtx}` : question, attachments, kbContext: pickKbContext(question) })
     )
     if (saveStatus.startsWith('saved:')) return (
       <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-        <span>✓</span><span className="truncate max-w-[200px]">{saveStatus.slice(6)}</span>
+        <span>✓</span><span className="break-words max-w-[200px]">{saveStatus.slice(6)}</span>
       </span>
     )
     if (saveStatus === 'error') return (
@@ -1392,7 +1392,7 @@ ${deepCtx}` : question, attachments, kbContext: pickKbContext(question) })
                           {a.kind === 'image' && a.thumb
                             ? <img src={a.thumb} alt="" className="w-6 h-6 rounded object-cover" />
                             : <span>{a.kind === 'pdf' ? '📄' : '📊'}</span>}
-                          <span className="max-w-[160px] truncate font-medium">{a.name}</span>
+                          <span className="max-w-[160px] break-words font-medium">{a.name}</span>
                           <button onClick={() => setChatFiles(prev => prev.filter((_, x) => x !== i))}
                             className="opacity-60 hover:opacity-100 font-bold">✕</button>
                         </span>

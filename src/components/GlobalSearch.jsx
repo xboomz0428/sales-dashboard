@@ -143,7 +143,7 @@ export default function GlobalSearch({ open, onClose, onNavigate, productData, c
                       <span className={`text-sm font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${meta.color}`}>
                         {meta.label}
                       </span>
-                      <span className={`text-sm font-medium truncate ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
+                      <span className={`text-sm font-medium break-words ${isActive ? 'text-blue-700 dark:text-blue-400' : 'text-gray-800 dark:text-gray-100'}`}>
                         {item.name}
                       </span>
                     </div>

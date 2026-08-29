@@ -921,7 +921,7 @@ function AppDashboard() {
               <tbody>
                 {uploadHistory.map(f => (
                   <tr key={f.id} className="border-b border-gray-50 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="py-1 pr-3 text-gray-700 dark:text-gray-200 font-medium max-w-[200px] truncate">{f.name}</td>
+                    <td className="py-1 pr-3 text-gray-700 dark:text-gray-200 font-medium max-w-[200px] break-words">{f.name}</td>
                     <td className="py-1 pr-3 text-center text-gray-400 dark:text-gray-500 text-xs">
                       {f.dateRange ? `${f.dateRange.min} ~ ${f.dateRange.max}` : '—'}
                     </td>
@@ -1015,7 +1015,7 @@ function AppDashboard() {
                 <span className="text-base leading-none flex-shrink-0">{activeGroupInfo?.icon}</span>
                 <span className="text-xs text-gray-400 flex-shrink-0">{activeGroupInfo?.label}</span>
                 <span className="text-gray-300 dark:text-gray-600 flex-shrink-0">›</span>
-                <span className="font-semibold truncate" style={{color:'var(--mint-600)'}}>{currentTabInfo?.icon} {currentTabInfo?.label}</span>
+                <span className="font-semibold break-words" style={{color:'var(--mint-600)'}}>{currentTabInfo?.icon} {currentTabInfo?.label}</span>
               </div>
               <span className="text-xs text-gray-400 flex-shrink-0 ml-2">▼ 切換</span>
             </button>

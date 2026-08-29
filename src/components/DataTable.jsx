@@ -90,8 +90,8 @@ export default function DataTable({ rows }) {
             </div>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{row.customer || '—'}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{row.product || '—'}</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 break-words">{row.customer || '—'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 break-words mt-0.5">{row.product || '—'}</p>
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-sm font-mono font-bold text-gray-800 dark:text-gray-100">{row.subtotal ? Math.round(row.subtotal).toLocaleString() : '—'}</p>

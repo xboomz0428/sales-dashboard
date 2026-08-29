@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import html2canvas from 'html2canvas'
+import { fixBadgeCentering } from '../utils/pdfExport'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PRESET_COLORS = [
@@ -132,6 +133,9 @@ export default function ScreenshotEditor({ targetRef, scrollRef, onClose, title 
           onclone: (doc, clonedEl) => {
             // ① Remove dark mode → dark:bg-* revert to light values
             doc.documentElement.classList.remove('dark')
+
+            // ①.5 色塊徽章文字置中（html2canvas 會把行內徽章文字渲染偏移）
+            fixBadgeCentering(clonedEl || doc.body)
 
             // ② Force pure white on the entire clone page.
             //    html2canvas renders a page-sized canvas then crops to the

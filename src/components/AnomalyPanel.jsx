@@ -156,7 +156,7 @@ export default function AnomalyPanel({ allRows, metric }) {
                         <span className="text-xs bg-white/60 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">{a.dim}</span>
                         {a.type === 'missing' && <span className="text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400 px-2 py-0.5 rounded-full">失聯客戶</span>}
                       </div>
-                      <p className={`text-base font-bold ${sv.text} truncate`}>{a.name}</p>
+                      <p className={`text-base font-bold ${sv.text} break-words`}>{a.name}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{a.msg}</p>
                     </div>
                   </div>
