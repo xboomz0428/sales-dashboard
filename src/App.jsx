@@ -580,7 +580,7 @@ function AppDashboard() {
     setPdfLoading(true)
     try {
       const { exportDashboardPDF } = await import('./utils/pdfExport')
-      const filename = await exportDashboardPDF({ salesData: pdfSalesData, onProgress: setPdfProgress })
+      const filename = await exportDashboardPDF({ salesData: pdfSalesData, allRows: visibleRows, onProgress: setPdfProgress })
       setNotice(`✓ PDF 匯出完成：${filename}`)
       setTimeout(() => setNotice(null), 5000)
     } catch (e) {

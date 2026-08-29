@@ -44,10 +44,15 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
   const [msg, setMsg] = useState(null)
 
   const [forecasts, setForecasts] = useState([])
+  const [agendaText, setAgendaText] = useState('')
+  const [agendaSaved, setAgendaSaved] = useState(false)
   const load = useCallback(async () => {
     if (!client) return
-    const { data } = await client.from('dashboard_settings').select('value').eq('key', 'navigator_config').maybeSingle()
-    if (data?.value) { try { setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(data.value) }) } catch { /* 用預設 */ } }
+    const { data: rows2 } = await client.from('dashboard_settings').select('key,value').in('key', ['navigator_config', 'board_agenda'])
+    for (const r of rows2 || []) {
+      if (r.key === 'navigator_config' && r.value) { try { setConfig({ ...DEFAULT_CONFIG, ...JSON.parse(r.value) }) } catch { /* 用預設 */ } }
+      if (r.key === 'board_agenda') setAgendaText(r.value || '')
+    }
     const { data: fc } = await client.from('forecast_records').select('*').order('created_at', { ascending: false }).limit(10)
     setForecasts(fc || [])
   }, [client])
@@ -264,6 +269,25 @@ export default function NavigatorPanel({ allRows = [], canManage = false }) {
           今年列＝實際 YTD＋季節指數年底預測（詳見趨勢分析的預測面板）；歷史年份補上後會自動亮燈。目標數字可由 admin「✏️ 編輯目標」調整。
         </p>
       </div>
+
+      {/* 董事會議案（帶入董事長版 PDF 第 6 頁） */}
+      {canManage && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-200">🗳️ 董事會議案（一行一案，自動帶入董事長版 PDF「提請決議」頁）</p>
+            <button onClick={async () => {
+              const { error } = await client.from('dashboard_settings').upsert(
+                { key: 'board_agenda', value: agendaText, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+              if (!error) { setAgendaSaved(true); setTimeout(() => setAgendaSaved(false), 2500) }
+            }} className="text-sm px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-bold">
+              {agendaSaved ? '✓ 已儲存' : '💾 儲存議案'}
+            </button>
+          </div>
+          <textarea value={agendaText} onChange={e => setAgendaText(e.target.value)} rows={3}
+            placeholder={'例：好漢草漢方飲品線打樣預算核定（一行一案）'}
+            className="w-full text-sm px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 dark:text-gray-200 leading-relaxed" />
+        </div>
+      )}
 
       {/* 五管執行戰略 */}
       <StrategySection model={model} config={config} allRows={allRows} />

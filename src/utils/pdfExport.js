@@ -1,5 +1,7 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { buildBoardModel, buildBoardSections } from './pdfBoard'
+import { supabase } from '../config/supabase'
 
 /* ═══════════════════════════════════════════════════════════════
    共用工具
@@ -963,8 +965,30 @@ function buildDashboardSections(salesData) {
 /* ═══════════════════════════════════════════════════════════════
    主匯出：儀表板 PDF
 ═══════════════════════════════════════════════════════════════ */
-export async function exportDashboardPDF({ salesData = {}, onProgress }) {
-  const sections = buildDashboardSections(salesData)
+// 董事長版（v0.0.115 起為預設）：6 頁決策導向——結論/領航員/走勢/結構/風險/決議
+export async function exportDashboardPDF({ salesData = {}, allRows = [], onProgress }) {
+  let navConfig = {}, agenda = []
+  try {
+    if (supabase) {
+      const { data } = await supabase.from('dashboard_settings').select('key,value').in('key', ['navigator_config', 'board_agenda'])
+      for (const r of data || []) {
+        if (r.key === 'navigator_config') { try { navConfig = JSON.parse(r.value) } catch { /* 用預設 */ } }
+        if (r.key === 'board_agenda') agenda = String(r.value || '').split('\n').map(t => t.trim()).filter(Boolean)
+      }
+    }
+  } catch { /* 離線也能出報表，用預設目標 */ }
+
+  onProgress?.('計算經營數據...')
+  let sections
+  try {
+    const model = buildBoardModel({ allRows, navConfig, agenda })
+    sections = model ? buildBoardSections(model) : null
+  } catch (e) {
+    console.error('董事長版產生失敗，退回營運詳細版', e)
+    sections = null
+  }
+  if (!sections) sections = buildDashboardSections(salesData)
+
   const allPages = []
   for (const sec of sections) {
     if (!sec.html) continue
@@ -973,8 +997,8 @@ export async function exportDashboardPDF({ salesData = {}, onProgress }) {
     pages.forEach(p => allPages.push(p))
   }
   onProgress?.('建立 PDF 檔案...')
-  const pdf = buildPDF(allPages, `銷售數據分析報告 · ${new Date().toLocaleDateString('zh-TW')}`)
-  const filename = `sales-report-${new Date().toISOString().slice(0, 10)}.pdf`
+  const pdf = buildPDF(allPages, `經營月報（董事長版） · ${new Date().toLocaleDateString('zh-TW')}`)
+  const filename = `board-report-${new Date().toISOString().slice(0, 10)}.pdf`
   pdf.save(filename)
   return filename
 }
