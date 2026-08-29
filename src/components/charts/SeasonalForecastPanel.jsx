@@ -158,7 +158,7 @@ export default function SeasonalForecastPanel({ allRows = [], canManage = true, 
       </div>
 
       {/* 圖：實際(實心) + 預測(半透明) + 前2年平均(線) */}
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={typeof window !== "undefined" && window.innerWidth < 640 ? 210 : 280}>
         <ComposedChart data={model.chart} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
           <XAxis dataKey="month" tick={{ fontSize: 12 }} />

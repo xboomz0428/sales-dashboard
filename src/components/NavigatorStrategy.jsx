@@ -151,7 +151,7 @@ export function StrategySection({ model, config, allRows }) {
                 </div>
               ))}
             </div>
-            <ul className="space-y-1.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+            <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
               {c.tactics.map((t, i) => (
                 <li key={i} className="flex gap-1.5"><span className="text-gray-300 dark:text-gray-600 flex-shrink-0">▸</span><span>{t}</span></li>
               ))}
@@ -190,14 +190,14 @@ export function BmcSection() {
         <p className="text-xs text-gray-400">灰字＝現行模式 · 綠字🆕＝為達成願景的新模式 · 每年 12 月檢視一次</p>
       </div>
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-3 overflow-x-auto">
-        <div className="grid gap-2 min-w-[860px]" style={{
+        <div className="grid gap-2.5 min-w-[1080px]" style={{
           gridTemplateColumns: 'repeat(10, minmax(0,1fr))',
           gridTemplateAreas: `"kp kp ka ka vp vp cr cr cs cs" "kp kp kr kr vp vp ch ch cs cs" "cost cost cost cost cost rev rev rev rev rev"`,
         }}>
           {BMC.map(b => (
-            <div key={b.key} style={{ gridArea: b.area }} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30 p-2.5">
-              <p className="text-xs font-black text-gray-700 dark:text-gray-200 mb-1.5">{b.title}</p>
-              <ul className="space-y-0.5 text-[11px] leading-snug">
+            <div key={b.key} style={{ gridArea: b.area }} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30 p-3.5">
+              <p className="text-base font-black text-gray-700 dark:text-gray-200 mb-2">{b.title}</p>
+              <ul className="space-y-1 text-sm leading-relaxed">
                 {b.now.map((x, i) => <li key={i} className="text-gray-500 dark:text-gray-400">{x}</li>)}
                 {b.next.map((x, i) => <li key={'n' + i} className="text-emerald-700 dark:text-emerald-400 font-semibold">🆕 {x}</li>)}
               </ul>
@@ -213,13 +213,13 @@ export function BmcSection() {
             <p className="text-xs font-black text-white inline-block px-2.5 py-1 rounded-full mb-2" style={{}}>
               <span className={`${r.color} px-2.5 py-1 rounded-full`}>{r.stage}</span>
             </p>
-            <ul className="space-y-1.5 text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+            <ul className="space-y-1.5 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
               {r.items.map((x, i) => <li key={i} className="flex gap-1.5"><span className="text-gray-300 dark:text-gray-600 flex-shrink-0">▸</span><span>{x}</span></li>)}
             </ul>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-gray-400 mt-2">⚠️ 以上為內部企劃方向；任何對外的品名、功效與文案，仍須通過藥事法／食安法／化粧品法合規審查後才可使用。</p>
+      <p className="text-sm text-gray-400 mt-2">⚠️ 以上為內部企劃方向；任何對外的品名、功效與文案，仍須通過藥事法／食安法／化粧品法合規審查後才可使用。</p>
     </div>
   )
 }

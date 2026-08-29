@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import { buildAIPayload, buildPrompt, buildChatMessages, streamAnalysis } from '../utils/aiAnalyst'
 import { supabase, supabaseReady } from '../config/supabase'
+import { deepQuery } from '../utils/textToSql'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -744,6 +745,9 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
   const [chatStreaming, setChatStreaming] = useState(false)
   const [chatFiles, setChatFiles] = useState([])     // 待送出的附件
   const [chatFileBusy, setChatFileBusy] = useState(false)
+  // 🔍 直查明細（text-to-SQL）：AI 產生 SELECT 經 DB 守門函式執行後據實回答
+  const [deepMode, setDeepMode] = useState(() => localStorage.getItem('ai_deep_query') === '1')
+  const toggleDeepMode = () => setDeepMode(v => { localStorage.setItem('ai_deep_query', v ? '0' : '1'); return !v })
   const chatBottomRef = useRef(null)
   const chatFileInputRef = useRef(null)
   const kbFaqsRef = useRef([])                       // 知識庫 FAQ（開啟時載入一次）
@@ -806,11 +810,31 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
     setChatFiles([])
     setError('')
     const historyForApi = chatMsgs.slice(-10)   // 最多帶 10 則歷史，避免 token 爆炸
-    setChatMsgs(prev => [...prev, { role: 'user', text: question, attachments }, { role: 'model', text: '' }])
+    setChatMsgs(prev => [...prev, { role: 'user', text: question, attachments }, { role: 'model', text: deepMode && question ? '🔍 正在產生並執行資料庫查詢…' : '' }])
     setChatStreaming(true)
 
+    // 🔍 深度查詢：先 text-to-SQL 抓明細，再讓 AI 據實回答（SQL 透明顯示）
+    let deepCtx = null
+    if (deepMode && question) {
+      let deepInfo
+      try {
+        const { sql, rows } = await deepQuery({ apiKey: apiKey.trim(), model: aiModel, question })
+        deepInfo = { sql, rowCount: rows.length }
+        deepCtx = `【系統已代為查詢資料庫（text-to-SQL）。請優先根據以下查詢結果回答並引用實際數字；結果為空就明說查無資料，不要編造】
+SQL：${sql}
+查詢結果（${rows.length} 筆，上限 200）：
+${JSON.stringify(rows).slice(0, 28000)}`
+      } catch (e) {
+        deepInfo = { sql: null, rowCount: 0, deepError: e.message }
+        deepCtx = `【text-to-SQL 查詢失敗：${e.message}。請改用既有彙總數據回答，並註明無法查得逐筆明細】`
+      }
+      setChatMsgs(prev => { const next = [...prev]; next[next.length - 1] = { role: 'model', text: '', ...deepInfo }; return next })
+    }
+
     const dataJson = buildAIPayload(salesData)
-    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question, attachments, kbContext: pickKbContext(question) })
+    const messages = buildChatMessages({ dataJson, filters: salesData.filters, chatHistory: historyForApi, question: deepCtx ? `${question}
+
+${deepCtx}` : question, attachments, kbContext: pickKbContext(question) })
 
     await new Promise((resolve) => {
       streamAnalysis({
@@ -1335,6 +1359,15 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
                             )}
                           </div>
                         )}
+                        {m.sql && (
+                          <details className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                            <summary className="cursor-pointer font-bold text-emerald-600 dark:text-emerald-400">🔍 已直查資料庫（{m.rowCount} 筆）— 點看 SQL</summary>
+                            <pre className="mt-1 p-2 rounded-lg bg-gray-900 text-emerald-300 overflow-x-auto whitespace-pre-wrap text-[11px] leading-relaxed">{m.sql}</pre>
+                          </details>
+                        )}
+                        {m.deepError && (
+                          <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">⚠ 明細查詢失敗（{m.deepError}），以下為依彙總數據的回答</div>
+                        )}
                         {m.text
                           ? <ChatText text={m.text} />
                           : m.role === 'model'
@@ -1376,6 +1409,13 @@ export default function AIAnalysis({ open, onClose, salesData, onExportFullPDF, 
                       className="hidden"
                       onChange={e => { addChatFiles(e.target.files); e.target.value = '' }}
                     />
+                    <button
+                      onClick={toggleDeepMode}
+                      disabled={chatStreaming}
+                      title="直查明細（text-to-SQL）：AI 針對你的問題自動產生 SQL 查詢資料庫逐筆明細後據實回答；查詢僅能唯讀 sales_data、上限 200 筆，SQL 會透明顯示"
+                      className={`px-3 py-2.5 rounded-2xl border text-base flex-shrink-0 transition-colors ${deepMode ? 'bg-emerald-600 border-emerald-600 text-white shadow' : 'border-gray-200 dark:border-gray-600 text-gray-400 hover:text-emerald-600 hover:border-emerald-300'}`}>
+                      🔍
+                    </button>
                     <button
                       onClick={() => chatFileInputRef.current?.click()}
                       disabled={chatStreaming || chatFileBusy}

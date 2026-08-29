@@ -98,27 +98,47 @@ function rowFromCompact(a) {
   return r
 }
 
+// v2：payload 少了 _key 與 yearMonth/year/month（傳輸量約 −40%），前端由 date 導出並重建 _key
+const COMPACT2_COLS = ['date','channel','channelType','brand','agentType','product','orderId','customer','quantity','subtotal','total','discountRate']
+
+function rowFromCompact2(a, idx) {
+  const r = {}
+  COMPACT2_COLS.forEach((k, i) => { r[k] = a[i] })
+  for (const k of ['channel','channelType','brand','agentType','product','orderId','customer']) r[k] = r[k] ?? ''
+  for (const k of ['quantity','subtotal','total','discountRate']) r[k] = r[k] ?? 0
+  const d = r.date || ''
+  r.yearMonth = d.slice(0, 7)
+  r.year = d.slice(0, 4)
+  r.month = d.slice(5, 7)
+  r._key = `id:${r.orderId}|prod:${r.product}|sub:${r.subtotal}|qty:${r.quantity}#${idx}`
+  return r
+}
+
 async function loadRowsFromDbCompact(totalCount) {
   const client = supabaseAdmin || supabase
   const pages = Math.ceil(totalCount / COMPACT_CHUNK)
   const results = new Array(pages)
   let nextPage = 0
+  let useV2 = true   // v2 瘦身版優先；函式不存在或首發失敗時整條退回 v1
+  async function fetchChunk(p) {
+    const fn = useV2 ? 'get_sales_compact2' : 'get_sales_compact'
+    return client.rpc(fn, { p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK })
+  }
   async function worker() {
     while (true) {
       const p = nextPage++
       if (p >= pages) break
       // 單一 chunk 失敗（冷啟動偶發 5xx）重試一次再放棄，避免整條快速路退回慢速分頁
-      let { data, error } = await client.rpc('get_sales_compact', {
-        p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK,
-      })
+      let { data, error } = await fetchChunk(p)
+      if (error && useV2 && p === 0) { useV2 = false; ({ data, error } = await fetchChunk(p)) }
       if (error) {
         await new Promise(r => setTimeout(r, 600))
-        ;({ data, error } = await client.rpc('get_sales_compact', {
-          p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK,
-        }))
+        ;({ data, error } = await fetchChunk(p))
       }
       if (error) throw error
-      results[p] = (data || []).map(rowFromCompact)
+      results[p] = useV2
+        ? (data || []).map((a, i) => rowFromCompact2(a, p * COMPACT_CHUNK + i + 1))
+        : (data || []).map(rowFromCompact)
     }
   }
   await Promise.all(Array.from({ length: Math.min(COMPACT_CONCURRENCY, pages) }, () => worker()))
