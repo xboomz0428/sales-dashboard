@@ -45,8 +45,8 @@ function GrowthBadge({ rate }) {
     ? 'text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700/50'
     : 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-base font-bold ${cls}`}>
-      {rate > 0 ? '▲' : rate < 0 ? '▼' : ''} {Math.abs(rate).toFixed(0)}%
+    <span className={`inline-flex items-center whitespace-nowrap px-1.5 py-0.5 rounded text-sm leading-tight font-bold ${cls}`}>
+      {rate > 0 ? '▲' : rate < 0 ? '▼' : ''}{Math.abs(rate).toFixed(0)}%
     </span>
   )
 }
