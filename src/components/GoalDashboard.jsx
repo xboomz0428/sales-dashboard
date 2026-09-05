@@ -103,7 +103,7 @@ function MonthlyTracker({ year, annualTarget, trendData, monthlyOverrides = {} }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-base">
+      <table className="w-full min-w-[560px] text-base">
         <thead>
           <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
             <th className="text-left px-3 py-2.5 font-semibold">月份</th>
@@ -349,7 +349,7 @@ ${growthRates || '資料不足'}
           {tab === 'annual' && (
             <div className="space-y-4">
               <p className="text-sm text-gray-400 dark:text-gray-500">設定每年度總銷售目標，系統會依歷史季節性自動拆解至各月份。</p>
-              <table className="w-full text-base">
+              <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-base">
                 <thead>
                   <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
                     <th className="text-left py-2 pr-4">年份</th>
@@ -372,7 +372,7 @@ ${growthRates || '資料不足'}
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </div>
           )}
 
@@ -415,7 +415,7 @@ ${growthRates || '資料不足'}
                       自動目標依歷史季節比例分配。手動覆寫欄位空白時使用自動值。
                     </p>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full min-w-[560px] text-sm">
                         <thead>
                           <tr className="text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700">
                             <th className="text-left py-2 pr-3">月份</th>
@@ -763,7 +763,7 @@ export default function GoalDashboard({ trendData = [], comparisonData, summary,
                 </div>
               )}
               <div className="overflow-x-auto">
-                <table className="w-full text-base">
+                <table className="w-full min-w-[560px] text-base">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                       <th className="text-left px-3 py-2.5 font-semibold">年份</th>

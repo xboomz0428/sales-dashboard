@@ -904,7 +904,7 @@ export default function CrmPanel({ user, role, invoices = {} }) {
       : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl space-y-5">
+    <div className="p-4 sm:p-6 w-full max-w-full space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -1122,7 +1122,7 @@ export default function CrmPanel({ user, role, invoices = {} }) {
                     </span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[640px] text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-900">
                         <tr>
                           <th className="text-left px-4 py-2 text-xs font-medium text-gray-400">業務員</th>

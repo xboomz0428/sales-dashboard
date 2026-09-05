@@ -342,7 +342,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
   const momChange = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl space-y-6">
+    <div className="p-4 sm:p-6 w-full max-w-full space-y-6">
 
       {/* ── 標題列 ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -607,14 +607,14 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
           </div>
         ) : (
           <div className="divide-y divide-gray-50 dark:divide-gray-700">
-            {/* Header */}
-            <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-3 px-5 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/40">
-              <span className="w-24">類別</span>
+            {/* Header（桌機）：備註與項目共享彈性寬度，長備註不再擠成細長直欄 */}
+            <div className="hidden sm:grid sm:grid-cols-[6.5rem_minmax(0,1.1fr)_6.5rem_7.5rem_minmax(0,1fr)_4.5rem] gap-3 px-5 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/40">
+              <span>類別</span>
               <span>項目</span>
-              <span className="w-28 text-right">數量 × 單價</span>
-              <span className="w-28 text-right">金額</span>
-              <span className="w-32">備註</span>
-              <span className="w-16 text-center">操作</span>
+              <span className="text-right">數量 × 單價</span>
+              <span className="text-right">金額</span>
+              <span>備註</span>
+              <span className="text-center">操作</span>
             </div>
 
             {items.map(item => (
@@ -626,43 +626,62 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
                   />
                 </div>
               ) : (
-                <div key={item.id}
-                  className="grid sm:grid-cols-[auto_1fr_auto_auto_auto_auto] gap-2 sm:gap-3 px-4 sm:px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors items-center">
-                  {/* 類別 badge */}
-                  <div className="w-24">
-                    <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold text-white"
-                      style={{ background: getColor(item.category || '其他', categories) }}>
-                      {item.category || '其他'}
-                    </span>
+                <div key={item.id} className="px-4 sm:px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                  {/* 桌機列 */}
+                  <div className="hidden sm:grid sm:grid-cols-[6.5rem_minmax(0,1.1fr)_6.5rem_7.5rem_minmax(0,1fr)_4.5rem] gap-3 items-center">
+                    <div>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold text-white whitespace-nowrap"
+                        style={{ background: getColor(item.category || '其他', categories) }}>
+                        {item.category || '其他'}
+                      </span>
+                    </div>
+                    <p className="min-w-0 font-semibold text-base text-gray-800 dark:text-gray-100 break-words">{item.label}</p>
+                    <div className="text-right text-sm text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                      {item.count && item.unitCost ? `${item.count} × ${item.unitCost?.toLocaleString()}` : ''}
+                    </div>
+                    <div className="text-right font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">
+                      ${itemAmount(item).toLocaleString()}
+                    </div>
+                    <p className="min-w-0 text-sm text-gray-400 dark:text-gray-500 break-words">{item.note || ''}</p>
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => startEdit(item)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="編輯">
+                        ✏
+                      </button>
+                      <button onClick={() => handleDelete(item.id)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="刪除">
+                        🗑
+                      </button>
+                    </div>
                   </div>
-                  {/* 名稱 */}
-                  <div className="min-w-0">
-                    <p className="font-semibold text-base text-gray-800 dark:text-gray-100 break-words">{item.label}</p>
-                  </div>
-                  {/* 數量 × 單價 */}
-                  <div className="w-28 text-right text-sm text-gray-400 dark:text-gray-500">
-                    {item.count && item.unitCost
-                      ? `${item.count} × ${item.unitCost?.toLocaleString()}`
-                      : <span className="opacity-0">—</span>}
-                  </div>
-                  {/* 金額 */}
-                  <div className="w-28 text-right font-mono font-bold text-gray-800 dark:text-gray-100">
-                    ${itemAmount(item).toLocaleString()}
-                  </div>
-                  {/* 備註 */}
-                  <div className="w-32 text-sm text-gray-400 dark:text-gray-500 break-words">
-                    {item.note || ''}
-                  </div>
-                  {/* 操作 */}
-                  <div className="w-16 flex items-center justify-center gap-1">
-                    <button onClick={() => startEdit(item)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="編輯">
-                      ✏
-                    </button>
-                    <button onClick={() => handleDelete(item.id)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="刪除">
-                      🗑
-                    </button>
+                  {/* 手機卡片 */}
+                  <div className="sm:hidden space-y-1.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold text-white whitespace-nowrap mb-1"
+                          style={{ background: getColor(item.category || '其他', categories) }}>
+                          {item.category || '其他'}
+                        </span>
+                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-100 break-words leading-snug">{item.label}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">${itemAmount(item).toLocaleString()}</p>
+                        {item.count && item.unitCost && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{item.count} × {item.unitCost?.toLocaleString()}</p>
+                        )}
+                      </div>
+                    </div>
+                    {item.note && <p className="text-xs text-gray-400 dark:text-gray-500 break-words leading-snug">{item.note}</p>}
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => startEdit(item)}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                        編輯
+                      </button>
+                      <button onClick={() => handleDelete(item.id)}
+                        className="px-3 py-1 rounded-lg text-xs text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                        刪除
+                      </button>
+                    </div>
                   </div>
                 </div>
               )

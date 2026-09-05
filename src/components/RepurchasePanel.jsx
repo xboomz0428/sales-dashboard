@@ -111,7 +111,7 @@ export default function RepurchasePanel({ allRows = [] }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <thead>
             <tr className="text-xs text-gray-400 dark:text-gray-500 uppercase border-b border-gray-100 dark:border-gray-700">
               <th className="text-left  py-2 pr-2">客戶</th>

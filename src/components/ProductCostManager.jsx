@@ -130,7 +130,7 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
   const coverPct = products.length > 0 ? (coveredCount / products.length) * 100 : 0
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-4 sm:p-6 w-full max-w-full">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>

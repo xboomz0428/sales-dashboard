@@ -188,7 +188,7 @@ export default function SalesForecast({ trendData, metric }) {
           <span className="text-base font-bold text-gray-700 dark:text-gray-200">預測明細</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-base">
+          <table className="w-full min-w-[560px] text-base">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700">
                 <th className="text-left px-4 py-3 font-semibold text-gray-500 dark:text-gray-400">月份</th>
