@@ -1052,10 +1052,19 @@ export default function InvoiceReconciliation({
 
   function confirmEinvImport() {
     if (!einvPreview) return
+    // 匯入時自動套用客戶群組對應：買方統編（或抬頭）→ 群組成員通路名稱
+    const byTaxId = new Map(billingEntities.filter(e => e.taxId).map(e => [e.taxId, e]))
+    const byName = new Map(billingEntities.map(e => [e.name, e]))
     const months = Object.keys(einvPreview.months).sort()
     for (const ym of months) {
       const keep = (invoices[ym] || []).filter(i => !String(i.note || '').startsWith(SALES_INV_NOTE_PREFIX))
-      const fresh = einvPreview.months[ym].map(i => ({ ...i, id: genId() }))
+      const fresh = einvPreview.months[ym].map(i => {
+        const ent = (i.taxId && byTaxId.get(i.taxId)) || byName.get(i.store) || null
+        return {
+          ...i, id: genId(),
+          ...(ent ? { mergedStores: ent.stores || [], billingName: ent.name || i.billingName || '' } : {}),
+        }
+      })
       onSave(ym, [...keep, ...fresh])
     }
     const total = months.reduce((s2, ym) => s2 + einvPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0)
@@ -1121,16 +1130,19 @@ export default function InvoiceReconciliation({
   }, [allRows, currentMonth])
 
   // ── 當月有銷售但尚未建立發票的客戶清單 ───────────────────────────────────
+  // 月結客戶常於「次月」開立發票，故當月或次月任一月已開票即視為已開立
   const uninvoicedCustomers = useMemo(() => {
     const invoicedStores = new Set()
-    monthItems.forEach(r => {
+    const collect = items => (items || []).forEach(r => {
       if (r.store) invoicedStores.add(r.store)
       if (r.mergedStores?.length) r.mergedStores.forEach(s => invoicedStores.add(s))
     })
+    collect(monthItems)
+    collect(invoices[addMonths(currentMonth, 1)])
     return Object.entries(salesByCustomer)
       .filter(([customer]) => !invoicedStores.has(customer))
       .sort((a, b) => b[1] - a[1])
-  }, [salesByCustomer, monthItems])
+  }, [salesByCustomer, monthItems, invoices, currentMonth])
 
   // 排序後的未開立清單
   const sortedUninvoiced = useMemo(() => {
@@ -1366,7 +1378,13 @@ export default function InvoiceReconciliation({
   // ── 一鍵建立本月草稿清單 ──────────────────────────────────────────────────
   const handleGenerateDrafts = useCallback(() => {
     const existing = invoices[currentMonth] || []
-    const invoicedStores = new Set(existing.map(r => r.store))
+    const invoicedStores = new Set()
+    for (const items of [existing, invoices[addMonths(currentMonth, 1)] || []]) {
+      for (const r of items) {
+        if (r.store) invoicedStores.add(r.store)
+        if (r.mergedStores?.length) r.mergedStores.forEach(s => invoicedStores.add(s))
+      }
+    }
     const start = monthStart(currentMonth)
     const end   = monthEnd(currentMonth)
 
