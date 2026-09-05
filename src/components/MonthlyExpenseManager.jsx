@@ -1,14 +1,17 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 
 // ─── 預設費用類別 ───────────────────────────────────────────────────────────
-const DEFAULT_CATEGORIES = ['人事', '房租', '運費', '行銷', '印刷品', '其他']
+const DEFAULT_CATEGORIES = ['人事', '房租', '物流費用', '廣告費用', '平台費用', '伙食交際', '油資', '電信', '辦公', '印刷品', '其他']
 const CAT_COLORS = {
-  人事: '#3B82F6', 房租: '#10B981', 運費: '#F59E0B',
-  行銷: '#EF4444', 印刷品: '#8B5CF6', 其他: '#6B7280',
+  人事: '#3B82F6', 房租: '#10B981', 物流費用: '#F59E0B', 廣告費用: '#EF4444',
+  平台費用: '#8B5CF6', 伙食交際: '#EC4899', 油資: '#F97316', 電信: '#06B6D4',
+  辦公: '#64748B', 印刷品: '#84CC16', 其他: '#6B7280',
+  運費: '#F59E0B', 行銷: '#EF4444',
 }
 const EXTRA_COLORS = ['#06B6D4','#F97316','#84CC16','#EC4899','#6366F1','#14B8A6']
 const LS_CAT_KEY = 'expense_custom_categories'
@@ -128,6 +131,38 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
   const [showAddForm, setShowAddForm] = useState(false)
+  // 進項發票匯入
+  const invFileRef = useRef(null)
+  const [importPreview, setImportPreview] = useState(null)
+  const [importBusy, setImportBusy] = useState(false)
+  const [importDone, setImportDone] = useState(null)
+
+  async function handleInvoiceFiles(fileList) {
+    const files = [...fileList].filter(f => /\.xlsx?$/i.test(f.name))
+    if (!files.length) return
+    setImportBusy(true); setImportDone(null)
+    try {
+      const result = await parseInvoiceFiles(files)
+      setImportPreview(result)
+    } catch (e) {
+      setImportDone({ ok: false, text: '解析失敗：' + (e.message || e) })
+    }
+    setImportBusy(false)
+  }
+
+  function confirmInvoiceImport() {
+    if (!importPreview) return
+    const months = Object.keys(importPreview.months).sort()
+    for (const ym of months) {
+      const keep = (expenses[ym] || []).filter(i => !String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
+      const fresh = importPreview.months[ym].map(i => ({ ...i, id: genId(), count: '', unitCost: '' }))
+      onSave(ym, [...keep, ...fresh])
+    }
+    const total = months.reduce((s2, ym) => s2 + importPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0)
+    const n = months.reduce((n2, ym) => n2 + importPreview.months[ym].length, 0)
+    setImportDone({ ok: true, text: '已匯入 ' + months.join('、') + ' 共 ' + n + ' 筆、$' + total.toLocaleString() + '（同月份舊發票列已自動更新）' })
+    setImportPreview(null)
+  }
   const [editingId, setEditingId] = useState(null)
   const [addForm, setAddForm] = useState(EMPTY_FORM)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
@@ -281,6 +316,13 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
             className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             ⚙ 管理類別
           </button>
+          <button onClick={() => invFileRef.current?.click()} disabled={importBusy}
+            title="上傳財政部進項發票匯出檔（xls/xlsx 可多選）：自動分類為物流/廣告/平台/油資/伙食等並排除商品進貨；重匯同月自動覆蓋舊發票列"
+            className="px-3 py-1.5 text-sm border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-semibold">
+            {importBusy ? '解析中…' : '📥 匯入進項發票'}
+          </button>
+          <input ref={invFileRef} type="file" accept=".xls,.xlsx" multiple className="hidden"
+            onChange={e => { handleInvoiceFiles(e.target.files); e.target.value = '' }} />
           <button
             onClick={() => { setShowAddForm(v => !v); setEditingId(null) }}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
@@ -288,6 +330,47 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
           </button>
         </div>
       </div>
+
+      {importDone && (
+        <div className={`px-4 py-2.5 rounded-xl text-sm border ${importDone.ok ? 'bg-green-50 dark:bg-green-900/20 border-green-200 text-green-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-600'}`}>
+          {importDone.ok ? '✓ ' : '✕ '}{importDone.text}
+        </div>
+      )}
+
+      {importPreview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setImportPreview(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 進項發票匯入預覽</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              有效發票 {importPreview.stats.invoices} 張（作廢 {importPreview.stats.voided}）｜月份：{importPreview.stats.months.join('、')}｜
+              已排除商品進貨 ${Math.round(importPreview.stats.goodsTotal).toLocaleString()}（{Object.keys(importPreview.stats.goodsBySeller).length} 家供應商，屬商品成本不入月費用）
+            </p>
+            {Object.keys(importPreview.stats.unknownSellers || {}).length > 0 && (
+              <p className="text-xs text-amber-600 mb-2">⚠ 未識別賣方（暫歸「其他」）：{Object.entries(importPreview.stats.unknownSellers).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n2, v]) => `${n2} $${Math.round(v).toLocaleString()}`).join('、')}</p>
+            )}
+            {Object.keys(importPreview.months).sort().map(ym => (
+              <div key={ym} className="mb-3">
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1 mb-1">
+                  {ym}（{importPreview.months[ym].length} 筆，${importPreview.months[ym].reduce((s2, i) => s2 + i.amount, 0).toLocaleString()}）
+                </p>
+                {importPreview.months[ym].map((i, idx) => (
+                  <div key={idx} className="flex justify-between text-sm py-0.5">
+                    <span className="text-gray-600 dark:text-gray-300 break-words">
+                      <span className="text-xs px-1.5 py-0.5 rounded mr-1.5 text-white" style={{ background: CAT_COLORS[i.category] || '#6B7280' }}>{i.category}</span>
+                      {i.label}
+                    </span>
+                    <span className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap ml-2">${i.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div className="flex gap-2 justify-end mt-3">
+              <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
+              <button onClick={confirmInvoiceImport} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 類別管理面板 ── */}
       {showCatMgr && (
