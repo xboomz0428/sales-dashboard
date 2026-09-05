@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
 import { parseMomoFiles, MOMO_LABELS, MOMO_NOTE_PREFIX } from '../utils/momoStatement'
+import { parseShopeeFiles, SHOPEE_STMT_NOTE_PREFIX, SHOPEE_TAX_ID, SHOPEE_BILLING_NAME } from '../utils/shopeeStatement'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -126,7 +127,7 @@ function ExpenseForm({ form, setForm, categories, onSubmit, onCancel, submitLabe
 }
 
 // ─── 主元件 ────────────────────────────────────────────────────────────────
-export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
+export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices = null, onSaveInvoices = null }) {
   const today = new Date()
   const [currentMonth, setCurrentMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -174,6 +175,67 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
     }
     setImportDone({ ok: true, text: '已匯入 momo 對帳單 ' + months.length + ' 個月（' + months[0] + '~' + months[months.length - 1] + '），同月舊 momo 列已更新' })
     setMomoPreview(null)
+  }
+
+  // 蝦皮對帳單匯入（代收轉付開立發票對帳單）
+  const shopeeFileRef = useRef(null)
+  const [shopeePreview, setShopeePreview] = useState(null)
+  const [shopeeBusy, setShopeeBusy] = useState(false)
+  const ymAdd = (ym, n) => { const d = new Date(ym + '-01'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
+  const ymLast = (ym) => { const [y, m] = ym.split('-').map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` }
+
+  async function handleShopeeFiles(fileList) {
+    const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
+    if (!files.length) return
+    setShopeeBusy(true); setImportDone(null)
+    try {
+      const result = await parseShopeeFiles(files)
+      if (!Object.keys(result.months).length) setImportDone({ ok: false, text: '未解析到任何蝦皮對帳單（' + result.stats.failed.length + ' 檔失敗）' })
+      else setShopeePreview(result)
+    } catch (e) {
+      setImportDone({ ok: false, text: '蝦皮對帳單解析失敗：' + (e.message || e) })
+    }
+    setShopeeBusy(false)
+  }
+
+  function confirmShopeeImport() {
+    if (!shopeePreview) return
+    const months = Object.keys(shopeePreview.months).sort()
+    let invCreated = 0
+    for (const ym of months) {
+      const d = shopeePreview.months[ym]
+      // 1) 代收轉付服務費 → 平台費用（冪等：覆蓋同來源列）
+      const keep = (expenses[ym] || []).filter(i => !String(i.note || '').startsWith(SHOPEE_STMT_NOTE_PREFIX))
+      const fresh = d.serviceFee
+        ? [{ id: genId(), category: '平台費用', label: '蝦皮 代收轉付服務費（對帳單）', amount: d.serviceFee, count: '', unitCost: '', note: `${SHOPEE_STMT_NOTE_PREFIX}（${d.invoiceCount} 筆）` }]
+        : []
+      onSave(ym, [...keep, ...fresh])
+      // 2) 應開立發票金額 → 發票對帳；該月或次月已有蝦皮發票（實開）則略過不重複
+      if (invoices && onSaveInvoices) {
+        const others = [...(invoices[ym] || []), ...(invoices[ymAdd(ym, 1)] || [])]
+          .filter(r => !String(r.note || '').startsWith(SHOPEE_STMT_NOTE_PREFIX))
+        const hasReal = others.some(r => r.taxId === SHOPEE_TAX_ID)
+        const keepInv = (invoices[ym] || []).filter(r => !String(r.note || '').startsWith(SHOPEE_STMT_NOTE_PREFIX))
+        const removed = keepInv.length !== (invoices[ym] || []).length
+        if (!hasReal) {
+          keepInv.push({
+            id: genId(), store: SHOPEE_BILLING_NAME, billingName: SHOPEE_BILLING_NAME, taxId: SHOPEE_TAX_ID,
+            mergedStores: ['蝦皮終端'], invoiceNo: '',
+            billingStart: `${ym}-01`, billingEnd: ymLast(ym), amount: d.amount,
+            invoiceType: 'electronic', paymentMethod: 'transfer', paymentTerm: 30, issueDate: ymLast(ym),
+            // 代收轉付：蝦皮已透過錢包撥款，視為已入帳
+            status: 'confirmed', confirmedAt: ymLast(ym), confirmedAmount: d.amount,
+            note: `${SHOPEE_STMT_NOTE_PREFIX}（代收轉付 ${d.invoiceCount} 筆，蝦皮已撥款）`,
+          })
+          invCreated++
+          onSaveInvoices(ym, keepInv)
+        } else if (removed) {
+          onSaveInvoices(ym, keepInv)
+        }
+      }
+    }
+    setImportDone({ ok: true, text: `已匯入蝦皮對帳單 ${months.length} 個月（${months[0]}~${months[months.length - 1]}）：服務費入月費用${invCreated ? `、補建 ${invCreated} 筆發票對帳記錄` : ''}；已有實開發票的月份自動略過` })
+    setShopeePreview(null)
   }
 
   async function handleInvoiceFiles(fileList) {
@@ -369,6 +431,13 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
           </button>
           <input ref={momoFileRef} type="file" accept=".pdf,.zip" multiple className="hidden"
             onChange={e => { handleMomoFiles(e.target.files); e.target.value = '' }} />
+          <button onClick={() => shopeeFileRef.current?.click()} disabled={shopeeBusy}
+            title="上傳蝦皮「代收轉付開立發票對帳單」PDF（可多選或整包 ZIP）：代收轉付服務費入月費用（平台費用）；應開立發票金額自動補進發票對帳（該月已有蝦皮實開發票則略過）；重匯同月自動覆蓋"
+            className="px-3 py-1.5 text-sm border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors font-semibold">
+            {shopeeBusy ? '解析中…' : '📥 匯入蝦皮對帳單'}
+          </button>
+          <input ref={shopeeFileRef} type="file" accept=".pdf,.zip" multiple className="hidden"
+            onChange={e => { handleShopeeFiles(e.target.files); e.target.value = '' }} />
           <button
             onClick={() => { setShowAddForm(v => !v); setEditingId(null) }}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
@@ -380,6 +449,43 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
       {importDone && (
         <div className={`px-4 py-2.5 rounded-xl text-sm border ${importDone.ok ? 'bg-green-50 dark:bg-green-900/20 border-green-200 text-green-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-600'}`}>
           {importDone.ok ? '✓ ' : '✕ '}{importDone.text}
+        </div>
+      )}
+
+      {shopeePreview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShopeePreview(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 蝦皮對帳單匯入預覽</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              解析 {shopeePreview.stats.parsed}/{shopeePreview.stats.files} 檔
+              {shopeePreview.stats.dups.length > 0 && `｜重複月份已擇優：${[...new Set(shopeePreview.stats.dups)].join('、')}`}
+              {shopeePreview.stats.failed.length > 0 && `｜⚠ 失敗：${shopeePreview.stats.failed.join('、')}`}
+            </p>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1 text-sm">
+              <span className="text-xs font-bold text-gray-400 uppercase">月份</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">應開發票金額</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">筆數</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">服務費</span>
+              {Object.keys(shopeePreview.months).sort().map(ym => {
+                const d = shopeePreview.months[ym]
+                return (
+                  <div key={ym} className="contents">
+                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 驗證不符</span>}</span>
+                    <span className="text-right font-mono font-bold text-gray-800 dark:text-gray-100">${d.amount.toLocaleString()}</span>
+                    <span className="text-right font-mono text-gray-500">{d.invoiceCount ?? '—'}</span>
+                    <span className="text-right font-mono text-gray-500">${(d.serviceFee ?? 0).toLocaleString()}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              匯入規則：服務費 → 月費用（平台費用）；應開立發票金額 → 發票對帳（該月或次月已有蝦皮實開發票則自動略過，不重複計算；代收轉付款項蝦皮已撥款，補建記錄標為已入帳）。
+            </p>
+            <div className="flex gap-2 justify-end mt-3">
+              <button onClick={() => setShopeePreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
+              <button onClick={confirmShopeeImport} className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
+            </div>
+          </div>
         </div>
       )}
 

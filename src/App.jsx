@@ -1161,6 +1161,8 @@ function AppDashboard() {
             <MonthlyExpenseManager
               expenses={monthlyExpenses}
               onSave={saveMonthlyExpenses}
+              invoices={invoiceRecords}
+              onSaveInvoices={saveInvoiceRecords}
             />
           )}
           {activeTab === 'crm' && (
