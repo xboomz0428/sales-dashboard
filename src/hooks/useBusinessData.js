@@ -138,6 +138,8 @@ export function useBusinessData(user) {
         const entities = bilRes.data.map(r => ({
           id:      r.id,
           name:    r.name,
+          label:   r.label || '',
+          note:    r.note || '',
           taxId:   r.tax_id,
           stores:  r.stores || [],
         }))
@@ -206,6 +208,8 @@ export function useBusinessData(user) {
         await supabase.from(TBL_BILLING).upsert({
           id:         entity.id,
           name:       entity.name,
+          label:      entity.label || '',
+          note:       entity.note || '',
           tax_id:     entity.taxId || '',
           stores:     entity.stores || [],
           updated_at: new Date().toISOString(),

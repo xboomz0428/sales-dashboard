@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { getInvoiceReminderEnabled, setInvoiceReminderEnabled } from './DashboardReminders'
 import { parseSalesInvoiceFiles, SALES_INV_NOTE_PREFIX } from '../utils/salesInvoiceImport'
+import CustomerGroupManager from './CustomerGroupManager'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, PieChart, Pie, Cell,
@@ -952,6 +953,78 @@ function InvoiceImportModal({ onClose, onImport, currentMonth, invoices }) {
   )
 }
 
+// ─── 未開立清單：群組列（收合彙總＋展開門市明細）────────────────────────────
+function GroupRows({
+  entity, members, total, allChecked, isExpanded, selectedStores,
+  onToggleExpand, onCheckGroup, onCheckMember, onInvoiceGroup, onInvoiceMember,
+}) {
+  return (
+    <>
+      {/* 群組彙總列 */}
+      <tr className={`transition-colors ${allChecked ? 'bg-teal-50/80 dark:bg-teal-900/20' : 'hover:bg-amber-100/40 dark:hover:bg-amber-800/20'}`}>
+        <td className="px-3 py-2.5 text-center">
+          <input type="checkbox" checked={allChecked}
+            onChange={e => onCheckGroup(e.target.checked)}
+            className="accent-teal-600 w-4 h-4" title="勾選整組" />
+        </td>
+        <td className="px-3 py-2.5">
+          <button type="button" onClick={onToggleExpand}
+            className="flex items-center gap-1.5 text-left font-bold text-gray-800 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+            <span className={`inline-block text-xs text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+            {entity.label || entity.name}
+            <span className="text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {members.length} 家門市
+            </span>
+          </button>
+          {entity.note && isExpanded && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5 ml-5">📌 {entity.note}</p>
+          )}
+        </td>
+        <td className="px-3 py-2.5 text-right font-mono font-bold text-amber-800 dark:text-amber-200 whitespace-nowrap">
+          NT$ {Math.round(total).toLocaleString()}
+        </td>
+        <td className="px-3 py-2.5 hidden sm:table-cell">
+          <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded-full">
+            {entity.name}{entity.taxId ? ` · ${entity.taxId}` : ''}
+          </span>
+        </td>
+        <td className="px-3 py-2.5 text-right whitespace-nowrap">
+          <button type="button" onClick={onInvoiceGroup}
+            className="text-xs px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors">
+            🔗 整組開立
+          </button>
+        </td>
+      </tr>
+      {/* 展開：各門市明細列 */}
+      {isExpanded && members.map(([customer, amt]) => {
+        const checked = selectedStores.has(customer)
+        return (
+          <tr key={customer} className={`transition-colors ${checked ? 'bg-teal-50/60 dark:bg-teal-900/10' : 'bg-amber-50/40 dark:bg-amber-900/10'}`}>
+            <td className="px-3 py-2 text-center">
+              <input type="checkbox" checked={checked}
+                onChange={e => onCheckMember(customer, e.target.checked)}
+                className="accent-teal-600 w-3.5 h-3.5" />
+            </td>
+            <td className="px-3 py-2 pl-9 text-sm text-gray-600 dark:text-gray-300">
+              <span className="text-gray-300 dark:text-gray-600 mr-1.5">└</span>{customer}
+            </td>
+            <td className="px-3 py-2 text-right font-mono text-sm text-amber-700 dark:text-amber-300 whitespace-nowrap">
+              NT$ {Math.round(amt).toLocaleString()}
+            </td>
+            <td className="px-3 py-2 hidden sm:table-cell"></td>
+            <td className="px-3 py-2 text-right">
+              <button type="button" onClick={() => onInvoiceMember(customer, amt)}
+                className="text-xs px-2 py-0.5 rounded-lg border border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-semibold transition-colors">
+                單獨開立
+              </button>
+            </td>
+          </tr>
+        )
+      })}
+    </>
+  )
+}
+
 // ─── 主元件 ─────────────────────────────────────────────────────────────────
 export default function InvoiceReconciliation({
   invoices = {}, onSave, allRows = [],
@@ -1011,6 +1084,9 @@ export default function InvoiceReconciliation({
   const [uninvSortDir, setUninvSortDir] = useState('desc')
   const [showBulkPanel, setShowBulkPanel] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  // 👥 客戶群組：後台管理視窗 + 未開立清單的展開狀態
+  const [showGroupManager, setShowGroupManager] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState(new Set())
 
   // 當月發票列表（從 invoices[YYYY-MM] 取得）
   const monthItems = useMemo(() => invoices[currentMonth] || [], [invoices, currentMonth])
@@ -1064,6 +1140,37 @@ export default function InvoiceReconciliation({
     if (uninvSortBy === 'store')  list.sort((a, b) => dir * a[0].localeCompare(b[0], 'zh-TW'))
     return list
   }, [uninvoicedCustomers, uninvSortBy, uninvSortDir])
+
+  // 依客戶群組收合未開立清單：多成員群組彙總一列（可展開看門市明細），其餘維持單列
+  const groupedUninvoiced = useMemo(() => {
+    const storeToEntity = new Map()
+    for (const e of billingEntities) for (const s of (e.stores || [])) storeToEntity.set(s, e)
+    const groups = new Map()
+    const singles = []
+    for (const [customer, amt] of sortedUninvoiced) {
+      const ent = storeToEntity.get(customer)
+      if (ent && (ent.stores?.length || 0) > 1) {
+        if (!groups.has(ent.id)) groups.set(ent.id, { entity: ent, members: [], total: 0 })
+        const g = groups.get(ent.id)
+        g.members.push([customer, amt]); g.total += amt
+      } else {
+        singles.push({ type: 'single', customer, amt, entity: ent || null })
+      }
+    }
+    const rows = [
+      ...[...groups.values()].filter(g => g.members.length > 1).map(g => ({ type: 'group', ...g })),
+      // 群組本月只剩 1 個未開立成員時降為單列（仍帶抬頭）
+      ...[...groups.values()].filter(g => g.members.length === 1)
+        .map(g => ({ type: 'single', customer: g.members[0][0], amt: g.members[0][1], entity: g.entity })),
+      ...singles,
+    ]
+    const dir = uninvSortDir === 'asc' ? 1 : -1
+    const keyAmt = r => r.type === 'group' ? r.total : r.amt
+    const keyName = r => r.type === 'group' ? (r.entity.label || r.entity.name) : r.customer
+    if (uninvSortBy === 'amount') rows.sort((a, b) => dir * (keyAmt(a) - keyAmt(b)))
+    if (uninvSortBy === 'store')  rows.sort((a, b) => dir * keyName(a).localeCompare(keyName(b), 'zh-TW'))
+    return rows
+  }, [sortedUninvoiced, billingEntities, uninvSortBy, uninvSortDir])
 
   // 已勾選的門市總計
   const selectedTotal = useMemo(
@@ -1419,6 +1526,13 @@ export default function InvoiceReconciliation({
             ›
           </button>
           <button
+            onClick={() => setShowGroupManager(true)}
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+            title="客戶群組管理：多門市客戶彙總成同一群組、對應同一張發票"
+          >
+            👥 客戶群組
+          </button>
+          <button
             onClick={handleExportXLSX}
             className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             title="匯出全部月份 XLSX"
@@ -1514,7 +1628,7 @@ export default function InvoiceReconciliation({
               <span className="text-base">📋</span>
               <span className="text-sm font-bold text-amber-800 dark:text-amber-200">本月有銷售、尚未開立發票</span>
               <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full font-bold">
-                {uninvoicedCustomers.length} 家
+                {groupedUninvoiced.length} 組・{uninvoicedCustomers.length} 家
               </span>
             </div>
             {/* 排序控制 */}
@@ -1552,8 +1666,48 @@ export default function InvoiceReconciliation({
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-100 dark:divide-amber-800/40">
-                {sortedUninvoiced.map(([customer, amt]) => {
-                  const entity = billingEntities.find(e => e.stores.includes(customer))
+                {groupedUninvoiced.map(row => {
+                  if (row.type === 'group') {
+                    const { entity, members, total } = row
+                    const memberNames = members.map(([c]) => c)
+                    const allChecked = memberNames.every(c => selectedStores.has(c))
+                    const isExpanded = expandedGroups.has(entity.id)
+                    return (
+                      <GroupRows key={`grp-${entity.id}`}
+                        entity={entity} members={members} total={total}
+                        allChecked={allChecked} isExpanded={isExpanded}
+                        selectedStores={selectedStores}
+                        onToggleExpand={() => setExpandedGroups(prev => {
+                          const next = new Set(prev)
+                          next.has(entity.id) ? next.delete(entity.id) : next.add(entity.id)
+                          return next
+                        })}
+                        onCheckGroup={checked => setSelectedStores(prev => {
+                          const next = new Set(prev)
+                          memberNames.forEach(c => checked ? next.add(c) : next.delete(c))
+                          return next
+                        })}
+                        onCheckMember={(customer, checked) => setSelectedStores(prev => {
+                          const next = new Set(prev)
+                          checked ? next.add(customer) : next.delete(customer)
+                          return next
+                        })}
+                        onInvoiceGroup={() => {
+                          setSelectedStores(new Set(memberNames))
+                          setShowBulkPanel(true)
+                        }}
+                        onInvoiceMember={(customer, amt) => {
+                          setEditItem({
+                            store: customer, amount: Math.round(amt),
+                            billingName: entity.name || '', taxId: entity.taxId || '',
+                            billingStart: monthStart(currentMonth), billingEnd: monthEnd(currentMonth),
+                          })
+                          setShowForm(true)
+                        }}
+                      />
+                    )
+                  }
+                  const { customer, amt, entity } = row
                   const isSelected = selectedStores.has(customer)
                   return (
                     <tr key={customer} className={`transition-colors ${isSelected ? 'bg-teal-50/80 dark:bg-teal-900/20' : 'hover:bg-amber-100/40 dark:hover:bg-amber-800/20'}`}>
@@ -1566,8 +1720,12 @@ export default function InvoiceReconciliation({
                           })}
                           className="accent-teal-600 w-4 h-4" />
                       </td>
-                      <td className="px-3 py-2.5 font-semibold text-gray-700 dark:text-gray-200">{customer}</td>
-                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700 dark:text-amber-300">
+                      <td className="px-3 py-2.5 font-semibold text-gray-700 dark:text-gray-200">
+                        {entity?.label && entity.label !== customer
+                          ? <>{entity.label}<span className="ml-1.5 text-xs font-normal text-gray-400">（{customer}）</span></>
+                          : customer}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-semibold text-amber-700 dark:text-amber-300 whitespace-nowrap">
                         NT$ {Math.round(amt).toLocaleString()}
                       </td>
                       <td className="px-3 py-2.5 hidden sm:table-cell">
@@ -2204,6 +2362,17 @@ export default function InvoiceReconciliation({
           onImport={handleImport}
           currentMonth={currentMonth}
           invoices={invoices}
+        />
+      )}
+
+      {/* 👥 客戶群組管理 Modal */}
+      {showGroupManager && (
+        <CustomerGroupManager
+          entities={billingEntities}
+          allStores={allStores}
+          onSave={onSaveBillingEntity}
+          onDelete={onDeleteBillingEntity}
+          onClose={() => setShowGroupManager(false)}
         />
       )}
     </div>
