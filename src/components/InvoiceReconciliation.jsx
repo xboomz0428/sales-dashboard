@@ -1925,20 +1925,20 @@ export default function InvoiceReconciliation({
           <>
             {/* 桌面版表格 */}
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[1080px] text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase">店家</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase">發票號碼</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">類型</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">付款方式</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">開立日期</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase">發票金額</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">狀態</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase">入帳金額</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">到期日</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">確認日期</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-gray-400 uppercase">操作</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap min-w-[11rem]">店家</th>
+                    <th className="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">發票號碼</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">類型</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">付款方式</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">開立日期</th>
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">發票金額</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">狀態</th>
+                    <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">入帳金額</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">到期日</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">確認日期</th>
+                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
@@ -1959,7 +1959,7 @@ export default function InvoiceReconciliation({
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3 font-mono text-gray-500 dark:text-gray-400">
+                        <td className="px-3 py-3 font-mono text-gray-500 dark:text-gray-400 whitespace-nowrap">
                           {item.invoiceNo
                             ? item.invoiceNo
                             : <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">草稿</span>
@@ -1969,7 +1969,7 @@ export default function InvoiceReconciliation({
                           {(() => {
                             const t = INVOICE_TYPES.find(x => x.value === item.invoiceType)
                             return t ? (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
                                 item.invoiceType === 'electronic'
                                   ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
                                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
@@ -1983,7 +1983,7 @@ export default function InvoiceReconciliation({
                           {(() => {
                             const m = PAYMENT_METHODS.find(x => x.value === item.paymentMethod)
                             return m ? (
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
                                 item.paymentMethod === 'transfer' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
                                 item.paymentMethod === 'check'    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' :
                                 item.paymentMethod === 'cash'     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
@@ -1994,8 +1994,8 @@ export default function InvoiceReconciliation({
                             ) : '—'
                           })()}
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">{item.issueDate}</td>
-                        <td className="px-4 py-3 text-right font-mono font-semibold text-gray-700 dark:text-gray-200">
+                        <td className="px-3 py-3 text-center text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.issueDate}</td>
+                        <td className="px-3 py-3 text-right font-mono font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
                           NT$ {Number(item.amount).toLocaleString()}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -2013,7 +2013,7 @@ export default function InvoiceReconciliation({
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-3 py-3 text-right whitespace-nowrap">
                           {item.confirmedAmount != null ? (
                             <div>
                               <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
@@ -2032,11 +2032,11 @@ export default function InvoiceReconciliation({
                         <td className="px-4 py-3 text-center">
                           {dueDate ? (
                             <div className="flex flex-col items-center gap-0.5">
-                              <span className={`text-xs font-semibold ${isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                              <span className={`text-xs font-semibold whitespace-nowrap ${isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {dueDate}
                               </span>
                               {daysLeft !== null && (
-                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap ${
                                   isOverdue ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
                                   isDueSoon ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' :
                                   'text-gray-400'
@@ -2047,11 +2047,11 @@ export default function InvoiceReconciliation({
                             </div>
                           ) : '—'}
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-400 dark:text-gray-500">
+                        <td className="px-3 py-3 text-center text-gray-400 dark:text-gray-500 whitespace-nowrap">
                           {item.confirmedAt || '—'}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="px-3 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1 whitespace-nowrap">
                             <button onClick={() => handleEdit(item)}
                               className="px-2 py-1 rounded-md text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-semibold">
                               編輯
