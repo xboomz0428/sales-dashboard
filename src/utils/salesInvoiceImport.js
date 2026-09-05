@@ -98,9 +98,10 @@ export function aggregateSalesInvoices(allRows) {
       paymentMethod: 'transfer',
       paymentTerm: 30,
       issueDate: lastDay(a.ym),
-      status: 'confirmed',
-      confirmedAt: lastDay(a.ym),
-      confirmedAmount: Math.round(a.amount),
+      // 開立 ≠ 付款：B2B（有統編）待銀行匯款對應才入帳；B2C 消費者雲端發票為即時收款
+      status: a.taxId ? 'pending' : 'confirmed',
+      confirmedAt: a.taxId ? null : lastDay(a.ym),
+      confirmedAmount: a.taxId ? null : Math.round(a.amount),
       note: `${SALES_INV_NOTE_PREFIX}（${a.count} 張）`,
     })
   }
