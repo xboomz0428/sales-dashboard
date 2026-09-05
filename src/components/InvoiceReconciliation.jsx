@@ -99,8 +99,8 @@ export function daysFromToday(dateStr) {
 function StatusBadge({ status }) {
   const s = STATUSES[status] || STATUSES.pending
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${s.color}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${s.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
       {s.label}
     </span>
   )
@@ -1491,7 +1491,7 @@ export default function InvoiceReconciliation({
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl space-y-5">
+    <div className="p-4 sm:p-6 w-full max-w-full space-y-5">
 
       {/* Header + 月份導航 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
