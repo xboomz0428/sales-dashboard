@@ -8,6 +8,7 @@ const CARD_LABELS = {
   avgOrderValue: '平均客單價', avgRevenuePerCustomer: '每客銷售額',
   topProduct: '最暢銷商品', topCustomer: '最大客戶',
   grossProfit: '總毛利', grossMargin: '毛利率',
+  netProfit: '淨利（毛利−費用）', netMargin: '淨利率',
   peakMonth: '最高銷售月', lowMonth: '最低銷售月', avgMonthly: '月均銷售金額',
   top5Products: '數量最佳產品 Top 5', top5Customers: '數量最佳客戶 Top 5',
   top5Physical: '實體客戶 Top 5', top5Online: '網路客戶 Top 5',
@@ -16,7 +17,7 @@ const CARD_LABELS = {
 const CARD_GROUPS = [
   { title: '基本指標', ids: ['totalSales', 'totalQty', 'orderCount', 'customerCount', 'productCount', 'avgDiscount'] },
   { title: '進階指標', ids: ['avgOrderValue', 'avgRevenuePerCustomer', 'topProduct', 'topCustomer'] },
-  { title: '成本分析', ids: ['grossProfit', 'grossMargin'], requiresCost: true },
+  { title: '成本分析', ids: ['grossProfit', 'grossMargin', 'netProfit', 'netMargin'], requiresCost: true },
   { title: '趨勢洞察', ids: ['peakMonth', 'lowMonth', 'avgMonthly', 'top5Products', 'top5Customers', 'top5Physical', 'top5Online'] },
 ]
 
@@ -46,7 +47,7 @@ function fmt2(n) {
 }
 function fmtInt(n) { return n != null ? Math.round(n).toLocaleString() : '—' }
 
-export default function SummaryCards({ summary, prevSummary, metric, trendData = [], productData = [], customerData = [], customerByChannelTop = {}, costs = {} }) {
+export default function SummaryCards({ summary, prevSummary, metric, trendData = [], productData = [], customerData = [], customerByChannelTop = {}, costs = {}, expenses = {} }) {
   const [visibility, setVisibility] = useState(loadVisibility)
   const [showSettings, setShowSettings] = useState(false)
   const [compareYoY, setCompareYoY] = useState(() => localStorage.getItem('dashboard_yoy_compare') === '1')
@@ -98,6 +99,22 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
     return { grossProfit: profit, grossMargin: covSales > 0 ? profit / covSales : 0 }
   }, [productData, costs, hasCostData])
 
+  // 淨利 = 毛利 − 篩選期間的月費用合計（費用月份取趨勢資料涵蓋的月份）
+  const { expenseTotal, expenseMonths } = useMemo(() => {
+    const months = new Set(trendData.map(d => d.yearMonth).filter(Boolean))
+    let total = 0, hit = 0
+    for (const m of months) {
+      const items = expenses[m]
+      if (!items?.length) continue
+      hit++
+      for (const it of items) total += Number(it.amount) || 0
+    }
+    return { expenseTotal: total, expenseMonths: hit }
+  }, [trendData, expenses])
+  const hasExpenseData = hasCostData && expenseMonths > 0
+  const netProfit = grossProfit - expenseTotal
+  const netMargin = totalSales > 0 ? netProfit / totalSales : 0
+
   // 新版 Design Token 色系
   const kpiCards = [
     vis('totalSales') && { id: 'totalSales', label: '總銷售金額', value: `NT$ ${fmt2(totalSales)}`, sub: fmtInt(totalSales) + ' 元', icon: '💰',
@@ -126,6 +143,12 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
     (hasCostData && vis('grossMargin')) && { id: 'grossMargin', label: '毛利率', value: `${Math.round(grossMargin * 100)}%`, sub: '已設定成本之商品', icon: '📊',
       barStyle: grossMargin >= 0.2 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'},
       iconBg: grossMargin >= 0.2 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'var(--peach-100)',color:'var(--peach-500)'} },
+    (hasExpenseData && vis('netProfit')) && { id: 'netProfit', label: '淨利（毛利−費用）', value: `${netProfit < 0 ? '-' : ''}NT$ ${fmt(Math.abs(netProfit))}`, sub: `費用 ${fmt(expenseTotal)} 元（${expenseMonths} 個月）`, icon: '🏦',
+      barStyle: netProfit >= 0 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : {background:'linear-gradient(90deg,#f87171,#ef4444)'},
+      iconBg: netProfit >= 0 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'#fee2e2',color:'#dc2626'} },
+    (hasExpenseData && vis('netMargin')) && { id: 'netMargin', label: '淨利率', value: `${(netMargin * 100).toFixed(1)}%`, sub: '淨利 ÷ 總營收', icon: '💎',
+      barStyle: netMargin >= 0.1 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : netMargin >= 0 ? {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'} : {background:'linear-gradient(90deg,#f87171,#ef4444)'},
+      iconBg: netMargin >= 0 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'#fee2e2',color:'#dc2626'} },
   ].filter(Boolean)
 
   const peakMonth = trendData.length > 0 ? trendData.reduce((a, b) => a.subtotal >= b.subtotal ? a : b) : null

@@ -20,6 +20,7 @@ import CustomerChart from './components/charts/CustomerChart'
 import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
+import ProfitMarginPanel from './components/charts/ProfitMarginPanel'
 import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
 import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
@@ -968,6 +969,7 @@ function AppDashboard() {
             summary={summary} prevSummary={prevYearSummary} metric={filters.metric} trendData={trendData}
             productData={productData} customerData={customerData}
             customerByChannelTop={customerByChannelTop} costs={perms.viewCosts ? productCosts : {}}
+            expenses={perms.viewCosts ? monthlyExpenses : {}}
           />
         )}
 
@@ -1111,12 +1113,14 @@ function AppDashboard() {
           {activeTab === 'brand' && meta && (
             <div data-pdf-section data-pdf-title="品牌分析">
               <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} brandChannelMonthData={brandChannelMonthData} metric={filters.metric} />
+              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="brand" />}
               <BrandScorecard allRows={visibleRows} costs={perms.viewCosts ? productCosts : {}} />
             </div>
           )}
           {activeTab === 'product' && meta && (
             <div data-pdf-section data-pdf-title="產品分析">
               <ProductChart productData={productData} productByChannel={productByChannel} productCustomerData={productCustomerData} metric={filters.metric} />
+              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="product" />}
               <CharityPanel allRows={visibleRows} costs={productCosts} />
             </div>
           )}
