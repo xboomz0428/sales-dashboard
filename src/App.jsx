@@ -22,6 +22,7 @@ import PerformanceMatrix from './components/charts/PerformanceMatrix'
 import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import ProfitMarginPanel from './components/charts/ProfitMarginPanel'
+import ProfitAnalysisPanel from './components/charts/ProfitAnalysisPanel'
 import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
 import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
@@ -55,6 +56,7 @@ import CrmPanel from './components/CrmPanel'
 const TABS = [
   { id: 'navigator',   label: '領航員',   icon: '🧭' },
   { id: 'summary',     label: '老闆視角', icon: '👔' },
+  { id: 'profit',      label: '獲利分析', icon: '💰' },
   { id: 'performance', label: '績效矩陣', icon: '🎯' },
   { id: 'comparison',  label: '對比分析', icon: '⚖️' },
   { id: 'trend',       label: '趨勢分析', icon: '📈' },
@@ -83,7 +85,7 @@ const TABS = [
 ]
 
 const TAB_GROUPS = [
-  { id: 'analysis', label: '分析', icon: '📊', tabs: ['navigator','summary','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
+  { id: 'analysis', label: '分析', icon: '📊', tabs: ['navigator','summary','profit','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
   { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','kb','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
@@ -1206,6 +1208,22 @@ function AppDashboard() {
           {activeTab === 'customer' && meta && (
             <div data-pdf-section data-pdf-title="客戶分析">
               <CustomerChart customerData={customerData} channelCustomerData={channelCustomerData} metric={filters.metric} />
+            </div>
+          )}
+          {activeTab === 'profit' && meta && (
+            <div data-pdf-section data-pdf-title="獲利分析">
+              {perms.viewCosts ? (
+                <ProfitAnalysisPanel
+                  filtered={filtered}
+                  productCosts={productCosts}
+                  monthlyExpenses={monthlyExpenses}
+                  billingEntities={billingEntities}
+                  excludeProducts={exclusionInfo.products}
+                  excludeBrands={exclusionInfo.brands}
+                />
+              ) : (
+                <p className="text-sm text-gray-400 py-10 text-center">此頁包含成本與獲利資訊，需 manager 以上權限。</p>
+              )}
             </div>
           )}
           {activeTab === 'performance' && meta && (
