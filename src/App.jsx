@@ -963,14 +963,16 @@ function AppDashboard() {
           </div>
         )}
 
-        {/* KPI Cards */}
+        {/* KPI Cards — 高度上限 55vh，超出時儀表板內部捲動，不擠壓下方內容 */}
         {meta && dashboardOpen && (
-          <SummaryCards
-            summary={summary} prevSummary={prevYearSummary} metric={filters.metric} trendData={trendData}
-            productData={productData} customerData={customerData}
-            customerByChannelTop={customerByChannelTop} costs={perms.viewCosts ? productCosts : {}}
-            expenses={perms.viewCosts ? monthlyExpenses : {}}
-          />
+          <div className="flex-shrink-0 overflow-y-auto max-h-[55vh] border-b dark:border-gray-700" style={{borderBottomColor:'var(--line)'}}>
+            <SummaryCards
+              summary={summary} prevSummary={prevYearSummary} metric={filters.metric} trendData={trendData}
+              productData={productData} customerData={customerData}
+              customerByChannelTop={customerByChannelTop} costs={perms.viewCosts ? productCosts : {}}
+              expenses={perms.viewCosts ? monthlyExpenses : {}}
+            />
+          </div>
         )}
 
         {/* 待辦提醒列 */}
