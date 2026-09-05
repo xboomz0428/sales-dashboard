@@ -19,8 +19,11 @@ function parseCSVLine(line) {
   return result
 }
 
-export default function ProductCostManager({ products = [], costs = {}, onUpdateCost, onUpdateMany }) {
+export default function ProductCostManager({ products = [], costs = {}, onUpdateCost, onUpdateMany, brands = [], exclusionList = [], onToggleOverride }) {
   const [search, setSearch] = useState('')
+  const [showExclusion, setShowExclusion] = useState(false)
+  const [showAllExclusion, setShowAllExclusion] = useState(false)
+  const [manualName, setManualName] = useState('')
   const [editingProduct, setEditingProduct] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [importResult, setImportResult] = useState(null)
@@ -150,7 +153,14 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
             <span className="text-sm text-gray-400 dark:text-gray-500">{Math.round(coverPct)}% 已設定</span>
           </div>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+          <button
+            onClick={() => setShowExclusion(v => !v)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-200 dark:border-rose-700/50 text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 text-base font-medium transition-colors"
+            title="停售／排除分析：近一年品牌銷售 <1萬、產品 <5千 自動排除各項排行與 AI 分析；可逐項恢復或手動排除"
+          >
+            🚫 停售/排除分析{exclusionList.filter(x => x.excluded).length > 0 ? `（${exclusionList.filter(x => x.excluded).length}）` : ''}
+          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-700/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-base font-medium transition-colors"
@@ -169,6 +179,103 @@ export default function ProductCostManager({ products = [], costs = {}, onUpdate
           </button>
         </div>
       </div>
+
+      {/* 🚫 停售／排除分析清單 */}
+      {showExclusion && (
+        <div className="mb-4 bg-white dark:bg-gray-800 border border-rose-200 dark:border-rose-700/50 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 bg-rose-50 dark:bg-rose-900/20 border-b border-rose-100 dark:border-rose-800/50">
+            <p className="text-sm font-bold text-rose-700 dark:text-rose-300">🚫 停售／排除分析清單</p>
+            <p className="text-xs text-rose-500 dark:text-rose-400 mt-0.5">
+              自動規則：近一年銷售 品牌 &lt; NT$10,000、產品 &lt; NT$5,000 即排除各項排行、績效矩陣與 AI 分析（總營收與趨勢不受影響）。
+              可逐項「恢復分析」覆蓋規則，或手動排除任何項目；設定全公司共用。
+            </p>
+            {/* 手動排除 */}
+            <div className="mt-2 flex gap-2">
+              <input value={manualName} onChange={e => setManualName(e.target.value)}
+                list="pcm-all-items" placeholder="輸入品牌或產品名稱手動排除…"
+                className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-100" />
+              <datalist id="pcm-all-items">
+                {brands.map(b => <option key={'b' + b} value={b}>品牌</option>)}
+                {products.map(p => <option key={'p' + p} value={p}>產品</option>)}
+              </datalist>
+              <button onClick={() => {
+                const n = manualName.trim()
+                if (!n || !onToggleOverride) return
+                const kind = brands.includes(n) ? 'brand' : 'product'
+                onToggleOverride(kind, n, 'exclude'); setManualName('')
+              }}
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white">排除</button>
+            </div>
+          </div>
+          {exclusionList.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">目前沒有符合排除規則或手動設定的項目</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
+                    <th className="text-left px-4 py-2 whitespace-nowrap">類型</th>
+                    <th className="text-left px-3 py-2">名稱</th>
+                    <th className="text-right px-3 py-2 whitespace-nowrap">近一年銷售</th>
+                    <th className="text-center px-3 py-2 whitespace-nowrap">狀態</th>
+                    <th className="text-right px-4 py-2 whitespace-nowrap">動作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                  {(showAllExclusion ? exclusionList : exclusionList.slice(0, 80)).map(item => (
+                    <tr key={item.kind + item.name} className={item.excluded ? '' : 'bg-emerald-50/40 dark:bg-emerald-900/10'}>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${item.kind === 'brand' ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'}`}>
+                          {item.kind === 'brand' ? '品牌' : '產品'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 dark:text-gray-200 break-words">
+                        {item.name}
+                        {item.kind === 'product' && item.brand && <span className="ml-1.5 text-xs text-gray-400">（{item.brand}）</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-gray-500 whitespace-nowrap">NT$ {item.sales365.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
+                        {item.excluded ? (
+                          <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                            {item.override === 'exclude' ? '手動排除' : '規則排除'}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">已恢復分析</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        {item.excluded ? (
+                          <button onClick={() => onToggleOverride?.(item.kind, item.name, 'include')}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-semibold">
+                            ✓ 恢復分析
+                          </button>
+                        ) : (
+                          <button onClick={() => onToggleOverride?.(item.kind, item.name, null)}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold">
+                            回到規則排除
+                          </button>
+                        )}
+                        {item.override === 'exclude' && (
+                          <button onClick={() => onToggleOverride?.(item.kind, item.name, null)}
+                            className="ml-1 text-xs px-2.5 py-1 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            取消手動
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {exclusionList.length > 80 && (
+                <button onClick={() => setShowAllExclusion(v => !v)}
+                  className="w-full py-2 text-sm font-bold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 border-t border-dashed border-gray-200 dark:border-gray-700">
+                  {showAllExclusion ? '▲ 收合' : `▼ 顯示全部 ${exclusionList.length} 項（清單依近一年銷售由高到低，前面的最值得覆核）`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Import result */}
       {importResult && (

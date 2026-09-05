@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
  */
 const fmtMoney = (n) => Math.round(n).toLocaleString()
 
-export default function ProfitMarginPanel({ filtered = [], costs = {}, dim = 'brand' }) {
+export default function ProfitMarginPanel({ filtered = [], costs = {}, dim = 'brand', excludeBrands = null, excludeProducts = null }) {
   const [showAll, setShowAll] = useState(false)
   const hasCosts = Object.keys(costs || {}).length > 0
   const isBrand = dim === 'brand'
@@ -18,6 +18,9 @@ export default function ProfitMarginPanel({ filtered = [], costs = {}, dim = 'br
     const map = {}
     const noCost = {}
     for (const r of filtered) {
+      // 停售／排除分析項目不列入排行
+      if (isBrand && excludeBrands?.has(r.brand)) continue
+      if (!isBrand && excludeProducts?.has(r.product)) continue
       const key = isBrand ? (r.brand || '未標品牌') : r.product
       if (!key) continue
       const s = r.subtotal || 0
@@ -52,7 +55,7 @@ export default function ProfitMarginPanel({ filtered = [], costs = {}, dim = 'br
       data: rows,
       uncovered: { count: uncov.length, revenue: uncov.reduce((s2, u) => s2 + u.revenue, 0) },
     }
-  }, [filtered, costs, hasCosts, isBrand])
+  }, [filtered, costs, hasCosts, isBrand, excludeBrands, excludeProducts])
 
   const maxProfit = useMemo(() => Math.max(1, ...data.map(d => Math.abs(d.grossProfit))), [data])
   const shown = showAll ? data : data.slice(0, 20)

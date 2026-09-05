@@ -5,6 +5,7 @@ import { useSalesData } from './hooks/useSalesData'
 import { useDarkMode } from './hooks/useDarkMode'
 import { getDateRange } from './utils/dateUtils'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { supabase, supabaseReady } from './config/supabase'
 import { useCloudData } from './hooks/useCloudData'
 import { useBusinessData } from './hooks/useBusinessData'
 import LoginPage from './components/auth/LoginPage'
@@ -164,6 +165,64 @@ function AppDashboard() {
     [visibleRows, meta]
   )
 
+  // 🚫 停售／排除分析：規則（近一年 品牌<1萬、產品<5千自動排除）＋人工覆核（discontinued_items 表）
+  const EXCLUDE_BRAND_MIN = 10000, EXCLUDE_PRODUCT_MIN = 5000
+  const [analysisOverrides, setAnalysisOverrides] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('analysis_overrides')) || [] } catch { return [] }
+  })
+  useEffect(() => {
+    if (!user || !supabaseReady) return
+    supabase.from('discontinued_items').select('kind,name,mode').then(({ data, error }) => {
+      if (error || !data) return
+      setAnalysisOverrides(data)
+      try { localStorage.setItem('analysis_overrides', JSON.stringify(data)) } catch { /* quota */ }
+    })
+  }, [user?.id])
+  // mode: 'exclude'（手動排除）| 'include'（強制保留，覆蓋規則）| null（回到規則判定）
+  const toggleAnalysisOverride = useCallback((kind, name, mode) => {
+    setAnalysisOverrides(prev => {
+      const next = prev.filter(o => !(o.kind === kind && o.name === name))
+      if (mode) next.push({ kind, name, mode })
+      try { localStorage.setItem('analysis_overrides', JSON.stringify(next)) } catch { /* quota */ }
+      return next
+    })
+    if (!supabaseReady) return
+    if (mode) supabase.from('discontinued_items').upsert({ kind, name, mode }, { onConflict: 'kind,name' }).then(() => {})
+    else supabase.from('discontinued_items').delete().eq('kind', kind).eq('name', name).then(() => {})
+  }, [])
+
+  // 排除結果：exB/exP＝實際排除集合；list＝管理清單（規則命中或有人工覆核者）
+  const exclusionInfo = useMemo(() => {
+    const empty = { brands: new Set(), products: new Set(), list: [] }
+    if (!visibleRows.length) return empty
+    const maxDate = visibleRows.reduce((m, r) => (r.date > m ? r.date : m), '')
+    const cut = new Date(maxDate); cut.setFullYear(cut.getFullYear() - 1)
+    const cutStr = cut.toISOString().slice(0, 10)
+    const b365 = {}, p365 = {}, bAll = new Set(), pAll = new Set(), pBrand = {}
+    for (const r of visibleRows) {
+      if (r.brand) bAll.add(r.brand)
+      if (r.product) { pAll.add(r.product); if (r.brand) pBrand[r.product] = r.brand }
+      if (r.date >= cutStr) {
+        if (r.brand) b365[r.brand] = (b365[r.brand] || 0) + (r.subtotal || 0)
+        if (r.product) p365[r.product] = (p365[r.product] || 0) + (r.subtotal || 0)
+      }
+    }
+    const ov = new Map(analysisOverrides.map(o => [o.kind + '|' + o.name, o.mode]))
+    const list = []
+    const exB = new Set(), exP = new Set()
+    const judge = (kind, name, sales, min, brand) => {
+      const o = ov.get(kind + '|' + name) || null
+      const ruleHit = sales < min
+      const excluded = o === 'include' ? false : o === 'exclude' ? true : ruleHit
+      if (ruleHit || o) list.push({ kind, name, brand: brand || '', sales365: Math.round(sales), ruleHit, override: o, excluded })
+      return excluded
+    }
+    for (const b of bAll) if (judge('brand', b, b365[b] || 0, EXCLUDE_BRAND_MIN)) exB.add(b)
+    for (const p of pAll) if (judge('product', p, p365[p] || 0, EXCLUDE_PRODUCT_MIN, pBrand[p])) exP.add(p)
+    list.sort((a, b2) => (a.kind === b2.kind ? b2.sales365 - a.sales365 : a.kind === 'brand' ? -1 : 1))
+    return { brands: exB, products: exP, list }
+  }, [visibleRows, analysisOverrides])
+
   // 「近 3 年有銷售」的活躍品牌/產品（知識庫下拉與 AI 分析共用）：
   // 皆依 3 年銷售額由高到低排序；brandProducts = 品牌 → 該品牌產品清單
   const activeSets = useMemo(() => {
@@ -195,16 +254,18 @@ function AppDashboard() {
       }
     }
     const sortKeys = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([k]) => k)
+    // 套用停售／排除分析設定（規則＋人工覆核）
+    const exB = exclusionInfo.brands, exP = exclusionInfo.products
     return {
-      brands: sortKeys(brands),
-      products: sortKeys(products),
+      brands: sortKeys(brands).filter(b => !exB.has(b)),
+      products: sortKeys(products).filter(p => !exP.has(p)),
       customers: sortKeys(customers),
       channelTypes: sortKeys(channelTypes),
-      brandProducts: Object.fromEntries(Object.entries(brandProducts).map(([b, o]) => [b, sortKeys(o)])),
-      brandCategories: Object.fromEntries(Object.entries(brandCategories).map(([b, o]) => [b, sortKeys(o)])),
-      catProducts: Object.fromEntries(Object.entries(catProducts).map(([k, o]) => [k, sortKeys(o)])),
+      brandProducts: Object.fromEntries(Object.entries(brandProducts).filter(([b]) => !exB.has(b)).map(([b, o]) => [b, sortKeys(o).filter(p => !exP.has(p))])),
+      brandCategories: Object.fromEntries(Object.entries(brandCategories).filter(([b]) => !exB.has(b)).map(([b, o]) => [b, sortKeys(o)])),
+      catProducts: Object.fromEntries(Object.entries(catProducts).map(([k, o]) => [k, sortKeys(o).filter(p => !exP.has(p))])),
     }
-  }, [visibleRows])
+  }, [visibleRows, exclusionInfo])
 
   // 3 年無交易的實體（品牌/產品/客戶/通路）在 AI 分析中一律排除——用 Set 供列級過濾
   const aiActiveSets = useMemo(() => ({
@@ -558,6 +619,22 @@ function AppDashboard() {
       } : '尚未設定產品成本',
     }
   }, [aiRows, productCosts, activeSets])
+  // 排除分析：實體層清單（產品/品牌排行、績效矩陣）過濾停售項目；趨勢與總額維持完整不動
+  const salesDataX = useMemo(() => {
+    const exB = exclusionInfo.brands, exP = exclusionInfo.products
+    if (!exB.size && !exP.size) return salesData
+    const byName = (arr, ex) => Array.isArray(arr) ? arr.filter(d => !ex.has(d.name)) : arr
+    return {
+      ...salesData,
+      brandData: byName(salesData.brandData, exB),
+      productData: byName(salesData.productData, exP),
+      performanceData: salesData.performanceData ? {
+        ...salesData.performanceData,
+        productPerf: byName(salesData.performanceData.productPerf, exP),
+        brandPerf: byName(salesData.performanceData.brandPerf, exB),
+      } : salesData.performanceData,
+    }
+  }, [salesData, exclusionInfo])
   const {
     summary, filtered, prevYearSummary,
     trendData, trendDataYoY, trendDataMoM, periodYoY, trendByChannel, trendByBrand, trendByProduct,
@@ -568,7 +645,7 @@ function AppDashboard() {
     customerData, customerByChannelTop, performanceData,
     comparisonData,
     flowData, structureData,
-  } = salesData
+  } = salesDataX
 
   const pdfSalesData = useMemo(() => ({
     summary, trendData, comparisonData,
@@ -1115,14 +1192,14 @@ function AppDashboard() {
           {activeTab === 'brand' && meta && (
             <div data-pdf-section data-pdf-title="品牌分析">
               <BrandChart brandData={brandData} trendByBrand={trendByBrand} brandChannelData={brandChannelData} brandChannelMonthData={brandChannelMonthData} metric={filters.metric} />
-              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="brand" />}
+              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="brand" excludeBrands={exclusionInfo.brands} excludeProducts={exclusionInfo.products} />}
               <BrandScorecard allRows={visibleRows} costs={perms.viewCosts ? productCosts : {}} />
             </div>
           )}
           {activeTab === 'product' && meta && (
             <div data-pdf-section data-pdf-title="產品分析">
               <ProductChart productData={productData} productByChannel={productByChannel} productCustomerData={productCustomerData} metric={filters.metric} />
-              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="product" />}
+              {perms.viewCosts && <ProfitMarginPanel filtered={filtered} costs={productCosts} dim="product" excludeBrands={exclusionInfo.brands} excludeProducts={exclusionInfo.products} />}
               <CharityPanel allRows={visibleRows} costs={productCosts} />
             </div>
           )}
@@ -1155,6 +1232,9 @@ function AppDashboard() {
               costs={productCosts}
               onUpdateCost={updateProductCost}
               onUpdateMany={updateManyProductCosts}
+              brands={meta?.brands || []}
+              exclusionList={exclusionInfo.list}
+              onToggleOverride={toggleAnalysisOverride}
             />
           )}
           {activeTab === 'expenses' && (
