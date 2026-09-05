@@ -61,15 +61,15 @@ export async function parseInvoiceFiles(files) {
         continue
       }
 
+      // momo 一律略過：以「momo 對帳單匯入」為準（發票晚一個月且無明細，混用會重複計算）
+      if (seller.includes('富邦媒')) { stats.momoSkipped = (stats.momoSkipped || 0) + amt; continue }
+
       const itemText = (itemsByInv[r['發票號碼']] || [String(r['買受人註記'] || '')]).join('；')
       let cat, label
       if (seller.includes('蝦皮')) {
         if (/廣告儲值金/.test(itemText)) { cat = '廣告費用'; label = '蝦皮 廣告儲值金' }
         else if (/手續費|服務費|運費|推廣費用|包裝寄送|訂閱/.test(itemText)) { cat = '平台費用'; label = '蝦皮 手續費與服務費' }
         else { cat = '辦公'; label = '蝦皮購物採購（待逐筆確認）' }
-      } else if (seller.includes('富邦媒')) {
-        if (/廣告|行銷贊助/.test(itemText)) { cat = '廣告費用'; label = 'momo 廣告與行銷贊助' }
-        else { cat = '平台費用'; label = 'momo 服務管理費' }
       } else if (seller.includes('日藥本舖')) {
         if (/獎勵金/.test(itemText)) { cat = '平台費用'; label = '日藥本舖 進貨獎勵金' }
         else if (/物流|管理費|運費/.test(itemText)) { cat = '物流費用'; label = '日藥本舖 物流管理費' }

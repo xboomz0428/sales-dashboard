@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
+import { parseMomoFiles, MOMO_LABELS, MOMO_NOTE_PREFIX } from '../utils/momoStatement'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -136,6 +137,44 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
   const [importPreview, setImportPreview] = useState(null)
   const [importBusy, setImportBusy] = useState(false)
   const [importDone, setImportDone] = useState(null)
+
+  // momo 對帳單匯入
+  const momoFileRef = useRef(null)
+  const [momoPreview, setMomoPreview] = useState(null)
+  const [momoBusy, setMomoBusy] = useState(false)
+
+  async function handleMomoFiles(fileList) {
+    const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
+    if (!files.length) return
+    setMomoBusy(true); setImportDone(null)
+    try {
+      const result = await parseMomoFiles(files)
+      if (!Object.keys(result.months).length) setImportDone({ ok: false, text: '未解析到任何對帳單（' + result.stats.failed.length + ' 檔失敗）' })
+      else setMomoPreview(result)
+    } catch (e) {
+      setImportDone({ ok: false, text: 'momo 對帳單解析失敗：' + (e.message || e) })
+    }
+    setMomoBusy(false)
+  }
+
+  function confirmMomoImport() {
+    if (!momoPreview) return
+    const months = Object.keys(momoPreview.months).sort()
+    for (const ym of months) {
+      const d = momoPreview.months[ym]
+      const keep = (expenses[ym] || []).filter(i => !String(i.label || '').startsWith('momo '))
+      const fresh = []
+      for (const cat of ['物流費用', '廣告費用', '平台費用']) {
+        const amt = Math.round(d.buckets[cat] || 0)
+        if (!amt) continue
+        const det = (d.detail[cat] || []).slice(0, 6).join('、').slice(0, 130)
+        fresh.push({ id: genId(), category: cat, label: MOMO_LABELS[cat], amount: amt, count: '', unitCost: '', note: MOMO_NOTE_PREFIX + '（' + det + '）' })
+      }
+      onSave(ym, [...keep, ...fresh])
+    }
+    setImportDone({ ok: true, text: '已匯入 momo 對帳單 ' + months.length + ' 個月（' + months[0] + '~' + months[months.length - 1] + '），同月舊 momo 列已更新' })
+    setMomoPreview(null)
+  }
 
   async function handleInvoiceFiles(fileList) {
     const files = [...fileList].filter(f => /\.xlsx?$/i.test(f.name))
@@ -323,6 +362,13 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
           </button>
           <input ref={invFileRef} type="file" accept=".xls,.xlsx" multiple className="hidden"
             onChange={e => { handleInvoiceFiles(e.target.files); e.target.value = '' }} />
+          <button onClick={() => momoFileRef.current?.click()} disabled={momoBusy}
+            title="上傳 momo 供應商對帳單 PDF（可多選或整包 ZIP）：自動拆 物流倉租/廣告贊助(含貨款扣抵廣告費)/平台服務獎勵金 三類，逐項加總與對帳單總計勾稽；重匯同月自動覆蓋"
+            className="px-3 py-1.5 text-sm border border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-400 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors font-semibold">
+            {momoBusy ? '解析中…' : '📥 匯入momo對帳單'}
+          </button>
+          <input ref={momoFileRef} type="file" accept=".pdf,.zip" multiple className="hidden"
+            onChange={e => { handleMomoFiles(e.target.files); e.target.value = '' }} />
           <button
             onClick={() => { setShowAddForm(v => !v); setEditingId(null) }}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
@@ -367,6 +413,35 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave }) {
             <div className="flex gap-2 justify-end mt-3">
               <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
               <button onClick={confirmInvoiceImport} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {momoPreview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setMomoPreview(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 momo 對帳單匯入預覽</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              解析 {momoPreview.stats.parsed}/{momoPreview.stats.files} 檔
+              {momoPreview.stats.dups.length > 0 && `｜重複月份已擇優：${[...new Set(momoPreview.stats.dups)].join('、')}`}
+              {momoPreview.stats.failed.length > 0 && `｜⚠ 失敗：${momoPreview.stats.failed.join('、')}`}
+            </p>
+            {Object.keys(momoPreview.months).sort().map(ym => {
+              const d = momoPreview.months[ym]
+              return (
+                <div key={ym} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 dark:border-gray-700">
+                  <span className="font-bold text-gray-700 dark:text-gray-200">{ym}{d.ok ? '' : ' ⚠加總不符'}</span>
+                  <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    物流 {Math.round(d.buckets['物流費用'] || 0).toLocaleString()}｜廣告 {Math.round(d.buckets['廣告費用'] || 0).toLocaleString()}｜平台 {Math.round(d.buckets['平台費用'] || 0).toLocaleString()}
+                  </span>
+                  <span className="font-mono font-bold text-gray-800 dark:text-gray-100">${Math.round(d.sum).toLocaleString()}</span>
+                </div>
+              )
+            })}
+            <div className="flex gap-2 justify-end mt-3">
+              <button onClick={() => setMomoPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
+              <button onClick={confirmMomoImport} className="px-4 py-2 text-sm bg-pink-600 hover:bg-pink-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
             </div>
           </div>
         </div>
