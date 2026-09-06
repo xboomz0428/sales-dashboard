@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0C7C6A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="影片抽 MP3">
+<title>影片抽 MP3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=JetBrains+Mono:wght@500&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F7;
+    --surface: #FFFFFF;
+    --surface-2: #E9EDF2;
+    --ink: #151C26;
+    --muted: #5B6673;
+    --line: #D9DFE7;
+    --accent: #0C7C6A;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #DDF3EE;
+    --wave: #0C7C6A;
+    --wave-dim: #B9C4CE;
+    --warn-bg: #FFF4DB;
+    --warn-ink: #7A4E00;
+    --danger-bg: #FDE7E4;
+    --danger-ink: #8E2116;
+    --ok-bg: #DDF3EE;
+    --ok-ink: #0B5E51;
+    --focus: #0C7C6A;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F1418;
+      --surface: #182028;
+      --surface-2: #202A34;
+      --ink: #EAF0F5;
+      --muted: #96A3B1;
+      --line: #2B3644;
+      --accent: #35D2B3;
+      --accent-ink: #062A24;
+      --accent-soft: #14352F;
+      --wave: #35D2B3;
+      --wave-dim: #3A4756;
+      --warn-bg: #3A2C0C;
+      --warn-ink: #F3CE7A;
+      --danger-bg: #43201B;
+      --danger-ink: #F5A297;
+      --ok-bg: #14352F;
+      --ok-ink: #8FE8D3;
+      --focus: #35D2B3;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F1418;
+    --surface: #182028;
+    --surface-2: #202A34;
+    --ink: #EAF0F5;
+    --muted: #96A3B1;
+    --line: #2B3644;
+    --accent: #35D2B3;
+    --accent-ink: #062A24;
+    --accent-soft: #14352F;
+    --wave: #35D2B3;
+    --wave-dim: #3A4756;
+    --warn-bg: #3A2C0C;
+    --warn-ink: #F3CE7A;
+    --danger-bg: #43201B;
+    --danger-ink: #F5A297;
+    --ok-bg: #14352F;
+    --ok-ink: #8FE8D3;
+    --focus: #35D2B3;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  }
+  .display { font-family: "Bricolage Grotesque", "Noto Sans TC", system-ui, sans-serif; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+  .app { max-width: 540px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 2px 2px; }
+  header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+  header .tag { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; white-space: nowrap; }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+  /* 選檔區 */
+  .picker { position: relative; display: block; border: 2px dashed var(--line); border-radius: 14px; padding: 28px 16px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+  .picker:hover, .picker.drag { border-color: var(--accent); background: var(--accent-soft); }
+  .picker:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .picker input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+  .picker .big { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  .picker .hint { color: var(--muted); font-size: 13px; margin: 0; }
+  .picker .icon { display: inline-block; width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); margin-bottom: 10px; }
+  .picker .icon svg { width: 46px; height: 46px; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .steps div { background: var(--surface-2); border-radius: 10px; padding: 10px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+  .steps b { display: block; color: var(--ink); font-size: 13px; margin-bottom: 2px; }
+
+  /* 檔案資訊 */
+  .fileinfo { display: flex; align-items: center; gap: 12px; }
+  .fileinfo .name { font-weight: 500; overflow-wrap: anywhere; }
+  .fileinfo .meta { color: var(--muted); font-size: 12.5px; }
+  .fileinfo button { margin-left: auto; flex-shrink: 0; }
+
+  /* 波形 */
+  .wave-wrap { position: relative; height: 96px; border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+  .wave-wrap canvas { display: block; width: 100%; height: 100%; }
+  .wave-wrap .cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .7; pointer-events: none; display: none; }
+
+  .times { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 13px; }
+  .times .range { font-size: 15px; }
+  .times .len { color: var(--muted); }
+
+  .sliders { display: grid; gap: 8px; margin-top: 10px; }
+  .sliders label { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); height: 28px; margin: 0; }
+  input[type="range"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+  .rowbtns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  /* 設定 */
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .settings label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+  select { font: inherit; font-size: 15px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
+  select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+  /* 按鈕 */
+  .btn { font: inherit; font-weight: 500; font-size: 15px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); padding: 11px 16px; cursor: pointer; transition: filter .15s, transform .05s; }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 700; width: 100%; padding: 14px 16px; font-size: 17px; }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.small { padding: 7px 12px; font-size: 13px; }
+
+  /* 進度 */
+  .progress { margin-top: 12px; }
+  .progress .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+  .progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .progress .txt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+
+  /* 結果 */
+  .result audio { width: 100%; margin: 8px 0 12px; }
+  .result .stats { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 12px; flex-wrap: wrap; }
+  .result .stats b { color: var(--ink); font-size: 15px; }
+  .result .fname { font-size: 12.5px; color: var(--muted); margin: -4px 0 10px; overflow-wrap: anywhere; }
+  .dl { display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+  .dl svg { width: 20px; height: 20px; }
+  .result .after { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+
+  /* 通知 */
+  .notice { border-radius: 12px; padding: 10px 12px; font-size: 13.5px; line-height: 1.5; }
+  .notice.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .notice.danger { background: var(--danger-bg); color: var(--danger-ink); }
+  .notice.ok { background: var(--ok-bg); color: var(--ok-ink); }
+
+  footer { font-size: 12px; color: var(--muted); text-align: center; padding: 6px 0 0; line-height: 1.6; }
+  footer a { color: inherit; }
+
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 class="display">影片抽 MP3</h1>
+    <span class="tag">影片不上傳・全在手機裡處理</span>
+  </header>
+
+  <!-- 第一步：選影片 -->
+  <section class="panel" id="pickPanel">
+    <label class="picker" id="picker">
+      <input type="file" id="file" accept="video/*,audio/*,.mp4,.mov,.m4v,.webm,.mkv,.m4a,.aac,.wav,.ogg">
+      <span class="icon" aria-hidden="true">
+        <svg viewBox="0 0 46 46" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="13" width="20" height="20" rx="3"/>
+          <path d="M29 20l8-4v14l-8-4"/>
+          <path d="M15 27v-6l6 3z" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      <p class="big">點這裡選影片</p>
+      <p class="hint">支援手機相簿或檔案 App 的 MP4／MOV／WebM／M4A</p>
+    </label>
+    <div class="steps">
+      <div><b>1 選影片</b>從相簿或檔案挑一支</div>
+      <div><b>2 選區間</b>拉滑桿只留要的音樂</div>
+      <div><b>3 存 MP3</b>轉好直接下載或分享</div>
+    </div>
+  </section>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- 第二步：波形、區間、設定 -->
+  <section class="panel" id="editPanel" hidden>
+    <div class="fileinfo">
+      <div>
+        <div class="name" id="fname"></div>
+        <div class="meta" id="fmeta"></div>
+      </div>
+      <button class="btn small" id="resetBtn" type="button">換一支</button>
+    </div>
+  </section>
+
+  <section class="panel" id="trimPanel" hidden>
+    <h2>截取區間</h2>
+    <div class="wave-wrap" id="waveWrap">
+      <canvas id="wave"></canvas>
+      <div class="cursor" id="cursor"></div>
+    </div>
+    <div class="times">
+      <span class="range mono"><span id="tStart">0:00.0</span> → <span id="tEnd">0:00.0</span></span>
+      <span class="len">長度 <span class="mono" id="tLen">0:00.0</span></span>
+    </div>
+    <div class="sliders">
+      <label>開始 <input type="range" id="sStart" min="0" max="0" step="0.1" value="0"></label>
+      <label>結束 <input type="range" id="sEnd" min="0" max="0" step="0.1" value="0"></label>
+    </div>
+    <div class="rowbtns">
+      <button class="btn small" id="previewBtn" type="button">▶ 試聽這段</button>
+      <button class="btn small" id="stopBtn" type="button" hidden>■ 停止</button>
+      <button class="btn small" id="fullBtn" type="button">整支影片</button>
+    </div>
+  </section>
+
+  <section class="panel" id="setPanel" hidden>
+    <h2>MP3 設定</h2>
+    <div class="settings">
+      <label>音質（位元率）
+        <select id="kbps">
+          <option value="128">128 kbps・檔案小</option>
+          <option value="192" selected>192 kbps・推薦</option>
+          <option value="256">256 kbps</option>
+          <option value="320">320 kbps・最高</option>
+        </select>
+      </label>
+      <label>聲道
+        <select id="chan">
+          <option value="auto" selected>跟原影片一樣</option>
+          <option value="mono">單聲道（檔案減半）</option>
+        </select>
+      </label>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn primary" id="goBtn" type="button">轉成 MP3</button>
+      <div class="progress" id="progress" hidden>
+        <div class="bar"><i id="pbar"></i></div>
+        <div class="txt"><span id="ptxt">準備中…</span><span class="mono" id="ppct">0%</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 第三步：結果 -->
+  <section class="panel result" id="resultPanel" hidden>
+    <h2>完成</h2>
+    <audio id="player" controls preload="metadata"></audio>
+    <div class="stats">
+      <span>檔案大小 <b class="mono" id="rSize">–</b></span>
+      <span>長度 <b class="mono" id="rLen">–</b></span>
+      <span>格式 <b id="rFmt">MP3</b></span>
+    </div>
+    <p class="fname mono" id="rName"></p>
+    <a class="btn primary dl" id="dlBtn" href="#" download="audio.mp3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M6 12l6 6 6-6"/><path d="M4 20h16"/></svg>
+      下載 MP3
+    </a>
+    <p class="after" id="afterHint">iPhone 會跳出「下載」或分享選單，選「儲存到檔案」即可；Android 會直接存到下載資料夾。</p>
+  </section>
+
+  <footer>
+    轉檔全部在你的手機瀏覽器內完成，影片不會被上傳到任何伺服器。<br>
+    MP3 編碼使用 <a href="https://lame.sourceforge.net" target="_blank" rel="noopener">LAME</a>（lamejs，LGPL）。
+  </footer>
+</div>
+
+<script src="/vendor/lame.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var fileInput = $('file'), picker = $('picker'), notice = $('notice');
+  var editPanel = $('editPanel'), trimPanel = $('trimPanel'), setPanel = $('setPanel'), resultPanel = $('resultPanel');
+  var waveCanvas = $('wave'), cursorEl = $('cursor');
+  var sStart = $('sStart'), sEnd = $('sEnd');
+  var goBtn = $('goBtn'), progress = $('progress'), pbar = $('pbar'), ptxt = $('ptxt'), ppct = $('ppct');
+  var previewBtn = $('previewBtn'), stopBtn = $('stopBtn'), fullBtn = $('fullBtn');
+
+  var state = {
+    file: null,
+    audio: null,        // AudioBuffer
+    peaks: null,        // Float32Array of peak values for waveform
+    start: 0, end: 0,
+    resultUrl: null,
+    preview: null,      // {ctx, src, raf, t0}
+    busy: false
+  };
+  var actx = null;
+
+  // ── 小工具 ───────────────────────────────────────────────────────────
+  function fmtTime(s) {
+    s = Math.max(0, s);
+    var m = Math.floor(s / 60), r = s - m * 60;
+    return m + ':' + (r < 10 ? '0' : '') + r.toFixed(1);
+  }
+  function fmtBytes(n) {
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function say(kind, html) {
+    notice.className = 'notice ' + kind;
+    notice.innerHTML = html;
+    notice.hidden = false;
+  }
+  function hush() { notice.hidden = true; }
+  function baseName(name) { return name.replace(/\.[^.]+$/, '') || 'audio'; }
+  function nextTick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+  function getCtx() {
+    if (actx) return actx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) throw new Error('這個瀏覽器不支援音訊解碼，請改用 Safari 或 Chrome 開啟。');
+    actx = new AC();
+    return actx;
+  }
+  function decode(buf) {
+    var ctx = getCtx();
+    return new Promise(function (resolve, reject) {
+      // 舊版 iOS Safari 只支援 callback 形式，兩種都處理
+      var p = null;
+      try { p = ctx.decodeAudioData(buf, resolve, reject); } catch (e) { reject(e); return; }
+      if (p && typeof p.then === 'function') p.then(resolve, reject);
+    });
+  }
+
+  // ── 選檔 ───────────────────────────────────────────────────────────
+  fileInput.addEventListener('change', function () {
+    if (fileInput.files && fileInput.files[0]) loadFile(fileInput.files[0]);
+  });
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    picker.addEventListener(ev, function (e) { e.preventDefault(); picker.classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    picker.addEventListener(ev, function (e) { e.preventDefault(); picker.classList.remove('drag'); });
+  });
+  picker.addEventListener('drop', function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+
+  async function loadFile(file) {
+    if (state.busy) return;
+    resetResult();
+    stopPreview();
+    hush();
+    state.file = file;
+    state.audio = null;
+    $('fname').textContent = file.name;
+    $('fmeta').textContent = fmtBytes(file.size) + '・讀取中…';
+    editPanel.hidden = false;
+    trimPanel.hidden = true;
+    setPanel.hidden = true;
+
+    if (file.size > 600 * 1024 * 1024) {
+      say('warn', '這支影片超過 600 MB，手機記憶體可能不夠而失敗。建議先在相簿裡把影片剪短，再來抽音樂。');
+    }
+
+    try {
+      state.busy = true;
+      var buf = await file.arrayBuffer();
+      $('fmeta').textContent = fmtBytes(file.size) + '・解碼音軌中…';
+      var audio = await decode(buf);
+      buf = null;
+      state.audio = audio;
+      state.start = 0;
+      state.end = audio.duration;
+      $('fmeta').textContent = fmtBytes(file.size) + '・' + fmtTime(audio.duration) + '・' +
+        (audio.numberOfChannels >= 2 ? '立體聲' : '單聲道') + '・' + audio.sampleRate + ' Hz';
+      buildPeaks(audio);
+      setupSliders(audio.duration);
+      drawWave();
+      trimPanel.hidden = false;
+      setPanel.hidden = false;
+      if (audio.duration > 20 * 60) {
+        say('warn', '影片超過 20 分鐘，轉檔會比較久（大約每 10 分鐘音訊需 20～40 秒），轉檔時請不要離開這個畫面。');
+      }
+    } catch (err) {
+      console.error(err);
+      state.audio = null;
+      editPanel.hidden = true;
+      var msg = (err && err.message) ? err.message : '';
+      say('danger', '讀不出這支影片的音軌。' +
+        (msg && /不支援/.test(msg) ? msg :
+        '可能是這個瀏覽器不支援它的編碼格式（iPhone 請用 Safari 開 MP4／MOV；Android 請用 Chrome）。' +
+        '如果是從通訊軟體存下來的影片，可以先在相簿裡「另存新檔」再試一次。'));
+    } finally {
+      state.busy = false;
+      fileInput.value = '';
+    }
+  }
+
+  $('resetBtn').addEventListener('click', function () {
+    if (state.busy) return;
+    stopPreview();
+    resetResult();
+    state.file = null; state.audio = null; state.peaks = null;
+    editPanel.hidden = trimPanel.hidden = setPanel.hidden = true;
+    hush();
+    fileInput.click();
+  });
+
+  // ── 波形 ───────────────────────────────────────────────────────────
+  function buildPeaks(audio) {
+    var bins = 720;
+    var len = audio.length, per = Math.max(1, Math.floor(len / bins));
+    var peaks = new Float32Array(bins);
+    var chs = [];
+    for (var c = 0; c < audio.numberOfChannels; c++) chs.push(audio.getChannelData(c));
+    for (var b = 0; b < bins; b++) {
+      var s0 = b * per, s1 = Math.min(len, s0 + per), max = 0;
+      // 每格最多取 200 個樣本估峰值，長影片才不會卡
+      var step = Math.max(1, Math.floor((s1 - s0) / 200));
+      for (var i = s0; i < s1; i += step) {
+        for (var c2 = 0; c2 < chs.length; c2++) {
+          var v = chs[c2][i]; if (v < 0) v = -v;
+          if (v > max) max = v;
+        }
+      }
+      peaks[b] = max;
+    }
+    // 正規化，讓小聲的影片也看得到形狀
+    var top = 0; for (var k = 0; k < bins; k++) if (peaks[k] > top) top = peaks[k];
+    if (top > 0) for (var k2 = 0; k2 < bins; k2++) peaks[k2] /= top;
+    state.peaks = peaks;
+  }
+
+  function drawWave() {
+    var peaks = state.peaks, audio = state.audio;
+    if (!peaks || !audio) return;
+    var wrap = $('waveWrap');
+    var dpr = window.devicePixelRatio || 1;
+    var W = wrap.clientWidth, H = wrap.clientHeight;
+    waveCanvas.width = Math.round(W * dpr); waveCanvas.height = Math.round(H * dpr);
+    var g = waveCanvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    var css = getComputedStyle(document.documentElement);
+    var colOn = css.getPropertyValue('--wave').trim(), colOff = css.getPropertyValue('--wave-dim').trim();
+    var soft = css.getPropertyValue('--accent-soft').trim();
+    var x0 = W * state.start / audio.duration, x1 = W * state.end / audio.duration;
+    g.fillStyle = soft; g.fillRect(x0, 0, Math.max(1, x1 - x0), H);
+    var bins = peaks.length, bw = W / bins, mid = H / 2;
+    for (var i = 0; i < bins; i++) {
+      var x = i * bw, h = Math.max(1.5, peaks[i] * (H - 10));
+      g.fillStyle = (x + bw / 2 >= x0 && x + bw / 2 <= x1) ? colOn : colOff;
+      g.fillRect(x + bw * 0.15, mid - h / 2, Math.max(1, bw * 0.7), h);
+    }
+    g.fillStyle = colOn;
+    g.fillRect(x0 - 1, 0, 2, H); g.fillRect(x1 - 1, 0, 2, H);
+  }
+  window.addEventListener('resize', drawWave);
+  if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawWave);
+
+  // ── 區間滑桿 ─────────────────────────────────────────────────────
+  function setupSliders(dur) {
+    var max = Math.round(dur * 10) / 10;
+    sStart.max = max; sEnd.max = max;
+    sStart.value = 0; sEnd.value = max;
+    updateTimes();
+  }
+  function updateTimes() {
+    $('tStart').textContent = fmtTime(state.start);
+    $('tEnd').textContent = fmtTime(state.end);
+    $('tLen').textContent = fmtTime(state.end - state.start);
+  }
+  sStart.addEventListener('input', function () {
+    var v = parseFloat(sStart.value);
+    if (v >= state.end - 0.5) { v = Math.max(0, state.end - 0.5); sStart.value = v; }
+    state.start = v; updateTimes(); drawWave();
+  });
+  sEnd.addEventListener('input', function () {
+    var v = parseFloat(sEnd.value);
+    if (v <= state.start + 0.5) { v = Math.min(state.audio.duration, state.start + 0.5); sEnd.value = v; }
+    state.end = v; updateTimes(); drawWave();
+  });
+  fullBtn.addEventListener('click', function () {
+    if (!state.audio) return;
+    state.start = 0; state.end = state.audio.duration;
+    sStart.value = 0; sEnd.value = sEnd.max;
+    updateTimes(); drawWave();
+  });
+
+  // ── 試聽 ───────────────────────────────────────────────────────────
+  previewBtn.addEventListener('click', function () {
+    if (!state.audio) return;
+    stopPreview();
+    var ctx = getCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    var src = ctx.createBufferSource();
+    src.buffer = state.audio;
+    src.connect(ctx.destination);
+    var dur = state.end - state.start;
+    src.start(0, state.start, dur);
+    var t0 = ctx.currentTime;
+    state.preview = { src: src, t0: t0, raf: 0 };
+    previewBtn.hidden = true; stopBtn.hidden = false; cursorEl.style.display = 'block';
+    src.onended = stopPreview;
+    (function tick() {
+      if (!state.preview) return;
+      var elapsed = ctx.currentTime - t0;
+      var pos = state.start + Math.min(dur, elapsed);
+      cursorEl.style.left = (100 * pos / state.audio.duration) + '%';
+      state.preview.raf = requestAnimationFrame(tick);
+    })();
+  });
+  stopBtn.addEventListener('click', stopPreview);
+  function stopPreview() {
+    if (state.preview) {
+      try { state.preview.src.onended = null; state.preview.src.stop(); } catch (e) {}
+      cancelAnimationFrame(state.preview.raf);
+      state.preview = null;
+    }
+    previewBtn.hidden = false; stopBtn.hidden = true; cursorEl.style.display = 'none';
+  }
+
+  // ── 轉 MP3 ────────────────────────────────────────────────────────
+  goBtn.addEventListener('click', async function () {
+    if (!state.audio || state.busy) return;
+    if (!window.lamejs) { say('danger', 'MP3 編碼器沒有載入成功，請重新整理頁面再試。'); return; }
+    stopPreview();
+    resetResult();
+    hush();
+    state.busy = true;
+    goBtn.disabled = true; goBtn.textContent = '轉檔中…';
+    progress.hidden = false; setProgress(0, '準備音訊…');
+    try {
+      var blob = await encodeMp3(state.audio, state.start, state.end,
+        parseInt($('kbps').value, 10), $('chan').value === 'mono' ? 1 : Math.min(2, state.audio.numberOfChannels));
+      showResult(blob);
+    } catch (err) {
+      console.error(err);
+      say('danger', '轉檔失敗：' + (err && err.message ? err.message : err) + '。可以試著把區間縮短，或把聲道改成單聲道再試。');
+    } finally {
+      state.busy = false;
+      goBtn.disabled = false; goBtn.textContent = '轉成 MP3';
+      progress.hidden = true;
+    }
+  });
+
+  function setProgress(frac, text) {
+    var pct = Math.round(frac * 100);
+    pbar.style.width = pct + '%'; ppct.textContent = pct + '%';
+    if (text) ptxt.textContent = text;
+  }
+
+  function toInt16(f32, from, to) {
+    var out = new Int16Array(to - from);
+    for (var i = from, j = 0; i < to; i++, j++) {
+      var v = f32[i];
+      if (v > 1) v = 1; else if (v < -1) v = -1;
+      out[j] = v < 0 ? v * 32768 : v * 32767;
+    }
+    return out;
+  }
+
+  async function encodeMp3(audio, start, end, kbps, channels) {
+    var sr = audio.sampleRate;
+    var s0 = Math.floor(start * sr), s1 = Math.min(audio.length, Math.floor(end * sr));
+    var total = s1 - s0;
+    if (total <= 0) throw new Error('區間長度是 0');
+
+    var L = audio.getChannelData(0);
+    var R = audio.numberOfChannels > 1 ? audio.getChannelData(1) : null;
+    var mixMono = channels === 1 && R;
+    var enc = new lamejs.Mp3Encoder(channels, sr, kbps);
+    var CHUNK = 1152 * 40;         // 每輪約 1 秒音訊，讓畫面有空更新進度
+    var parts = [], done = 0, tStart = Date.now();
+
+    for (var pos = s0; pos < s1; pos += CHUNK) {
+      var to = Math.min(s1, pos + CHUNK);
+      var left, right = null;
+      if (mixMono) {
+        var m = new Float32Array(to - pos);
+        for (var i = pos, j = 0; i < to; i++, j++) m[j] = (L[i] + R[i]) * 0.5;
+        left = toInt16(m, 0, m.length);
+      } else {
+        left = toInt16(L, pos, to);
+        if (channels === 2) right = toInt16(R || L, pos, to);
+      }
+      var buf = channels === 2 ? enc.encodeBuffer(left, right) : enc.encodeBuffer(left);
+      if (buf.length) parts.push(new Uint8Array(buf));
+      done += to - pos;
+      var frac = done / total;
+      var elapsed = (Date.now() - tStart) / 1000;
+      var eta = frac > 0.02 ? Math.round(elapsed / frac - elapsed) : null;
+      setProgress(frac, '編碼中…' + (eta !== null ? '剩約 ' + eta + ' 秒' : ''));
+      await nextTick();
+    }
+    var tail = enc.flush();
+    if (tail.length) parts.push(new Uint8Array(tail));
+    setProgress(1, '完成');
+    return new Blob(parts, { type: 'audio/mpeg' });
+  }
+
+  // ── 結果 ───────────────────────────────────────────────────────────
+  function showResult(blob) {
+    var url = URL.createObjectURL(blob);
+    state.resultUrl = url;
+    var name = baseName(state.file.name);
+    var trimmed = state.start > 0.05 || state.end < state.audio.duration - 0.05;
+    if (trimmed) name += '_' + fmtTime(state.start).replace(':', 'm').replace('.', '_') + 's-' + fmtTime(state.end).replace(':', 'm').replace('.', '_') + 's';
+    var fname = name + '.mp3';
+    $('player').src = url;
+    $('rSize').textContent = fmtBytes(blob.size);
+    $('rLen').textContent = fmtTime(state.end - state.start);
+    var dl = $('dlBtn');
+    dl.href = url; dl.download = fname;
+    $('rName').textContent = fname;
+    resultPanel.hidden = false;
+    say('ok', 'MP3 轉好了，按下方「下載 MP3」存到手機。');
+    resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function resetResult() {
+    if (state.resultUrl) { URL.revokeObjectURL(state.resultUrl); state.resultUrl = null; }
+    $('player').removeAttribute('src');
+    resultPanel.hidden = true;
+  }
+
+  // iOS 的 a[download] 對 blob 會開分享表；其他瀏覽器直接下載。只補一個提示，不擋預設行為。
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) $('afterHint').textContent = '檔案會存到瀏覽器的下載資料夾，之後可以在檔案 App 或音樂 App 打開。';
+})();
+</script>
+</body>
+</html>

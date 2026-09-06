@@ -1088,6 +1088,35 @@ ${needChannels.map(ch => `【${ch}】\n[文案內容]`).join('\n\n')}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// 11. 影片抽 MP3（獨立靜態頁 /mp3-extractor.html，手機瀏覽器可直接使用）
+// ═══════════════════════════════════════════════════════════════════════════════
+function Mp3ExtractorTool() {
+  const url = `${window.location.origin}/mp3-extractor.html`
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch {}
+  }
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        從影片（MP4／MOV／WebM）抽出音軌並轉成 MP3，可先拉滑桿只截取要的音樂片段。
+        全部在瀏覽器裡處理，影片不會上傳到伺服器，用手機 Safari／Chrome 開啟即可操作。
+      </p>
+      <div className="flex flex-wrap gap-2 items-center">
+        <a href="/mp3-extractor.html" target="_blank" rel="noopener" className={btnPrimary}>🎵 開啟影片抽 MP3</a>
+        <button type="button" onClick={copy} className={btnGray}>{copied ? '已複製連結' : '複製連結傳到手機'}</button>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-500 break-all">手機直接輸入：{url}</p>
+      <ul className="text-xs text-gray-500 dark:text-gray-400 list-disc pl-5 space-y-1">
+        <li>iPhone：下載時會跳出分享選單，選「儲存到檔案」。</li>
+        <li>Android：MP3 會存到「下載」資料夾。</li>
+        <li>影片建議 20 分鐘以內；太長可先在相簿剪短。</li>
+      </ul>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // 主元件
 // ═══════════════════════════════════════════════════════════════════════════════
 const TOOLS = [
@@ -1101,6 +1130,7 @@ const TOOLS = [
   { id: 'pack',      icon: '📦', label: '出貨裝箱計算',     component: PackagingCalculator },
   { id: 'eoq',       icon: '📊', label: '最佳訂購量 EOQ',   component: EoqCalculator },
   { id: 'copy',      icon: '✍️', label: 'AI 文案產生器',   component: AICopywriter },
+  { id: 'mp3',       icon: '🎵', label: '影片抽 MP3',       component: Mp3ExtractorTool },
 ]
 
 export default function ToolsPanel() {
