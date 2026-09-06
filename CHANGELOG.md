@@ -1,5 +1,12 @@
 # 更新日誌 CHANGELOG
 
+## v0.0.134（2026-09-06）— 🎵 影片抽 MP3（手機可直接用）
+
+- **新增獨立工具頁 `/mp3-extractor.html`**：選一支影片（MP4／MOV／WebM，也接受 M4A 等音檔）→ 顯示音軌波形 → 拉滑桿截取要的片段（可試聽）→ 選 128～320 kbps、立體聲或單聲道 → 轉成 MP3 直接下載。
+- **全程在瀏覽器內完成**（Web Audio 解碼 + lamejs 編碼），影片不上傳伺服器；手機 Safari／Chrome 直接開啟即可，iPhone 下載時走分享選單「儲存到檔案」。
+- 工具面板新增「🎵 影片抽 MP3」入口，可一鍵複製連結傳到手機。
+- 檔案：`public/mp3-extractor.html`、`public/vendor/lame.min.js`（LAME／lamejs，LGPL）。
+
 ## v0.0.133（2026-09-05）— 💰 獲利分析分頁（五合一）
 
 - **分析群組新增「💰 獲利分析」分頁**（manager 以上可見），一頁五個層次：
