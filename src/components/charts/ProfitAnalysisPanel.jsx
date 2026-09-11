@@ -168,6 +168,22 @@ export default function ProfitAnalysisPanel({
     return { ...t, opRate: t.revenue > 0 ? t.op / t.revenue : null }
   }, [pnl])
 
+  // ── ②b 正式損益表（期間合計、會計科目分組）────────────────────────────────
+  const SELLING_CATS = ['廣告費用', '行銷', '物流費用', '運費', '平台費用']
+  const incomeStatement = useMemo(() => {
+    const byCat = {}
+    for (const m of months) {
+      const e = expByMonth[m]
+      if (!e) continue
+      for (const [cat, amt] of Object.entries(e.byCat)) byCat[cat] = (byCat[cat] || 0) + amt
+    }
+    const selling = Object.entries(byCat).filter(([c]) => SELLING_CATS.includes(c)).sort((a, b) => b[1] - a[1])
+    const admin = Object.entries(byCat).filter(([c]) => !SELLING_CATS.includes(c)).sort((a, b) => b[1] - a[1])
+    const sellingTotal = selling.reduce((s, [, v]) => s + v, 0)
+    const adminTotal = admin.reduce((s, [, v]) => s + v, 0)
+    return { selling, admin, sellingTotal, adminTotal }
+  }, [months, expByMonth])
+
   // ── ③ ROAS／廣告費率 ─────────────────────────────────────────────────────
   const adMonitor = useMemo(() => months.map(m => {
     const e = expByMonth[m] || { adByChan: {} }
@@ -351,6 +367,51 @@ export default function ProfitAnalysisPanel({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ②b 正式損益表 */}
+      <div className={CARD}>
+        <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">📑 損益表（會計格式・期間合計）</h3>
+        <p className="text-xs text-gray-400 mt-0.5 mb-3">期間：{periodLabel}｜銷貨成本以「商品成本 × 銷量」估算（覆蓋率 {pct(coverage)}）；營業外收支與實際稅額尚未提供資料</p>
+        <div className="max-w-2xl">
+          <table className="w-full text-sm">
+            <tbody>
+              {(() => {
+                const t = pnlTotal
+                const tax = t.op > 0 ? Math.round(t.op * 0.2) : 0
+                const R = ({ label, amt, ratio, bold, indent, cls, note }) => (
+                  <tr className={`${bold ? 'font-bold border-t border-gray-200 dark:border-gray-600' : ''}`}>
+                    <td className={`py-1.5 pr-2 text-gray-700 dark:text-gray-200 ${indent ? 'pl-6 text-gray-500 dark:text-gray-400' : ''}`}>
+                      {label}{note && <span className="ml-1.5 text-xs font-normal text-gray-400">{note}</span>}
+                    </td>
+                    <td className={`py-1.5 px-2 text-right font-mono whitespace-nowrap ${cls || ''}`}>{amt}</td>
+                    <td className="py-1.5 pl-2 text-right text-xs text-gray-400 whitespace-nowrap w-16">{ratio || ''}</td>
+                  </tr>
+                )
+                return (
+                  <>
+                    <R label="營業收入（銷貨淨額）" amt={fmtN(t.revenue)} ratio="100%" bold />
+                    <R label="銷貨成本（估）" amt={'(' + fmtN(t.cost) + ')'} ratio={pct(t.revenue > 0 ? t.cost / t.revenue : null)} indent />
+                    <R label="營業毛利" amt={fmtN(t.gross)} ratio={pct(t.revenue > 0 ? t.gross / t.revenue : null)} bold cls={posneg(t.gross)} />
+                    {incomeStatement.selling.map(([c, v]) => <R key={c} label={c} amt={'(' + fmtN(v) + ')'} ratio={pct(t.revenue > 0 ? v / t.revenue : null)} indent />)}
+                    <R label="推銷費用小計" amt={'(' + fmtN(incomeStatement.sellingTotal) + ')'} ratio={pct(t.revenue > 0 ? incomeStatement.sellingTotal / t.revenue : null)} bold />
+                    {incomeStatement.admin.map(([c, v]) => <R key={c} label={c} amt={'(' + fmtN(v) + ')'} ratio={pct(t.revenue > 0 ? v / t.revenue : null)} indent />)}
+                    <R label="管理費用小計" amt={'(' + fmtN(incomeStatement.adminTotal) + ')'} ratio={pct(t.revenue > 0 ? incomeStatement.adminTotal / t.revenue : null)} bold />
+                    <R label="營業費用合計" amt={'(' + fmtN(t.expense) + ')'} ratio={pct(t.revenue > 0 ? t.expense / t.revenue : null)} bold />
+                    <R label="營業利益" amt={fmtN(t.op)} ratio={pct(t.opRate)} bold cls={posneg(t.op)} />
+                    <R label="營業外收入及支出" amt="—" note="（利息/匯兌等，未提供資料）" indent />
+                    <R label="稅前淨利" amt={fmtN(t.op)} ratio={pct(t.opRate)} bold cls={posneg(t.op)} />
+                    <R label="預估營所稅（20%）" amt={tax ? '(' + fmtN(tax) + ')' : '—'} note="僅估算，以申報為準" indent />
+                    <R label="預估稅後淨利" amt={fmtN(t.op - tax)} ratio={pct(t.revenue > 0 ? (t.op - tax) / t.revenue : null)} bold cls={posneg(t.op - tax)} />
+                  </>
+                )
+              })()}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+          ⚠ 目前人事費為「應領薪資」，尚未含雇主負擔之勞健保與勞退提繳（一般約為薪資的 12~15%）；銷貨退回折讓已含於銷售明細負數列。補齊資料後本表會更接近申報損益表。
+        </p>
       </div>
 
       {/* ③ ROAS 監控 */}
