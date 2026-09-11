@@ -254,14 +254,21 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   function confirmInvoiceImport() {
     if (!importPreview) return
     const months = Object.keys(importPreview.months).sort()
+    let dupSkipped = 0, dupAmt = 0
     for (const ym of months) {
       const keep = (expenses[ym] || []).filter(i => !String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
-      const fresh = importPreview.months[ym].map(i => ({ ...i, id: genId(), count: '', unitCost: '' }))
+      // 去重：同月已有同名費用列（來自對帳單/請款明細等其他來源）→ 發票版本略過不重複載入
+      const keepLabels = new Set(keep.map(i => String(i.label || '').trim()))
+      const fresh = []
+      for (const i of importPreview.months[ym]) {
+        if (keepLabels.has(String(i.label || '').trim())) { dupSkipped++; dupAmt += i.amount || 0; continue }
+        fresh.push({ ...i, id: genId(), count: '', unitCost: '' })
+      }
       onSave(ym, [...keep, ...fresh])
     }
-    const total = months.reduce((s2, ym) => s2 + importPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0)
-    const n = months.reduce((n2, ym) => n2 + importPreview.months[ym].length, 0)
-    setImportDone({ ok: true, text: '已匯入 ' + months.join('、') + ' 共 ' + n + ' 筆、$' + total.toLocaleString() + '（同月份舊發票列已自動更新）' })
+    const total = months.reduce((s2, ym) => s2 + importPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0) - dupAmt
+    const n = months.reduce((n2, ym) => n2 + importPreview.months[ym].length, 0) - dupSkipped
+    setImportDone({ ok: true, text: '已匯入 ' + months.join('、') + ' 共 ' + n + ' 筆、$' + total.toLocaleString() + '（同月份舊發票列已自動更新）' + (dupSkipped ? `；略過 ${dupSkipped} 筆與既有對帳單/請款明細同名的重複（$${Math.round(dupAmt).toLocaleString()}）` : '') })
     setImportPreview(null)
   }
   const [editingId, setEditingId] = useState(null)
