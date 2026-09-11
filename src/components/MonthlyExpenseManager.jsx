@@ -271,6 +271,38 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
     setImportDone({ ok: true, text: '已匯入 ' + months.join('、') + ' 共 ' + n + ' 筆、$' + total.toLocaleString() + '（同月份舊發票列已自動更新）' + (dupSkipped ? `；略過 ${dupSkipped} 筆與既有對帳單/請款明細同名的重複（$${Math.round(dupAmt).toLocaleString()}）` : '') })
     setImportPreview(null)
   }
+  // 🔍 費用健檢：全月份自動掃描（同月同名＝確定重複；同月同額同類別不同名＝疑似）
+  const [showHealth, setShowHealth] = useState(false)
+  const healthIssues = useMemo(() => {
+    const dup = [], similar = []
+    for (const [ym, items] of Object.entries(expenses)) {
+      const byLabel = {}
+      for (const it of items || []) {
+        const key = String(it.label || '').trim()
+        if (key) (byLabel[key] ||= []).push(it)
+      }
+      for (const [label, arr] of Object.entries(byLabel)) {
+        if (arr.length > 1) dup.push({ ym, label, items: arr })
+      }
+      const byAmtCat = {}
+      for (const it of items || []) {
+        const amt = Math.round(Number(it.amount) || 0)
+        if (amt < 1000) continue
+        ;(byAmtCat[`${it.category}|${amt}`] ||= []).push(it)
+      }
+      for (const arr of Object.values(byAmtCat)) {
+        const labels = new Set(arr.map(i => String(i.label || '').trim()))
+        if (arr.length > 1 && labels.size > 1) similar.push({ ym, items: arr })
+      }
+    }
+    dup.sort((a, b) => b.ym.localeCompare(a.ym))
+    similar.sort((a, b) => b.ym.localeCompare(a.ym))
+    return { dup, similar }
+  }, [expenses])
+  const deleteExpenseRow = (ym, id) => {
+    onSave(ym, (expenses[ym] || []).filter(i => i.id !== id))
+  }
+
   const [editingId, setEditingId] = useState(null)
   const [addForm, setAddForm] = useState(EMPTY_FORM)
   const [editForm, setEditForm] = useState(EMPTY_FORM)
@@ -424,6 +456,11 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             ⚙ 管理類別
           </button>
+          <button onClick={() => setShowHealth(true)}
+            title="全月份費用健檢：掃描同月同名重複與同額疑似重複"
+            className="px-3 py-1.5 text-sm border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors font-semibold">
+            🔍 費用健檢{healthIssues.dup.length + healthIssues.similar.length > 0 ? `（${healthIssues.dup.length + healthIssues.similar.length}）` : ''}
+          </button>
           <button onClick={() => invFileRef.current?.click()} disabled={importBusy}
             title="上傳財政部進項發票匯出檔（xls/xlsx 可多選）：自動分類為物流/廣告/平台/油資/伙食等並排除商品進貨；重匯同月自動覆蓋舊發票列"
             className="px-3 py-1.5 text-sm border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-semibold">
@@ -456,6 +493,63 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
       {importDone && (
         <div className={`px-4 py-2.5 rounded-xl text-sm border ${importDone.ok ? 'bg-green-50 dark:bg-green-900/20 border-green-200 text-green-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-600'}`}>
           {importDone.ok ? '✓ ' : '✕ '}{importDone.text}
+        </div>
+      )}
+
+      {/* 🔍 費用健檢橫幅：偵測到重複時常駐顯示 */}
+      {(healthIssues.dup.length > 0 || healthIssues.similar.length > 0) && (
+        <div className={`px-4 py-2.5 rounded-xl text-sm border flex items-center justify-between gap-2 flex-wrap ${healthIssues.dup.length ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'}`}>
+          <span className="font-semibold">
+            🔍 費用健檢：
+            {healthIssues.dup.length > 0 && `偵測到 ${healthIssues.dup.length} 組同月同名重複`}
+            {healthIssues.dup.length > 0 && healthIssues.similar.length > 0 && '；'}
+            {healthIssues.similar.length > 0 && `${healthIssues.similar.length} 組疑似重複（同月同額同類別）`}
+          </span>
+          <button onClick={() => setShowHealth(true)}
+            className="px-3 py-1 text-xs font-bold rounded-lg bg-white dark:bg-gray-800 border border-current hover:opacity-80">
+            查看並處理
+          </button>
+        </div>
+      )}
+
+      {/* 🔍 費用健檢 Modal */}
+      {showHealth && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setShowHealth(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">🔍 費用健檢（全月份掃描）</h3>
+            <p className="text-xs text-gray-400 mb-3">每次載入自動檢查所有月份：同月同名＝確定重複，可直接刪除其中一筆；同月同額同類別不同名＝疑似，請人工判斷（金額 ≥ $1,000 才列入）。</p>
+            {healthIssues.dup.length === 0 && healthIssues.similar.length === 0 && (
+              <p className="text-sm text-emerald-600 font-semibold py-4 text-center">✓ 未偵測到任何重複，費用資料乾淨</p>
+            )}
+            {healthIssues.dup.map((g, gi) => (
+              <div key={'d' + gi} className="mb-3 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                <p className="text-sm font-bold text-red-600 dark:text-red-400 mb-1.5">⚠ {g.ym}｜{g.label}（{g.items.length} 筆同名）</p>
+                {g.items.map(it => (
+                  <div key={it.id} className="flex items-center justify-between gap-2 text-sm py-1 border-t border-gray-50 dark:border-gray-700/50">
+                    <span className="text-gray-500 dark:text-gray-400 text-xs break-words min-w-0">{it.note || '（無備註）'}</span>
+                    <span className="font-mono font-bold whitespace-nowrap">${Math.round(Number(it.amount) || 0).toLocaleString()}</span>
+                    <button onClick={() => { if (window.confirm(`刪除 ${g.ym}「${g.label}」$${Math.round(Number(it.amount) || 0).toLocaleString()} 這筆？`)) deleteExpenseRow(g.ym, it.id) }}
+                      className="px-2 py-0.5 text-xs rounded-lg border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap">刪除此筆</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {healthIssues.similar.map((g, gi) => (
+              <div key={'s' + gi} className="mb-2 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">❓ {g.ym}｜同額 ${Math.round(Number(g.items[0].amount) || 0).toLocaleString()}（{g.items[0].category}）— 請確認是否同一筆費用</p>
+                {g.items.map(it => (
+                  <div key={it.id} className="flex items-center justify-between gap-2 text-xs py-0.5">
+                    <span className="text-gray-600 dark:text-gray-300 break-words min-w-0">{it.label}<span className="text-gray-400 ml-1">{(it.note || '').slice(0, 30)}</span></span>
+                    <button onClick={() => { if (window.confirm(`刪除 ${g.ym}「${it.label}」？`)) deleteExpenseRow(g.ym, it.id) }}
+                      className="px-2 py-0.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-400 hover:text-red-500 hover:border-red-300 whitespace-nowrap">刪除</button>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div className="flex justify-end mt-3">
+              <button onClick={() => setShowHealth(false)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">關閉</button>
+            </div>
+          </div>
         </div>
       )}
 
