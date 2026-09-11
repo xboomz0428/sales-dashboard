@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
+import { opMarginTier, OP_MARGIN_LEGEND } from '../../utils/opMargin'
 
 /**
  * RevenueExpensePanel — 📊 營收・費用關係（老闆視角）
@@ -155,7 +156,13 @@ export default function RevenueExpensePanel({ filtered = [], productCosts = {}, 
                 <td className="py-2 px-2 text-right font-mono text-gray-400 whitespace-nowrap">{fmtN(d.expense)}</td>
                 <td className="py-2 px-2 text-right text-gray-400 whitespace-nowrap">{pct(d.expenseRate)}</td>
                 <td className={`py-2 px-2 text-right font-mono font-bold whitespace-nowrap ${posneg(d.op)}`}>{fmtN(d.op)}</td>
-                <td className={`py-2 px-2 text-right font-bold whitespace-nowrap ${posneg(d.op)}`}>{pct(d.opRate)}</td>
+                <td className="py-2 px-2 text-right whitespace-nowrap">
+                  {(() => { const t = opMarginTier(d.opRate); return (
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${t.bg} ${t.cls}`}>
+                      {pct(d.opRate)}{t.label && <span className="font-semibold">{t.label}</span>}
+                    </span>
+                  ) })()}
+                </td>
               </tr>
             ))}
             <tr className="border-t-2 border-gray-200 dark:border-gray-600 font-bold">
@@ -166,10 +173,17 @@ export default function RevenueExpensePanel({ filtered = [], productCosts = {}, 
               <td className="py-2 px-2 text-right font-mono text-gray-400">{fmtN(total.expense)}</td>
               <td className="py-2 px-2 text-right text-gray-400">{pct(total.expenseRate)}</td>
               <td className={`py-2 px-2 text-right font-mono ${posneg(total.op)}`}>{fmtN(total.op)}</td>
-              <td className={`py-2 px-2 text-right ${posneg(total.op)}`}>{pct(total.opRate)}</td>
+              <td className="py-2 px-2 text-right whitespace-nowrap">
+                {(() => { const t = opMarginTier(total.opRate); return (
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${t.bg} ${t.cls}`}>
+                    {pct(total.opRate)}{t.label && <span className="font-semibold">{t.label}</span>}
+                  </span>
+                ) })()}
+              </td>
             </tr>
           </tbody>
         </table>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{OP_MARGIN_LEGEND}</p>
       </div>
     </div>
   )

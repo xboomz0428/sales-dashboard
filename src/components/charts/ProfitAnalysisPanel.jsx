@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ScatterChart, Scatter, ReferenceLine, ZAxis, Cell,
 } from 'recharts'
+import { opMarginTier, OP_MARGIN_LEGEND } from '../../utils/opMargin'
 
 /**
  * ProfitAnalysisPanel — 💰 獲利分析（五合一）
@@ -349,7 +350,13 @@ export default function ProfitAnalysisPanel({
                   <td className="py-2 px-2 text-right whitespace-nowrap">{pct(d.marginRate)}</td>
                   <td className="py-2 px-2 text-right font-mono text-gray-400 whitespace-nowrap">{fmtN(d.expense)}</td>
                   <td className={`py-2 px-2 text-right font-mono font-bold whitespace-nowrap ${posneg(d.op)}`}>{fmtN(d.op)}</td>
-                  <td className={`py-2 px-2 text-right whitespace-nowrap ${posneg(d.op)}`}>{pct(d.opRate)}</td>
+                  <td className="py-2 px-2 text-right whitespace-nowrap">
+                    {(() => { const t = opMarginTier(d.opRate); return (
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${t.bg} ${t.cls}`}>
+                        {pct(d.opRate)}{t.label && <span className="font-semibold">{t.label}</span>}
+                      </span>
+                    ) })()}
+                  </td>
                   <td className="py-2 px-2 text-right font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">{fmtN(d.breakeven)}</td>
                 </tr>
               ))}
@@ -361,11 +368,18 @@ export default function ProfitAnalysisPanel({
                 <td className="py-2 px-2"></td>
                 <td className="py-2 px-2 text-right font-mono text-gray-400">{fmtN(pnlTotal.expense)}</td>
                 <td className={`py-2 px-2 text-right font-mono ${posneg(pnlTotal.op)}`}>{fmtN(pnlTotal.op)}</td>
-                <td className={`py-2 px-2 text-right ${posneg(pnlTotal.op)}`}>{pct(pnlTotal.opRate)}</td>
+                <td className="py-2 px-2 text-right whitespace-nowrap">
+                  {(() => { const t = opMarginTier(pnlTotal.opRate); return (
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-bold ${t.bg} ${t.cls}`}>
+                      {pct(pnlTotal.opRate)}{t.label && <span className="font-semibold">{t.label}</span>}
+                    </span>
+                  ) })()}
+                </td>
                 <td className="py-2 px-2"></td>
               </tr>
             </tbody>
           </table>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{OP_MARGIN_LEGEND}</p>
         </div>
       </div>
 

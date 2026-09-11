@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { opMarginTier } from '../utils/opMargin'
 
 const VISIBILITY_KEY = 'dashboard_card_visibility'
 
@@ -146,8 +147,13 @@ export default function SummaryCards({ summary, prevSummary, metric, trendData =
     (hasExpenseData && vis('netProfit')) && { id: 'netProfit', label: '營業利益（毛利−費用）', value: `${netProfit < 0 ? '-' : ''}NT$ ${fmt(Math.abs(netProfit))}`, sub: `費用 ${fmt(expenseTotal)} 元（${expenseMonths} 個月）`, icon: '🏦',
       barStyle: netProfit >= 0 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : {background:'linear-gradient(90deg,#f87171,#ef4444)'},
       iconBg: netProfit >= 0 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'#fee2e2',color:'#dc2626'} },
-    (hasExpenseData && vis('netMargin')) && { id: 'netMargin', label: '營益率', value: `${(netMargin * 100).toFixed(1)}%`, sub: '營業利益 ÷ 總營收', icon: '💎',
-      barStyle: netMargin >= 0.1 ? {background:'linear-gradient(90deg,var(--mint-400),var(--mint-500))'} : netMargin >= 0 ? {background:'linear-gradient(90deg,var(--peach-300),var(--peach-500))'} : {background:'linear-gradient(90deg,#f87171,#ef4444)'},
+    (hasExpenseData && vis('netMargin')) && { id: 'netMargin', label: '營益率', value: `${(netMargin * 100).toFixed(1)}%`,
+      sub: `${opMarginTier(netMargin).label || ''}（零售批發基準：<0%虧損｜0~5%偏低｜5~10%尚可｜10~15%良好｜>15%優秀）`, icon: '💎',
+      barStyle: netMargin < 0 ? {background:'linear-gradient(90deg,#f87171,#ef4444)'}
+        : netMargin < 0.05 ? {background:'linear-gradient(90deg,#fbbf24,#f59e0b)'}
+        : netMargin < 0.10 ? {background:'linear-gradient(90deg,#a3e635,#84cc16)'}
+        : netMargin < 0.15 ? {background:'linear-gradient(90deg,#34d399,#10b981)'}
+        : {background:'linear-gradient(90deg,#2dd4bf,#0d9488)'},
       iconBg: netMargin >= 0 ? {background:'var(--mint-50)',color:'var(--mint-700)'} : {background:'#fee2e2',color:'#dc2626'} },
   ].filter(Boolean)
 
