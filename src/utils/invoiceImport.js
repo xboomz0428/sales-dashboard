@@ -61,7 +61,7 @@ export async function parseInvoiceFiles(files) {
         continue
       }
 
-      // momo 一律略過：銷售資料為撥款淨額（對帳單費用已預先扣除），再記費用會重複計算（淨額口徑）
+      // momo 一律略過：以「momo 對帳單匯入」為準（發票晚一個月且無明細，混用會重複計算）
       if (seller.includes('富邦媒')) { stats.momoSkipped = (stats.momoSkipped || 0) + amt; continue }
 
       const itemText = (itemsByInv[r['發票號碼']] || [String(r['買受人註記'] || '')]).join('；')

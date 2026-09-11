@@ -145,11 +145,8 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   const [momoBusy, setMomoBusy] = useState(false)
 
   async function handleMomoFiles(fileList) {
-    // 淨額口徑：momo 銷售資料為撥款淨額（對帳單 E+F 費用已預先扣除），費用不再入帳以免重複計算。
-    // 未來若改採總額口徑（方案 B），移除此擋板即可恢復匯入。
-    setImportDone({ ok: false, text: '目前採「淨額口徑」：momo 撥款已預先扣除對帳單費用，銷售資料即為淨額——對帳單費用不入月費用，以免重複計算。若未來改採總額口徑再開啟此功能。' })
-    return
-    // eslint-disable-next-line no-unreachable
+    // momo 口徑說明：銷售資料記「供貨價」（momo 抽成＝售價−供貨價，開帳前已反映，不會出現在費用）；
+    // 對帳單 E+F（物流/廣告/平台）是供貨價之外的額外扣款＝真實費用，正常入帳，與銷售無重複。
     const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
     if (!files.length) return
     setMomoBusy(true); setImportDone(null)
