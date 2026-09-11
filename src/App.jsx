@@ -23,6 +23,7 @@ import ComparisonChart from './components/charts/ComparisonChart'
 import ChannelMarginPanel from './components/charts/ChannelMarginPanel'
 import ProfitMarginPanel from './components/charts/ProfitMarginPanel'
 import ProfitAnalysisPanel from './components/charts/ProfitAnalysisPanel'
+import RevenueExpensePanel from './components/charts/RevenueExpensePanel'
 import DbFileManager from './components/DbFileManager'
 import KnowledgeBase from './components/KnowledgeBase'
 import ChangelogModal, { APP_VERSION } from './components/ChangelogModal'
@@ -1167,6 +1168,7 @@ function AppDashboard() {
           {activeTab === 'summary' && meta && (
             <div data-pdf-section data-pdf-title="執行摘要">
               <ExecutiveSummary summary={summary} prevSummary={prevYearSummary} trendData={trendData} metric={filters.metric} productData={productData} customerData={customerData} brandData={brandData} channelData={channelData} allRows={visibleRows} filters={filters} comparisonData={comparisonData} />
+              {perms.viewCosts && <RevenueExpensePanel filtered={filtered} productCosts={productCosts} monthlyExpenses={monthlyExpenses} />}
             </div>
           )}
           {activeTab === 'comparison' && meta && (
