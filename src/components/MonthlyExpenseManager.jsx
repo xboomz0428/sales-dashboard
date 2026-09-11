@@ -145,6 +145,11 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   const [momoBusy, setMomoBusy] = useState(false)
 
   async function handleMomoFiles(fileList) {
+    // 淨額口徑：momo 銷售資料為撥款淨額（對帳單 E+F 費用已預先扣除），費用不再入帳以免重複計算。
+    // 未來若改採總額口徑（方案 B），移除此擋板即可恢復匯入。
+    setImportDone({ ok: false, text: '目前採「淨額口徑」：momo 撥款已預先扣除對帳單費用，銷售資料即為淨額——對帳單費用不入月費用，以免重複計算。若未來改採總額口徑再開啟此功能。' })
+    return
+    // eslint-disable-next-line no-unreachable
     const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
     if (!files.length) return
     setMomoBusy(true); setImportDone(null)
@@ -597,6 +602,8 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             <p className="text-xs text-gray-400 mb-3">
               有效發票 {importPreview.stats.invoices} 張（作廢 {importPreview.stats.voided}）｜月份：{importPreview.stats.months.join('、')}｜
               已排除商品進貨 ${Math.round(importPreview.stats.goodsTotal).toLocaleString()}（{Object.keys(importPreview.stats.goodsBySeller).length} 家供應商，屬商品成本不入月費用）
+              {importPreview.stats.momoSkipped > 0 && `｜略過 momo $${Math.round(importPreview.stats.momoSkipped).toLocaleString()}（撥款已內扣）`}
+              {importPreview.stats.shopeeFeeSkipped > 0 && `｜略過蝦皮手續費 $${Math.round(importPreview.stats.shopeeFeeSkipped).toLocaleString()}（銷售已內扣 20%）`}
             </p>
             {Object.keys(importPreview.stats.unknownSellers || {}).length > 0 && (
               <p className="text-xs text-amber-600 mb-2">⚠ 未識別賣方（暫歸「其他」）：{Object.entries(importPreview.stats.unknownSellers).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n2, v]) => `${n2} $${Math.round(v).toLocaleString()}`).join('、')}</p>
