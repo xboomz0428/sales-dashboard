@@ -340,6 +340,12 @@ function AppDashboard() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
   const [tabBarCollapsed, setTabBarCollapsed] = useState(false)
+  // 頂欄收折（標題列＋管理員列＋KPI 列），騰出更多資料畫面；狀態記憶於瀏覽器
+  const [topBarCollapsed, setTopBarCollapsed] = useState(() => localStorage.getItem('topbar_collapsed') === '1')
+  const toggleTopBar = useCallback(() => setTopBarCollapsed(v => {
+    try { localStorage.setItem('topbar_collapsed', v ? '0' : '1') } catch { /* quota */ }
+    return !v
+  }), [])
   const [bottomNavHidden, setBottomNavHidden] = useState(false)
   const chartAreaRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -739,7 +745,22 @@ function AppDashboard() {
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* 頂欄已收折：細條列（點擊展開） */}
+        {topBarCollapsed && (
+          <div className="flex items-center justify-between px-3 sm:px-4 py-1 border-b dark:border-gray-700 dark:bg-gray-900 flex-shrink-0" style={{background:'var(--bg-muted)', borderBottomColor:'var(--line)'}}>
+            <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 min-w-0">
+              <span className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0" style={{background:'linear-gradient(135deg,var(--mint-400),var(--mint-500))'}}>S</span>
+              <span className="truncate hidden sm:inline">銷售數據分析系統 · v{APP_VERSION} · 顯示 {filtered.length.toLocaleString()} 筆</span>
+            </div>
+            <button onClick={toggleTopBar} title="展開頂欄"
+              className="flex items-center gap-1 text-xs font-semibold text-gray-500 dark:text-gray-400 px-2.5 py-0.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0">
+              ▼ 展開頂欄
+            </button>
+          </div>
+        )}
+
         {/* Top bar */}
+        {!topBarCollapsed && (
         <header className="dark:bg-gray-900 border-b dark:border-gray-700 px-3 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 gap-2 sticky top-0 z-10 backdrop-blur-md" style={{background:'rgba(251,250,247,0.92)', borderBottomColor:'var(--line)'}}>
           <div className="flex items-center gap-2 min-w-0">
             {/* Mobile hamburger */}
@@ -926,11 +947,16 @@ function AppDashboard() {
                 </button>
               </div>
             )}
+            <button onClick={toggleTopBar} title="收折頂欄（標題列＋管理員列＋KPI 列，騰出更多資料畫面）"
+              className="flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-xs flex-shrink-0">
+              ▲
+            </button>
           </div>
         </header>
+        )}
 
         {/* Admin Bar — 管理員快速導航（手機版隱藏，透過底部工具群組進入） */}
-        {role === 'admin' && (
+        {!topBarCollapsed && role === 'admin' && (
           <div className="hidden md:flex bg-red-50 dark:bg-red-950/30 border-b border-red-100 dark:border-red-900/50 px-3 sm:px-4 py-1.5 items-center gap-1.5 flex-shrink-0">
             <span className="text-xs font-bold text-red-400 dark:text-red-500 mr-1 hidden sm:inline">🔐 管理員</span>
             {[
@@ -1026,7 +1052,7 @@ function AppDashboard() {
         )}
 
         {/* KPI Cards toggle bar — 只在有資料時顯示 */}
-        {meta && (
+        {!topBarCollapsed && meta && (
           <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 border-b dark:border-gray-700 dark:bg-gray-900 flex-shrink-0" style={{borderBottomColor:'var(--line)',background:'var(--bg-muted)'}}>
             <button
               onClick={() => setDashboardOpen(v => !v)}
@@ -1044,7 +1070,7 @@ function AppDashboard() {
         )}
 
         {/* KPI Cards — 高度上限 55vh，超出時儀表板內部捲動，不擠壓下方內容 */}
-        {meta && dashboardOpen && (
+        {!topBarCollapsed && meta && dashboardOpen && (
           <div className="flex-shrink-0 overflow-y-auto max-h-[55vh] border-b dark:border-gray-700" style={{borderBottomColor:'var(--line)'}}>
             <SummaryCards
               summary={summary} prevSummary={prevYearSummary} metric={filters.metric} trendData={trendData}
