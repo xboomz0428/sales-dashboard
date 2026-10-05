@@ -1,6 +1,7 @@
 # Google Ads / GA4 / Search Console 串接規劃（Cloudflare 版，先規劃、未實作）
 
 更新：2026-10-05　狀態：草案，待老闆決定第 9 節的問題後動工
+下游文件：`docs/行銷內容自動化迴圈規劃.md`（蒐集→生成→設定→監控→修正 的完整迴圈，建立在本文件的同步資料之上）
 部署位置：**全部放 Cloudflare**（老闆指定）：儀表板改部署到 Cloudflare Pages，同步程式與遠端 MCP 跑 Workers；資料庫維持 Supabase。
 
 ---
