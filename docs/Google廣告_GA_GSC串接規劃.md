@@ -1,7 +1,7 @@
 # Google Ads / GA4 / Search Console 串接規劃（Cloudflare 版，先規劃、未實作）
 
 更新：2026-10-05　狀態：草案，待老闆決定第 9 節的問題後動工
-部署位置：**Cloudflare Workers**（老闆指定）。儀表板本身維持在 Vercel，資料庫維持 Supabase。
+部署位置：**全部放 Cloudflare**（老闆指定）：儀表板改部署到 Cloudflare Pages，同步程式與遠端 MCP 跑 Workers；資料庫維持 Supabase。
 
 ---
 
@@ -12,6 +12,7 @@
 要讓「廣告投資監控／ROAS」面板自動出現 Google Ads 的花費，要在 Cloudflare 上放一支
 **每日排程的 Worker**（Cron Trigger），用 REST 拉 Google 資料寫進 Supabase。
 選配再放一支 **遠端 MCP Worker**，讓 claude.ai 手機／桌面版用自訂連接器直接問廣告數據。
+儀表板本身也從 Vercel 搬到 **Cloudflare Pages**（第 4.1 節），之後同一個帳戶管所有東西。
 
 ---
 
@@ -23,7 +24,7 @@
 | 通路歸戶 | `ProfitAnalysisPanel.jsx` 用 label 關鍵字（momo／蝦皮／日藥）歸戶，其餘算「其他/站外」 | Google Ads 現在被丟進「其他/站外」，無法對應官網營收 |
 | ROAS 面板 | ③ 廣告投資監控：只有 momo、蝦皮、其他/站外三欄 | 沒有 Google Ads／官網這一欄，也沒有 GA4 轉換、GSC 搜尋量 |
 | 自動化方式 | Windows 工作排程器跑 `erp-import.bat`、`lc-sync.bat`、`weekly-alert.mjs`（都在 ERP 主機上） | 這次改放 Cloudflare，不依賴那台電腦開機 |
-| 部署 | 儀表板 `deploy.js` 推 Vercel；Supabase 有 `line-push` Edge Function 但仍是 Hello World 範本 | repo 內沒有任何 Cloudflare／wrangler 設定，要從零建 |
+| 部署 | 儀表板 `deploy.js` 推 Vercel；Supabase 有 `line-push` Edge Function 但仍是 Hello World 範本 | 儀表板要搬到 Cloudflare Pages；repo 內沒有任何 Cloudflare／wrangler 設定，要從零建 |
 | GA / GSC | 你說已有串接，但 repo 內沒有 GA4／GSC 程式碼（只有 Vercel Analytics） | 推測是在 Google 後台串好，尚未進儀表板 |
 | Meta Ads | Claude 已掛 `MetaAds_MCP` 連接器但尚未授權 | 授權後可與 Google Ads 同一套做法 |
 
@@ -112,6 +113,23 @@ GA4／GSC 的 service account 簽 JWT 用 Workers 內建 WebCrypto（RS256）就
 **為什麼資料仍寫 Supabase、不用 Cloudflare D1**：儀表板所有 hook 都讀 Supabase，RLS 與權限也在那裡；
 D1 只會多一份要同步的資料。
 
+### 4.1 儀表板搬到 Cloudflare Pages
+
+儀表板是純靜態 Vite SPA（`dist/`），沒有 serverless API（`/api/save-analysis` 只在 dev server 有），搬家風險低：
+
+| 項目 | Vercel 現況 | Cloudflare Pages 做法 |
+|---|---|---|
+| 建置 | Git push → Vercel 自動 build | Pages 連 GitHub repo：build command `npm run build`、output `dist`；或 `npx wrangler pages deploy dist` 手動推 |
+| 環境變數 | `deploy.js` 用 `vercel env add` 同步 `VITE_*` | Pages 專案設定 → Environment variables 填 `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`（**不要**把 service key 放進前端建置） |
+| SPA 路由 | Vercel 自動 | 加 `public/_redirects`：`/* /index.html 200` |
+| Analytics | `@vercel/analytics` | 移除，改 Cloudflare Web Analytics（免費、免 cookie） |
+| 發版腳本 | `deploy.js`：npm version patch → commit → push | 保留版本遞增與 commit 流程，把 `vercel env add` 段換成提示文字；部署交給 Pages 的 Git 整合 |
+| 網域 | Vercel 網域 | Pages 自訂網域；Supabase Auth 的 Site URL／Redirect URLs 要改成新網域 |
+| 快取 | — | `dist/assets/*` 有 hash，Pages 預設長快取即可；`index.html` 不快取 |
+
+搬家順序：Pages 先用 `*.pages.dev` 跑一週對照 → Supabase Auth 加新網域 → 切 DNS → 關 Vercel。
+Workers 與 Pages 在同一個 Cloudflare 帳戶，之後同步狀態、同步 log 都能在同一個後台看。
+
 **Cloudflare 方案限制（會影響設計）**
 | 項目 | Free | Paid（US$5/月） |
 |---|---|---|
@@ -158,7 +176,9 @@ RLS 比照 `monthly_expenses`：authenticated 可讀，admin/manager 可寫；Wo
 
 ## 6. 介面與設定規劃
 
-### 6.1 儀表板（Vercel，React）
+### 6.1 儀表板（React，部署到 Cloudflare Pages）
+
+介面設計稿（手機 390×844、老花友善版）已另出：`docs/數位行銷頁面介面設計.md`，Claude 設計畫布見該文件連結。
 1. **獲利分析 ③ ROAS 監控**：新增「Google Ads／官網」一欄，廣告費來自 `google_ads_daily` 月彙總，
    營收對應官網通路（需確認 `sales_data` 裡官網的通路名稱，見第 9 節）。黃紅燈門檻沿用 5% / 8%。
 2. **新分頁「數位行銷」**（或併入老闆視角）：
@@ -280,6 +300,7 @@ claude mcp add gsc -e GOOGLE_APPLICATION_CREDENTIALS=<gsc-sa.json> -- npx -y mcp
 | 階段 | 內容 | 估時 |
 |---|---|---|
 | 0 | 第 8-1 憑證處理、Google Cloud 與 Cloudflare 設定（第 7 節） | 半天（多為等 Google 審核 Explorer） |
+| 0.5 | 儀表板搬 Cloudflare Pages（第 4.1 節）：`_redirects`、env、Auth 網域、移除 Vercel Analytics、改 `deploy.js` | 半天 |
 | 1 | 本機 A 線：三個 MCP 掛進 Claude Code，驗證查得到；寫 3～5 個常用 GAQL／GA4 範本進 `KnowledgeBase` | 半天 |
 | 2 | Worker ① google-sync：migration ＋ Ads 同步 ＋ sync_log ＋ LINE 通知 ＋ wrangler 部署 | 1 天 |
 | 3 | 儀表板：ROAS 面板加 Google Ads 欄、後台同步狀態 | 半天 |
