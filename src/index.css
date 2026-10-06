@@ -263,3 +263,15 @@
 .dark .recharts-reference-line line {
   stroke: #4b5563;
 }
+
+/* ── 高對比模式（行銷作戰室「顯示」設定，class 加在 <html>）──────────────── */
+html.hc {
+  --ink-500: #2b332e;
+  --ink-400: #2b332e;
+  --ink-300: #4a534e;
+  --line: #9aa39c;
+  --line-strong: #4a534e;
+}
+html.hc .text-gray-400, html.hc .text-gray-500 { color: #2b332e !important; }
+html.hc.dark .text-gray-400, html.hc.dark .text-gray-500 { color: #e5e7eb !important; }
+html.hc button, html.hc input, html.hc select, html.hc textarea { font-weight: 600; }

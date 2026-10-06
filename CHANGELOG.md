@@ -1,5 +1,16 @@
 # 更新日誌 CHANGELOG
 
+## v0.0.145（2026-10-06）— 📣 行銷作戰室（好漢草）第一版
+
+- **新分頁「行銷作戰室」**（管理群組，manager 以上可見）：四個子頁——總覽／行事曆／企劃卡／設定。字級大、高對比、可點區 ≥ 56px，手機一欄、桌機三欄；右上 A+ 一鍵切換全站字級（16／18／20／24），設定頁可開高對比。
+- **總覽**：60 天內檔期提示卡（節氣綠、民俗紅、電商藍、送禮紫、天氣橘）、天氣觸發卡、好漢草本月全通路／官網營收、Google 廣告花費與費率燈號、本月預算進度條、近 12 個月營收長條、品項池近 90 天統計、警示與同步狀態。
+- **行事曆**：24 節氣（solarlunar）＋農曆民俗（春節、媽祖生、鬼月、中元、送神除舊等）＋電商檔期（年貨節、雙 11…）＋送禮檔期，各帶提前天數與備貨倍率；可自訂檔期。
+- **企劃卡（AI 生成建議）**：選檔期與主推品項 → 以既有 Google AI Studio 金鑰生成受眾、Google 標題 15 則／描述 4 則、FB／IG／Threads 文案、EDM 主旨、LINE 推播、關鍵字分層與否定字、預算／CPA 設定建議 → **藥事法合規前置檢查**自動標紅並給替代句；合規未過不能核准（硬關卡）。可退回重寫、核准、標記上線、複製 Google Ads Editor 文字。
+- **設定中心**：76 個參數（預算與費率、出價目標、警示門檻、天氣觸發、檔期提前天數、回購、備貨、折扣彈性、AI 生成語氣與允許事實句、競品與關鍵字、同步與通知）全部在系統內改，附建議預設值與依據，可恢復預設、匯出／匯入 JSON；Worker 讀同一張表，改完即生效。
+- **資料庫**：新增 `marketing_settings`、`marketing_calendar`、`weather_daily`、`marketing_rules`、`keyword_pool`、`title_library`、`content_library`、`marketing_briefs`、`marketing_actions`、`marketing_alerts`、`marketing_suggestions`、`experiment_log`、`google_sync_log`、`google_ads_daily`、`ga4_daily`、`gsc_daily`（migration `20261006000000_marketing_core.sql`，已套用正式庫）。
+- **Cloudflare Worker 骨架** `workers/google-sync/`：每日 05:00 抓中央氣象署一週預報 → 天氣規則 → 警示＋LINE；Google 同步排程預留。部署步驟見該目錄 README。
+- 規劃文件：`docs/Google廣告_GA_GSC串接規劃.md`、`docs/行銷內容自動化迴圈規劃.md`、`docs/數位行銷頁面介面設計.md`。
+
 ## v0.0.144（2026-09-30）— 🏷️ 品牌別損益（老闆視角）
 
 - **老闆視角新增「🏷️ 品牌別損益」表**（manager 以上可見）：各品牌 營收/占比/商品成本/毛利(率)/**費用攤提**/**淨利**/**淨利率**（五級燈號），依營收排序（預設前 12、可展開全部），虧損品牌整列標紅、成本覆蓋率低於 50% 標 ⚠。

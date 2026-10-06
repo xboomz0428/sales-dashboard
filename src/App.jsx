@@ -54,9 +54,12 @@ import UserManagement from './components/auth/UserManagement'
 import DataBackupPanel from './components/DataBackupPanel'
 import DatabaseStatusPanel from './components/DatabaseStatusPanel'
 import CrmPanel from './components/CrmPanel'
+import MarketingHub from './components/marketing/MarketingHub'
+import { useFontScale } from './hooks/useFontScale'
 
 const TABS = [
   { id: 'navigator',   label: '領航員',   icon: '🧭' },
+  { id: 'marketing',   label: '行銷作戰室', icon: '📣' },
   { id: 'summary',     label: '老闆視角', icon: '👔' },
   { id: 'profit',      label: '獲利分析', icon: '💰' },
   { id: 'performance', label: '績效矩陣', icon: '🎯' },
@@ -88,7 +91,7 @@ const TABS = [
 
 const TAB_GROUPS = [
   { id: 'analysis', label: '分析', icon: '📊', tabs: ['navigator','summary','profit','performance','comparison','trend','product','customer','channel','brand','heatmap','lunar','table'] },
-  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['crm','kb','costs','expenses','invoice','goals','alerts','health','forecast'] },
+  { id: 'manage',   label: '管理', icon: '⚙️',  tabs: ['marketing','crm','kb','costs','expenses','invoice','goals','alerts','health','forecast'] },
   { id: 'tools',    label: '工具', icon: '🔧', tabs: ['tools','flow','line-notify','backup','users','database'] },
 ]
 
@@ -116,6 +119,7 @@ function buildMeta(rows) {
 function AppDashboard() {
   const { user, role, logout, perms, allowedTabs, dataYearsLimit, roleInfo, isLoggedIn } = useAuth()
   const [dark, setDark] = useDarkMode()
+  const fontScale = useFontScale()
   const [allRows, setAllRows] = useState([])
   const allRowsRef = useRef([])   // 給 handleCloudDataLoaded 讀取，避免 stale closure
   useEffect(() => { allRowsRef.current = allRows }, [allRows])
@@ -1299,6 +1303,9 @@ function AppDashboard() {
               role={role}
               invoices={invoiceRecords}
             />
+          )}
+          {activeTab === 'marketing' && (
+            <MarketingHub allRows={visibleRows} monthlyExpenses={monthlyExpenses} canManage={role === 'admin' || role === 'manager'} role={role} userEmail={user?.email || ''} fontScale={fontScale} />
           )}
           {activeTab === 'kb' && (
             <KnowledgeBase

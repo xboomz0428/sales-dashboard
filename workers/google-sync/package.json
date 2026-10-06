@@ -1,0 +1,16 @@
+{
+  "name": "google-sync-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secret": "wrangler secret put"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260901.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.40.0"
+  }
+}

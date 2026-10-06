@@ -1,0 +1,16 @@
+name = "google-sync"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron 皆為 UTC：台北 05:00 = UTC 21:00（前一天）
+[triggers]
+crons = [
+  "0 21 * * *",   # 每日 05:00 台北：氣象預報 → weather_daily → 天氣規則 → marketing_alerts
+  "30 22 * * *",  # 每日 06:30 台北：Google Ads／GA4／GSC 日同步（第二階段實作）
+]
+
+# 非機密設定：機密一律 `npx wrangler secret put <NAME>`（見 README.md）
+[vars]
+SUPABASE_URL = "https://rwmepdmsqtipznzuajkn.supabase.co"
+CWA_DATASET = "F-D0047-091"

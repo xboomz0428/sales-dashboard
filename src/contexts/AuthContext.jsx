@@ -23,6 +23,7 @@ export const TAB_DEFS = [
   { id: 'heatmap',     label: '熱力圖',    group: '分析' },
   { id: 'table',       label: '資料表格',  group: '分析' },
   // 管理
+  { id: 'marketing',   label: '行銷作戰室', group: '管理' },
   { id: 'costs',       label: '商品成本',  group: '管理' },
   { id: 'expenses',    label: '月費用管理', group: '管理' },
   { id: 'invoice',     label: '發票對帳',  group: '管理' },
@@ -40,7 +41,7 @@ export const TAB_DEFS = [
 export const ROLE_TABS_DEFAULT = {
   admin:   null,
   manager: ['summary','performance','comparison','trend','product','customer',
-             'channel','brand','heatmap','table','expenses','invoice','goals','alerts',
+             'channel','brand','heatmap','table','marketing','expenses','invoice','goals','alerts',
              'health','forecast','flow','line-notify','backup'],
   viewer:  ['summary','performance','comparison','trend','product','customer',
              'channel','brand','heatmap','table','health','forecast','flow'],
