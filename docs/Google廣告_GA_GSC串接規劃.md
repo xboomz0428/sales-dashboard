@@ -289,10 +289,10 @@ claude mcp add gsc -e GOOGLE_APPLICATION_CREDENTIALS=<gsc-sa.json> -- npx -y mcp
 
 1. ~~官網通路名稱~~ 已查 DB：`channel='網路'`、`channel_type='網路自營'`（2018 至今 15,767 筆）。ROAS 預設用「網路自營」營收對 Google Ads 花費；「網路團購」「單檔團購」是否也算官網導流，請確認。
 2. 第 8-2 的雙重計算規則，選哪一種？（DB 現有廣告費用 label：「網路廣告」「經緯 網路廣告」「蝦皮 廣告儲值金」「momo 廣告與行銷贊助（對帳單）」「日藥本舖 檔期與推廣」；Google 的花費目前應落在「網路廣告」或「經緯 網路廣告」）
-3. Cloudflare 帳戶：已經有了嗎？用哪個 email？先 Free 試跑可以嗎？
-4. Google Ads 帳戶是否在 MCC 底下？GA4 與 GSC 目前是用哪個 Google 帳號／Cloud 專案串的？
-5. 遠端 MCP（手機上用 claude.ai 問廣告數據）要不要做？要的話排階段 2。
-6. Meta Ads 要不要同一批做（連接器已掛，只差授權）？
+3. ~~Cloudflare 帳戶~~ 已定：用老闆的 Google 帳號註冊，先 Free 試跑。
+4. ~~Google 帳號~~ 已定：Ads、GA4、GSC 都在老闆同一個 Google 帳號下；是否有 MCC 動工時在 Ads 後台看一眼即可。
+5. 遠端 MCP：排第二階段。
+6. Meta Ads：排第二階段。
 
 ---
 
