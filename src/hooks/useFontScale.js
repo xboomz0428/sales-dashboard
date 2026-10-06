@@ -18,7 +18,7 @@ const LS_HC = 'ui_high_contrast'
 export function useFontScale() {
   const [scale, setScaleState] = useState(() => {
     const v = Number(localStorage.getItem(LS_SCALE))
-    return FONT_SCALES.some(s => s.value === v) ? v : 18
+    return FONT_SCALES.some(s => s.value === v) ? v : 16
   })
   const [highContrast, setHcState] = useState(() => localStorage.getItem(LS_HC) !== '0')
 

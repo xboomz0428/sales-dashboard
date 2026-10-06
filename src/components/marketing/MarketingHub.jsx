@@ -5,7 +5,7 @@
  * 企劃卡（AI 生成 → 合規標紅 → 核准／退回 → 匯出上線文字）、設定中心（所有參數在這裡改）。
  * 設計規則見 docs/數位行銷頁面介面設計.md：字大、對比高、可點區 ≥ 56px、顏色＝分類、手機一欄／桌機三欄。
  */
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, Component } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { supabase, supabaseReady } from '../../config/supabase'
 import { useMarketingSettings } from '../../hooks/useMarketingSettings'
@@ -65,6 +65,15 @@ function Highlight({ text, hits }) {
   return <>{parts}</>
 }
 
+class HubErrorBoundary extends Component {
+  constructor(p) { super(p); this.state = { err: null } }
+  static getDerivedStateFromError(err) { return { err } }
+  render() {
+    if (this.state.err) return <div className={CARD} style={{ borderColor: 'var(--coral-500)' }}><p className="text-lg font-black">這個子頁出了錯</p><p className="text-base font-semibold mt-1 whitespace-pre-wrap">{String(this.state.err?.message || this.state.err)}</p><button type="button" className={BTN + ' mt-3'} onClick={() => this.setState({ err: null })}>重試</button></div>
+    return this.props.children
+  }
+}
+
 // ─── 主元件 ──────────────────────────────────────────────────────────────────
 export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canManage = false, role = 'viewer', userEmail = '', fontScale }) {
   const ms = useMarketingSettings(userEmail)
@@ -74,6 +83,8 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
 
   const today = todayISO()
   const thisMonth = today.slice(0, 7)
+  const [adsRows, setAdsRows] = useState([])        // 本月 google_ads_daily（由 loadCloud 填入）
+  const [poolActive, setPoolActive] = useState([])   // 關鍵字池 status=active
   const brand = get('scope.brand')
   const official = get('scope.official_customer')
 
@@ -131,8 +142,6 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
   const [alerts, setAlerts] = useState([])
   const [syncLog, setSyncLog] = useState([])
   const [weather, setWeather] = useState([])
-  const [adsRows, setAdsRows] = useState([])        // 本月 google_ads_daily
-  const [poolActive, setPoolActive] = useState([])   // 關鍵字池 status=active
   const loadCloud = useCallback(async () => {
     if (!supabaseReady) { try { setBriefs(JSON.parse(localStorage.getItem('mkt_briefs') || '[]')) } catch {} ; return }
     const [b, a, s, w, g, k] = await Promise.all([
@@ -190,11 +199,13 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
         )}
       </div>
       {ms.error && <p className="text-base font-bold text-[#9b1c1c] bg-[var(--coral-100)] rounded-xl px-3 py-2">設定讀取失敗：{ms.error}（尚未建立資料表？請先執行 migration）</p>}
-      {view === 'overview' && <Overview {...ctx} onGo={setView} />}
-      {view === 'calendar' && <CalendarView {...ctx} />}
-      {view === 'briefs'   && <Briefs {...ctx} />}
-      {view === 'ads'      && <GoogleAdsPanel get={get} save={ms.save} canManage={canManage} role={role} poolStats={poolStats} userEmail={userEmail} />}
-      {view === 'settings' && <Settings {...ctx} />}
+      <HubErrorBoundary key={view}>
+        {view === 'overview' && <Overview {...ctx} onGo={setView} />}
+        {view === 'calendar' && <CalendarView {...ctx} />}
+        {view === 'briefs'   && <Briefs {...ctx} />}
+        {view === 'ads'      && <GoogleAdsPanel get={get} save={ms.save} canManage={canManage} role={role} poolStats={poolStats} userEmail={userEmail} />}
+        {view === 'settings' && <Settings {...ctx} />}
+      </HubErrorBoundary>
     </div>
   )
 }
