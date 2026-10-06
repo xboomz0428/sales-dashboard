@@ -128,7 +128,7 @@ D1 只會多一份要同步的資料。
 | 網域 | Vercel 網域 | Pages 自訂網域；Supabase Auth 的 Site URL／Redirect URLs 要改成新網域 |
 | 快取 | — | `dist/assets/*` 有 hash，Pages 預設長快取即可；`index.html` 不快取 |
 
-搬家順序：Pages 先用 `*.pages.dev` 跑一週對照 → Supabase Auth 加新網域 → 切 DNS → 關 Vercel。
+目前線上：https://sales-dashboard-chi-rose.vercel.app/ 。搬家順序：Pages 先用 `*.pages.dev` 跑一週對照 → Supabase Auth 加新網域 → 切 DNS → 關 Vercel。
 Workers 與 Pages 在同一個 Cloudflare 帳戶，之後同步狀態、同步 log 都能在同一個後台看。
 
 **Cloudflare 方案限制（會影響設計）**
@@ -287,7 +287,7 @@ claude mcp add gsc -e GOOGLE_APPLICATION_CREDENTIALS=<gsc-sa.json> -- npx -y mcp
 
 ## 9. 需要你決定的問題
 
-1. ~~官網通路名稱~~ 已查 DB：`channel='網路'`、`channel_type='網路自營'`（2018 至今 15,767 筆）。ROAS 預設用「網路自營」營收對 Google Ads 花費；「網路團購」「單檔團購」是否也算官網導流，請確認。
+1. ~~官網通路名稱~~ 已查 DB，且範圍收斂到好漢草：ROAS 直接歸因用 `customer='好漢草 品牌官網'`（2025 至今約 60 萬，只佔好漢草 4%）；另加「全通路好漢草」外溢口徑（見迴圈規劃 0.1 節）。
 2. 第 8-2 的雙重計算規則，選哪一種？（DB 現有廣告費用 label：「網路廣告」「經緯 網路廣告」「蝦皮 廣告儲值金」「momo 廣告與行銷贊助（對帳單）」「日藥本舖 檔期與推廣」；Google 的花費目前應落在「網路廣告」或「經緯 網路廣告」）
 3. ~~Cloudflare 帳戶~~ 已定：用老闆的 Google 帳號註冊，先 Free 試跑。
 4. ~~Google 帳號~~ 已定：Ads、GA4、GSC 都在老闆同一個 Google 帳號下；是否有 MCC 動工時在 Ads 後台看一眼即可。
