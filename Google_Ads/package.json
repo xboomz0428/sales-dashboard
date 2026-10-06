@@ -1,0 +1,16 @@
+{
+  "name": "heroherb-google-ads-tool",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "好漢草 Google Ads 工具：獨立新程式（Cloudflare Pages + Workers + D1），唯讀抓取銷售儀表板數據",
+  "scripts": {
+    "calendar:list": "node scripts/calendar-list.mjs",
+    "calendar:check": "node scripts/calendar-check.mjs",
+    "worker:dev": "cd worker && npx wrangler dev",
+    "worker:deploy": "cd worker && npx wrangler deploy"
+  },
+  "dependencies": {
+    "solarlunar": "^2.0.7"
+  }
+}

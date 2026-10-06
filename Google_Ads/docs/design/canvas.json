@@ -1,0 +1,124 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1180,
+      "title": "桌機・關鍵字工作台",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Desktop-Brief.dc.html": {
+      "x": 0,
+      "y": 1300,
+      "w": 1280,
+      "h": 1080,
+      "title": "桌機・企劃卡審核",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "Desktop-Launch.dc.html": {
+      "x": 0,
+      "y": 2500,
+      "w": 1280,
+      "h": 1180,
+      "title": "桌機・上線與監控（串接檢查、上線計畫、每日觀察、預算日誌）",
+      "expand": "fill",
+      "is_interactive": true
+    },
+    "M-Overview.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "手機・總覽",
+      "is_interactive": true,
+      "radius": 40
+    },
+    "M-Calendar.dc.html": {
+      "x": 1830,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "手機・行事曆（60 天內／全年清單）",
+      "is_interactive": true,
+      "radius": 40
+    },
+    "M-Keywords.dc.html": {
+      "x": 2300,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "手機・關鍵字比對",
+      "is_interactive": true,
+      "radius": 40
+    },
+    "M-Brief.dc.html": {
+      "x": 2770,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "手機・企劃卡",
+      "is_interactive": true,
+      "radius": 40
+    },
+    "M-Settings.dc.html": {
+      "x": 3240,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "手機・設定",
+      "is_interactive": true,
+      "radius": 40
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-06T02:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "s1": {
+      "fill": "green",
+      "size": 24,
+      "text": "設計規則（老花友善）\n• 內文 18px、標籤 16px、重點數字 40/32/24\n• 文字深墨色，不用淡灰\n• 可點 ≥ 56px；手機底部五個分頁 72px\n• 顏色＝判斷：綠＝機會／通過、藍＝已覆蓋、紫＝可衝內容、橘＝注意、紅＝浪費／違規\n• 行事曆左邊色條＝類別：綠節氣、紅神明、橘盛事、藍電商、紫送禮\n• 階段：醞釀（60～31 天）→ 準備（30～8 天）→ 衝刺（7 天內）→ 進行中",
+      "w": 360,
+      "x": 3710,
+      "y": 0
+    },
+    "s2": {
+      "fill": "blue",
+      "size": 24,
+      "text": "資料來源\n• 銷售儀表板（Supabase）唯讀：好漢草營收、廣告費、成本\n• Google Ads 601-940-4710：成效、搜尋字詞、Keyword Planner；上線用 mutate（Basic 等級）\n• GA4 354485202：流量、購買、關鍵字 × 落地頁\n• Search Console heroherb.co：排名與曝光\n• Google Trends：CSV 匯入／代理，官方 API 核准後切換\n• 中央氣象署：一週預報\n• 全部落到 Cloudflare D1，畫面只讀 D1",
+      "w": 360,
+      "x": 3710,
+      "y": 560
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 3630,
+      "text": "好漢草 Google Ads 工具 · 獨立新程式（repo Google_Ads）· 全 Cloudflare · 桌機 3 張、手機 5 張",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Desktop-Brief.dc.html",
+    "Desktop-Launch.dc.html",
+    "M-Overview.dc.html",
+    "M-Calendar.dc.html",
+    "M-Keywords.dc.html",
+    "M-Brief.dc.html",
+    "M-Settings.dc.html"
+  ],
+  "pages": [],
+  "title": "好漢草 Google Ads 工具介面"
+}

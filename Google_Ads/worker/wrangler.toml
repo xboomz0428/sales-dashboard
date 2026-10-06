@@ -1,0 +1,37 @@
+name = "heroherb-ads-worker"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron 皆為 UTC：台北 = UTC+8
+[triggers]
+crons = [
+  "0 21 * * *",    # 05:00 台北：氣象預報 → weather_daily
+  "30 22 * * *",   # 06:30 台北：Google Ads 成效、搜尋字詞、素材標籤；GSC；GA4 → D1
+  "40 22 * * *",   # 06:40 台北：銷售儀表板彙總（唯讀）→ sales_daily
+  "0 23 * * *",    # 07:00 台北：規則判斷、預算自動優化（suggest/auto）、行事曆提前期、LINE 摘要
+  "0 0 * * 1",     # 每週一 08:00 台北：每週回寫（完全比對／否定／標題淘汰）、Trends 匯入、SEO 規劃表
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "heroherb-ads"
+database_id = "REPLACE_WITH_D1_ID"       # npx wrangler d1 create heroherb-ads
+
+[[kv_namespaces]]
+binding = "TOKENS"                        # Google refresh token、OAuth nonce
+id = "REPLACE_WITH_KV_ID"                 # npx wrangler kv namespace create TOKENS
+
+# 非機密設定；機密一律 `npx wrangler secret put <NAME>`：
+#   DASHBOARD_READONLY_KEY（儀表板 Supabase 唯讀角色）、GOOGLE_CLIENT_ID、GOOGLE_CLIENT_SECRET、
+#   GOOGLE_DEVELOPER_TOKEN、AI_API_KEY、LINE_TOKEN、CWA_KEY、SERP_TRENDS_KEY（選用）
+[vars]
+DASHBOARD_URL = "https://rwmepdmsqtipznzuajkn.supabase.co"
+DASHBOARD_BRAND = "好漢草"
+GOOGLE_ADS_API_VERSION = "v25"
+GOOGLE_ADS_CUSTOMER_ID = "6019404710"     # 威斯邁（預設；設定頁可改）
+GA4_PROPERTY_ID = "354485202"             # 好漢草QDM_GA4
+GSC_SITE_URL = "https://www.heroherb.co/"
+CWA_DATASET = "F-D0047-091"
+ACCESS_AUD = "REPLACE_WITH_CF_ACCESS_AUD"  # Cloudflare Access 應用程式的 AUD
+ACCESS_TEAM = "REPLACE.cloudflareaccess.com"
