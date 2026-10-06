@@ -13,6 +13,7 @@ import { parseProductPool, asList } from '../../config/marketingDefaults'
 import { buildCalendarRange, upcomingEvents, eventsByDate, KINDS, TIERS, todayISO, addDays } from '../../utils/marketingCalendar'
 import { generateBriefDraft, regenerateBriefDraft, briefToEditorText } from '../../utils/marketingAI'
 import { getStoredApiKey, setStoredApiKey } from '../../utils/ai'
+import GoogleAdsPanel from './GoogleAdsPanel'
 
 // ─── 小元件 ──────────────────────────────────────────────────────────────────
 const CARD = 'bg-white dark:bg-gray-800 rounded-2xl border-2 border-[var(--line-strong)] dark:border-gray-700 p-4'
@@ -98,9 +99,12 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
   }, [last12, thisMonth, outliers])
 
   const adLabels = asList(get('budget.google_expense_labels'))
-  const adSpend = useMemo(() => (monthlyExpenses[thisMonth] || [])
+  const adSpendExpense = useMemo(() => (monthlyExpenses[thisMonth] || [])
     .filter(it => ['廣告費用', '行銷'].includes(it.category) && adLabels.some(l => (it.label || '').includes(l)))
     .reduce((s, it) => s + (Number(it.amount) || 0), 0), [monthlyExpenses, thisMonth, adLabels])
+  const adSpendApi = useMemo(() => adsRows.reduce((s, r) => s + (Number(r.cost_micros) || 0) / 1e6, 0), [adsRows])
+  const adSpend = adsRows.length ? adSpendApi : adSpendExpense
+  const adSpendSource = adsRows.length ? 'Google Ads API' : '月費用表'
   const cap = Number(get('budget.google_monthly_cap')) || 0
   const rate = cur.revenue > 0 ? adSpend / cur.revenue : 0
   const rateColor = rate * 100 > Number(get('rate.red')) ? 'var(--coral-500)' : rate * 100 > Number(get('rate.yellow')) ? 'var(--peach-500)' : 'var(--mint-500)'
@@ -127,18 +131,24 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
   const [alerts, setAlerts] = useState([])
   const [syncLog, setSyncLog] = useState([])
   const [weather, setWeather] = useState([])
+  const [adsRows, setAdsRows] = useState([])        // 本月 google_ads_daily
+  const [poolActive, setPoolActive] = useState([])   // 關鍵字池 status=active
   const loadCloud = useCallback(async () => {
     if (!supabaseReady) { try { setBriefs(JSON.parse(localStorage.getItem('mkt_briefs') || '[]')) } catch {} ; return }
-    const [b, a, s, w] = await Promise.all([
+    const [b, a, s, w, g, k] = await Promise.all([
       supabase.from('marketing_briefs').select('*').order('created_at', { ascending: false }).limit(60),
       supabase.from('marketing_alerts').select('*').is('acked_at', null).order('created_at', { ascending: false }).limit(50),
       supabase.from('google_sync_log').select('*').order('run_at', { ascending: false }).limit(20),
       supabase.from('weather_daily').select('*').gte('date', today).lte('date', addDays(today, 3)).order('date'),
+      supabase.from('google_ads_daily').select('date,cost_micros,clicks,conversions,conv_value').gte('date', today.slice(0, 7) + '-01'),
+      supabase.from('keyword_pool').select('keyword,volume').eq('status', 'active').order('volume', { ascending: false }).limit(30),
     ])
     if (!b.error) setBriefs(b.data || [])
     if (!a.error) setAlerts(a.data || [])
     if (!s.error) setSyncLog(s.data || [])
     if (!w.error) setWeather(w.data || [])
+    if (!g.error) setAdsRows(g.data || [])
+    if (!k.error) setPoolActive((k.data || []).map(r => r.keyword))
   }, [today])
   useEffect(() => { loadCloud() }, [loadCloud])
 
@@ -163,10 +173,12 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
     { id: 'overview', label: '總覽', icon: '🧭' },
     { id: 'calendar', label: '行事曆', icon: '📅' },
     { id: 'briefs',   label: '企劃卡', icon: '✍️', badge: pendingCount || null },
+    { id: 'ads',      label: 'Google 廣告', icon: '📊' },
     { id: 'settings', label: '設定', icon: '⚙️' },
   ]
+  useEffect(() => { if (window.location.hash === '#marketing-ads') { setView('ads'); history.replaceState(null, '', window.location.pathname) } }, [])
 
-  const ctx = { get, pool: poolStats, events, upcoming, brand, cur, avgMonthly, adSpend, cap, rate, rateColor, last12, thisMonth, briefs, alerts, syncLog, weather, canManage, role, userEmail, persistBrief, ackAlert, fontScale, ms, today }
+  const ctx = { get, pool: poolStats, events, upcoming, brand, cur, avgMonthly, adSpend, adSpendSource, cap, rate, rateColor, last12, thisMonth, briefs, alerts, syncLog, weather, canManage, role, userEmail, persistBrief, ackAlert, fontScale, ms, today, poolActive }
 
   return (
     <div className="space-y-3" data-pdf-section data-pdf-title="行銷作戰室">
@@ -181,13 +193,14 @@ export default function MarketingHub({ allRows = [], monthlyExpenses = {}, canMa
       {view === 'overview' && <Overview {...ctx} onGo={setView} />}
       {view === 'calendar' && <CalendarView {...ctx} />}
       {view === 'briefs'   && <Briefs {...ctx} />}
+      {view === 'ads'      && <GoogleAdsPanel get={get} save={ms.save} canManage={canManage} role={role} poolStats={poolStats} userEmail={userEmail} />}
       {view === 'settings' && <Settings {...ctx} />}
     </div>
   )
 }
 
 // ─── 總覽 ────────────────────────────────────────────────────────────────────
-function Overview({ get, brand, cur, avgMonthly, adSpend, cap, rate, rateColor, last12, thisMonth, upcoming, alerts, syncLog, weather, poolStats, ackAlert, onGo, briefs }) {
+function Overview({ get, brand, cur, avgMonthly, adSpend, adSpendSource, cap, rate, rateColor, last12, thisMonth, upcoming, alerts, syncLog, weather, pool: poolStats, ackAlert, onGo, briefs }) {
   const pct = cap > 0 ? Math.min(100, adSpend / cap * 100) : 0
   const latestSync = useMemo(() => {
     const m = {}; for (const r of syncLog) if (!m[r.source]) m[r.source] = r; return Object.values(m)
@@ -233,7 +246,7 @@ function Overview({ get, brand, cur, avgMonthly, adSpend, cap, rate, rateColor, 
     <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       <Kpi label={`${brand} 本月營收（全通路）`} value={'NT$ ' + fmtW(cur.revenue)} sub={avgMonthly ? `月均 ${fmtW(avgMonthly)}` : ''} />
       <Kpi label="本月官網營收" value={'NT$ ' + fmtW(cur.official)} sub={cur.revenue ? `佔 ${(cur.official / cur.revenue * 100).toFixed(1)}%` : ''} color="var(--sky-500)" />
-      <Kpi label="本月 Google 廣告花費" value={'NT$ ' + fmt(adSpend)} sub={`費率 ${(rate * 100).toFixed(1)}%`} color={rateColor} />
+      <Kpi label="本月 Google 廣告花費" value={'NT$ ' + fmt(adSpend)} sub={`費率 ${(rate * 100).toFixed(1)}%｜來源：${adSpendSource}`} color={rateColor} onClick={() => onGo('ads')} />
       <Kpi label="待核准企劃卡" value={briefs.filter(b => b.status === 'draft').length} sub={alerts.length ? `${alerts.length} 則警示` : '無警示'} color={alerts.length ? 'var(--coral-500)' : 'var(--lilac-500)'} onClick={() => onGo('briefs')} />
     </div>
 
@@ -357,7 +370,7 @@ function CalendarView({ events, today }) {
 }
 
 // ─── 企劃卡 ──────────────────────────────────────────────────────────────────
-function Briefs({ get, upcoming, events, poolStats, briefs, persistBrief, canManage, userEmail, cur, avgMonthly, today }) {
+function Briefs({ get, upcoming, events, pool: poolStats, briefs, persistBrief, canManage, userEmail, cur, avgMonthly, today, poolActive = [] }) {
   const [open, setOpen] = useState(null)          // 正在看的企劃卡
   const [creating, setCreating] = useState(false)
   const [eventId, setEventId] = useState(upcoming[0]?.id || '')
@@ -381,7 +394,7 @@ function Briefs({ get, upcoming, events, poolStats, briefs, persistBrief, canMan
     trigger: event ? `${KINDS[event.kind]?.label}：${event.name}` : '手動',
     period: event ? { start: addDays(event.date, -event.lead_days), end: event.end_date } : { start: today, end: addDays(today, 14) },
     products: poolStats.filter(p => cats.has(p.category)).map(p => ({ name: p.category, price: Math.round(p.price), note: note || undefined })),
-    keywords: asList(get('keywords.core')),
+    keywords: [...asList(get('keywords.core')), ...poolActive.map(k => `${k}（關鍵字池・投放中）`)],
     winningTitles: [],
     stats: { 本月營收: Math.round(cur.revenue), 月均營收: Math.round(avgMonthly) },
   })

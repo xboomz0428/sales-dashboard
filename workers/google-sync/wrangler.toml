@@ -3,14 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Cron 皆為 UTC：台北 05:00 = UTC 21:00（前一天）
+# Cron 皆為 UTC：台北 05:00 = UTC 21:00（前一天）；台北 06:30 = UTC 22:30
 [triggers]
 crons = [
   "0 21 * * *",   # 每日 05:00 台北：氣象預報 → weather_daily → 天氣規則 → marketing_alerts
-  "30 22 * * *",  # 每日 06:30 台北：Google Ads／GA4／GSC 日同步（第二階段實作）
+  "30 22 * * *",  # 每日 06:30 台北：Google Ads 活動日成效 → google_ads_daily
 ]
+
+# refresh token 與一次性 nonce 存這裡：先 `npx wrangler kv namespace create TOKENS`，把回傳的 id 填入
+[[kv_namespaces]]
+binding = "TOKENS"
+id = "REPLACE_WITH_KV_ID"
 
 # 非機密設定：機密一律 `npx wrangler secret put <NAME>`（見 README.md）
 [vars]
 SUPABASE_URL = "https://rwmepdmsqtipznzuajkn.supabase.co"
 CWA_DATASET = "F-D0047-091"
+GOOGLE_ADS_API_VERSION = "v25"
+DASHBOARD_ORIGIN = "https://sales-dashboard-chi-rose.vercel.app,http://localhost:5173"

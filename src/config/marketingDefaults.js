@@ -10,6 +10,7 @@
 
 export const SETTING_GROUPS = [
   { id: 'scope',      label: '品牌與範圍',   icon: '🌿', color: 'var(--mint-500)'  },
+  { id: 'google',     label: 'Google 廣告',  icon: '📊', color: 'var(--sky-500)'   },
   { id: 'budget',     label: '預算與費率',   icon: '💰', color: 'var(--peach-500)' },
   { id: 'bid',        label: '出價與目標',   icon: '🎯', color: 'var(--sky-500)'   },
   { id: 'alert',      label: '警示門檻',     icon: '🔔', color: 'var(--coral-500)' },
@@ -30,6 +31,14 @@ export const SETTING_DEFS = [
   { key: 'scope.products', group: 'scope', label: '品項池（每行：分類｜關鍵字）', type: 'list', default: [
     '艾草平安包｜平安包', '足沐湯浴包｜湯浴包', '感溫足浴袋｜足浴袋', '擦澡包｜擦澡包', '淨境噴霧｜噴霧', '平安皂｜平安皂',
   ], help: '分類名稱與產品名稱關鍵字，用來把銷售資料歸到品類', role: 'manager' },
+
+  // ── Google 廣告 ───────────────────────────────────────────────────────────
+  { key: 'google.worker_url', group: 'google', label: 'Worker 網址', type: 'text', default: '', help: '部署 workers/google-sync 後的網址，例如 https://google-sync.xxx.workers.dev', role: 'admin' },
+  { key: 'google.customer_id', group: 'google', label: 'Google Ads 客戶 ID', type: 'text', default: '', help: '10 碼，不含連字號；可在「Google 廣告」頁從帳號清單點選', role: 'admin' },
+  { key: 'google.login_customer_id', group: 'google', label: '管理員帳戶（MCC）ID', type: 'text', default: '', help: '帳號在 MCC 底下才需要填', role: 'admin' },
+  { key: 'google.geo_target', group: 'google', label: '關鍵字建議：地區常數', type: 'number', default: 2158, min: 1, max: 99999999, unit: '', help: '台灣 2158', role: 'manager' },
+  { key: 'google.language', group: 'google', label: '關鍵字建議：語言常數', type: 'number', default: 1018, min: 1, max: 99999, unit: '', help: '繁體中文 1018', role: 'manager' },
+  { key: 'google.idea_limit', group: 'google', label: '關鍵字建議：每次筆數', type: 'number', default: 50, min: 10, max: 500, unit: '筆', help: '', role: 'manager' },
 
   // ── 預算與費率 ────────────────────────────────────────────────────────────
   { key: 'budget.google_monthly_cap', group: 'budget', label: 'Google Ads 月預算上限', type: 'number', default: 30000, min: 0, max: 1000000, unit: '元', help: '好漢草全通路月均約 60 萬 × 費率 5%', role: 'admin' },
