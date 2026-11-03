@@ -70,7 +70,7 @@ function rowFromDb(r) {
   }
 }
 
-// ─── 資料庫戳記：筆數 + 最大 id，用來判斷本地快取是否過期 ────────────────────
+// ─── 資料庫戳記：筆數 + 最大/最小 id，用來判斷本地快取是否過期＋id 區間切片 ───
 async function fetchDbStamp() {
   try {
     const client = supabaseAdmin || supabase
@@ -80,7 +80,9 @@ async function fetchDbStamp() {
     const { data: maxRow, error: e2 } = await client
       .from(DB_TABLE).select('id').order('id', { ascending: false }).limit(1)
     if (e2) throw e2
-    return { count: count || 0, maxId: maxRow?.[0]?.id ?? 0 }
+    const { data: minRow } = await client
+      .from(DB_TABLE).select('id').order('id', { ascending: true }).limit(1)
+    return { count: count || 0, maxId: maxRow?.[0]?.id ?? 0, minId: minRow?.[0]?.id ?? 0 }
   } catch { return null }
 }
 
@@ -114,8 +116,49 @@ function rowFromCompact2(a, idx) {
   return r
 }
 
-async function loadRowsFromDbCompact(totalCount) {
+async function loadRowsFromDbCompact(totalCount, stamp = null) {
   const client = supabaseAdmin || supabase
+
+  // ── v3 快速路：id 區間切片（每個分頁只掃自己的索引範圍，總工作量線性）────────
+  // v2 的 OFFSET 分頁在 13 萬筆後呈平方成長（第 N 頁要先走過前面所有列），小型方案 CPU 會被塞爆。
+  if (stamp?.maxId > 0) {
+    try {
+      const pages = Math.max(1, Math.ceil(totalCount / COMPACT_CHUNK))
+      const lo = (stamp.minId ?? 1) - 1
+      const span = stamp.maxId - lo
+      const step = Math.ceil(span / pages)
+      const ranges = []
+      for (let s = lo; s < stamp.maxId; s += step) ranges.push([s, Math.min(s + step, stamp.maxId)])
+      const results = new Array(ranges.length)
+      let nextIdx = 0, failed = null
+      async function worker3() {
+        while (failed == null) {
+          const p = nextIdx++
+          if (p >= ranges.length) break
+          const [from, to] = ranges[p]
+          let { data, error } = await client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to })
+          if (error) {
+            await new Promise(r => setTimeout(r, 600))
+            ;({ data, error } = await client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to }))
+          }
+          if (error) { failed = error; break }
+          results[p] = (data || []).map((a, i) => rowFromCompact2(a, p * 1e6 + i + 1))
+        }
+      }
+      // 併發 3：id 範圍掃描本身很便宜，低併發避免小型方案 CPU 互搶
+      await Promise.all(Array.from({ length: Math.min(3, ranges.length) }, () => worker3()))
+      if (!failed) {
+        const all = results.flat()
+        all.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+        return all
+      }
+      console.warn('[loadRowsFromDbCompact] v3 失敗，退回 v2:', failed.message)
+    } catch (e) {
+      console.warn('[loadRowsFromDbCompact] v3 例外，退回 v2:', e.message)
+    }
+  }
+
+  // ── v2/v1 OFFSET 分頁（相容舊路徑）──────────────────────────────────────────
   const pages = Math.ceil(totalCount / COMPACT_CHUNK)
   const results = new Array(pages)
   let nextPage = 0
@@ -346,7 +389,7 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
           try {
             let dbRows
             try {
-              dbRows = await loadRowsFromDbCompact(stamp.count)   // 壓縮 RPC（快）
+              dbRows = await loadRowsFromDbCompact(stamp.count, stamp)   // 壓縮 RPC（v3 id 區間切片）
             } catch (rpcErr) {
               console.warn('[loadCloudFiles] 壓縮 RPC 失敗，改用分頁讀取:', rpcErr.message)
               dbRows = await loadRowsFromDb()                      // 舊版分頁 fallback
