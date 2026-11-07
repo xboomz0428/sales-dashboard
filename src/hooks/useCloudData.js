@@ -70,18 +70,29 @@ function rowFromDb(r) {
   }
 }
 
+// ─── 具逾時的查詢包裝：supabase-js 本身無逾時，連線僵死會讓頁面永遠轉圈 ──────
+async function withTimeout(builder, ms = 20000) {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try {
+    return await builder.abortSignal(ctrl.signal)
+  } catch (e) {
+    return { data: null, error: { message: e?.message || '連線逾時（' + ms / 1000 + 's）' } }
+  } finally { clearTimeout(t) }
+}
+
 // ─── 資料庫戳記：筆數 + 最大/最小 id，用來判斷本地快取是否過期＋id 區間切片 ───
 async function fetchDbStamp() {
   try {
     const client = supabaseAdmin || supabase
-    const { count, error } = await client
-      .from(DB_TABLE).select('*', { count: 'exact', head: true })
+    const { count, error } = await withTimeout(
+      client.from(DB_TABLE).select('*', { count: 'exact', head: true }), 15000)
     if (error) throw error
-    const { data: maxRow, error: e2 } = await client
-      .from(DB_TABLE).select('id').order('id', { ascending: false }).limit(1)
+    const { data: maxRow, error: e2 } = await withTimeout(
+      client.from(DB_TABLE).select('id').order('id', { ascending: false }).limit(1), 15000)
     if (e2) throw e2
-    const { data: minRow } = await client
-      .from(DB_TABLE).select('id').order('id', { ascending: true }).limit(1)
+    const { data: minRow } = await withTimeout(
+      client.from(DB_TABLE).select('id').order('id', { ascending: true }).limit(1), 15000)
     return { count: count || 0, maxId: maxRow?.[0]?.id ?? 0, minId: minRow?.[0]?.id ?? 0 }
   } catch { return null }
 }
@@ -116,7 +127,7 @@ function rowFromCompact2(a, idx) {
   return r
 }
 
-async function loadRowsFromDbCompact(totalCount, stamp = null) {
+async function loadRowsFromDbCompact(totalCount, stamp = null, onProgress = null) {
   const client = supabaseAdmin || supabase
 
   // ── v3 快速路：id 區間切片（每個分頁只掃自己的索引範圍，總工作量線性）────────
@@ -130,19 +141,21 @@ async function loadRowsFromDbCompact(totalCount, stamp = null) {
       const ranges = []
       for (let s = lo; s < stamp.maxId; s += step) ranges.push([s, Math.min(s + step, stamp.maxId)])
       const results = new Array(ranges.length)
-      let nextIdx = 0, failed = null
+      let nextIdx = 0, failed = null, done = 0
       async function worker3() {
         while (failed == null) {
           const p = nextIdx++
           if (p >= ranges.length) break
           const [from, to] = ranges[p]
-          let { data, error } = await client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to })
+          let { data, error } = await withTimeout(client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to }))
           if (error) {
             await new Promise(r => setTimeout(r, 600))
-            ;({ data, error } = await client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to }))
+            ;({ data, error } = await withTimeout(client.rpc('get_sales_compact3', { p_from_id: from, p_to_id: to })))
           }
           if (error) { failed = error; break }
           results[p] = (data || []).map((a, i) => rowFromCompact2(a, p * 1e6 + i + 1))
+          done++
+          onProgress?.(done, ranges.length)
         }
       }
       // 併發 3：id 範圍掃描本身很便宜，低併發避免小型方案 CPU 互搶
@@ -165,7 +178,7 @@ async function loadRowsFromDbCompact(totalCount, stamp = null) {
   let useV2 = true   // v2 瘦身版優先；函式不存在或首發失敗時整條退回 v1
   async function fetchChunk(p) {
     const fn = useV2 ? 'get_sales_compact2' : 'get_sales_compact'
-    return client.rpc(fn, { p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK })
+    return withTimeout(client.rpc(fn, { p_offset: p * COMPACT_CHUNK, p_limit: COMPACT_CHUNK }), 30000)
   }
   async function worker() {
     while (true) {
@@ -389,7 +402,8 @@ export function useCloudData(user, onDataLoaded, onCostsLoaded) {
           try {
             let dbRows
             try {
-              dbRows = await loadRowsFromDbCompact(stamp.count, stamp)   // 壓縮 RPC（v3 id 區間切片）
+              dbRows = await loadRowsFromDbCompact(stamp.count, stamp,
+                (d, t) => setSyncStatus(`從資料庫讀取銷售資料…（${d}/${t}）`))   // 壓縮 RPC（v3 id 區間切片）
             } catch (rpcErr) {
               console.warn('[loadCloudFiles] 壓縮 RPC 失敗，改用分頁讀取:', rpcErr.message)
               dbRows = await loadRowsFromDb()                      // 舊版分頁 fallback
