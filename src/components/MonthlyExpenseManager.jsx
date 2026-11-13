@@ -3,6 +3,7 @@ import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
 import { parseMomoFiles, MOMO_LABELS, MOMO_NOTE_PREFIX } from '../utils/momoStatement'
 import { parseShopeeFiles, SHOPEE_STMT_NOTE_PREFIX, SHOPEE_TAX_ID, SHOPEE_BILLING_NAME } from '../utils/shopeeStatement'
 import { parseHctFiles, HCT_NOTE_PREFIX, HCT_LABEL } from '../utils/hctStatement'
+import AnnualSummary from './AnnualSummary'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -389,6 +390,24 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   const categories = useMemo(() => [...DEFAULT_CATEGORIES, ...customCats], [customCats])
   const items = expenses[currentMonth] || []
 
+  // ── 費用明細排序（點標題切換；金額預設由大到小）──
+  const [expSort, setExpSort] = useState({ key: '', dir: 'asc' })
+  const toggleExpSort = (key) => setExpSort(s =>
+    s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'amount' || key === 'qty' ? 'desc' : 'asc' })
+  const expArrow = (k) => expSort.key === k ? (expSort.dir === 'asc' ? ' ▲' : ' ▼') : ''
+  const sortedItems = useMemo(() => {
+    if (!expSort.key) return items
+    const dir = expSort.dir === 'asc' ? 1 : -1
+    return [...items].sort((a, b) => {
+      if (expSort.key === 'amount') return dir * (itemAmount(a) - itemAmount(b))
+      if (expSort.key === 'qty') return dir * ((Number(a.count) || 0) - (Number(b.count) || 0))
+      return dir * String(a[expSort.key] || '').localeCompare(String(b[expSort.key] || ''), 'zh-TW')
+    })
+  }, [items, expSort])
+
+  // 📊 年度總表
+  const [showAnnual, setShowAnnual] = useState(false)
+
   // ── 月份導航 ───────────────────────────────────────────────────────────
   const changeMonth = (delta) => {
     const [y, m] = currentMonth.split('-').map(Number)
@@ -526,6 +545,11 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
           <p className="text-sm text-gray-400 dark:text-gray-500 mt-0.5">記錄公司每月整體營運費用</p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowAnnual(true)}
+            title="年度費用與發票總表：類別/項目排行、客戶發票排行、圖表比對"
+            className="px-3 py-1.5 text-sm border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors font-semibold">
+            📊 年度總表
+          </button>
           <button onClick={() => setShowCatMgr(v => !v)}
             className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             ⚙ 管理類別
@@ -575,6 +599,11 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
         <div className={`px-4 py-2.5 rounded-xl text-sm border ${importDone.ok ? 'bg-green-50 dark:bg-green-900/20 border-green-200 text-green-700' : 'bg-red-50 dark:bg-red-900/20 border-red-200 text-red-600'}`}>
           {importDone.ok ? '✓ ' : '✕ '}{importDone.text}
         </div>
+      )}
+
+      {showAnnual && (
+        <AnnualSummary expenses={expenses} invoices={invoices} categories={categories}
+          getColor={(c) => getColor(c, categories)} onClose={() => setShowAnnual(false)} />
       )}
 
       {/* 🔍 費用健檢橫幅：偵測到重複時常駐顯示 */}
@@ -938,15 +967,15 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
           <div className="divide-y divide-gray-50 dark:divide-gray-700">
             {/* Header（桌機）：備註與項目共享彈性寬度，長備註不再擠成細長直欄 */}
             <div className="hidden sm:grid sm:grid-cols-[6.5rem_minmax(0,1.1fr)_6.5rem_7.5rem_minmax(0,1fr)_4.5rem] gap-3 px-5 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50 dark:bg-gray-900/40">
-              <span>類別</span>
-              <span>項目</span>
-              <span className="text-right">數量 × 單價</span>
-              <span className="text-right">金額</span>
-              <span>備註</span>
+              <button onClick={() => toggleExpSort('category')} className="text-left uppercase font-bold hover:text-blue-500" title="點擊排序">類別{expArrow('category')}</button>
+              <button onClick={() => toggleExpSort('label')} className="text-left uppercase font-bold hover:text-blue-500" title="點擊排序">項目{expArrow('label')}</button>
+              <button onClick={() => toggleExpSort('qty')} className="text-right uppercase font-bold hover:text-blue-500" title="點擊排序">數量 × 單價{expArrow('qty')}</button>
+              <button onClick={() => toggleExpSort('amount')} className="text-right uppercase font-bold hover:text-blue-500" title="點擊排序">金額{expArrow('amount')}</button>
+              <button onClick={() => toggleExpSort('note')} className="text-left uppercase font-bold hover:text-blue-500" title="點擊排序">備註{expArrow('note')}</button>
               <span className="text-center">操作</span>
             </div>
 
-            {items.map(item => (
+            {sortedItems.map(item => (
               editingId === item.id ? (
                 <div key={item.id} className="p-4">
                   <ExpenseForm

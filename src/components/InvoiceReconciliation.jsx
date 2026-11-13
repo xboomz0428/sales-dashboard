@@ -1214,6 +1214,10 @@ export default function InvoiceReconciliation({
     if (sortBy === 'issueDate') list.sort((a, b) => dir * a.issueDate.localeCompare(b.issueDate))
     else if (sortBy === 'amount') list.sort((a, b) => dir * (a.amount - b.amount))
     else if (sortBy === 'store') list.sort((a, b) => dir * a.store.localeCompare(b.store, 'zh-TW'))
+    else if (sortBy === 'invoiceNo') list.sort((a, b) => dir * String(a.invoiceNo || '').localeCompare(String(b.invoiceNo || '')))
+    else if (sortBy === 'status') list.sort((a, b) => dir * String(a.status || '').localeCompare(String(b.status || '')))
+    else if (sortBy === 'confirmedAmount') list.sort((a, b) => dir * ((Number(a.confirmedAmount) || 0) - (Number(b.confirmedAmount) || 0)))
+    else if (sortBy === 'confirmedAt') list.sort((a, b) => dir * String(a.confirmedAt || '').localeCompare(String(b.confirmedAt || '')))
     else if (sortBy === 'dueDate') {
       list.sort((a, b) => {
         const da = calcDueDate(a.issueDate, a.paymentTerm) || ''
@@ -2030,6 +2034,10 @@ export default function InvoiceReconciliation({
             <option value="dueDate">到期日</option>
             <option value="amount">金額</option>
             <option value="store">店家</option>
+            <option value="invoiceNo">發票號碼</option>
+            <option value="status">狀態</option>
+            <option value="confirmedAmount">入帳金額</option>
+            <option value="confirmedAt">確認日期</option>
           </select>
           {/* 排序方向 */}
           <button
@@ -2104,16 +2112,28 @@ export default function InvoiceReconciliation({
               <table className="w-full min-w-[1080px] text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700">
-                    <th className="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap min-w-[11rem]">店家</th>
-                    <th className="text-left px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">發票號碼</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">類型</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">付款方式</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">開立日期</th>
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">發票金額</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">狀態</th>
-                    <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">入帳金額</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">到期日</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">確認日期</th>
+                    {[
+                      ['store', '店家', 'text-left', 'min-w-[11rem]'],
+                      ['invoiceNo', '發票號碼', 'text-left', ''],
+                      [null, '類型', 'text-center', ''],
+                      [null, '付款方式', 'text-center', ''],
+                      ['issueDate', '開立日期', 'text-center', ''],
+                      ['amount', '發票金額', 'text-right', ''],
+                      ['status', '狀態', 'text-center', ''],
+                      ['confirmedAmount', '入帳金額', 'text-right', ''],
+                      ['dueDate', '到期日', 'text-center', ''],
+                      ['confirmedAt', '確認日期', 'text-center', ''],
+                    ].map(([k, label, align, extra]) => (
+                      <th key={label} className={`${align} px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap ${extra}`}>
+                        {k ? (
+                          <button title="點擊排序"
+                            onClick={() => { if (sortBy === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortBy(k); setSortDir(k === 'amount' || k === 'confirmedAmount' ? 'desc' : 'asc') } }}
+                            className="uppercase font-semibold hover:text-blue-500">
+                            {label}{sortBy === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                          </button>
+                        ) : label}
+                      </th>
+                    ))}
                     <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400 uppercase whitespace-nowrap">操作</th>
                   </tr>
                 </thead>
