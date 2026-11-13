@@ -56,7 +56,9 @@ function rowsToMonthMap(rows, fields) {
 function notifySaveError(what, month, error) {
   console.error(`[useBusinessData] ${what} ${month} 雲端儲存失敗`, error)
   try {
-    window.alert(`⚠ ${what} ${month} 沒有成功存到雲端，目前只存在這台電腦。\n\n原因：${error?.message || error}\n\n雲端原有資料沒有被更動。請不要清除瀏覽器資料，並把這個訊息提供給開發者。`)
+    window.alert(error?.stage === 'cleanup'
+      ? `⚠ ${what} ${month} 的新資料已存到雲端，但清除該月多餘的舊列失敗，雲端可能殘留已刪除的舊列。\n\n原因：${error?.message || error}\n\n下次儲存這個月份時會再清一次；若持續出現，請把這個訊息提供給開發者。`
+      : `⚠ ${what} ${month} 沒有成功存到雲端，目前只存在這台電腦。\n\n原因：${error?.message || error}\n\n雲端原有資料沒有被更動。請不要清除瀏覽器資料，並把這個訊息提供給開發者。`)
   } catch { /* 非瀏覽器環境 */ }
 }
 
@@ -104,7 +106,8 @@ export function useBusinessData(user) {
       // 只存在這台電腦、雲端沒有的月份（多半是先前雲端儲存失敗留下的）→ 詢問後補傳
       const pending = []
       const collect = (res, lsKey, table, fields, what) => {
-        if (res.error) return
+        // 回傳筆數達到 API 單次上限（1000）時可能被截斷，無法確定哪些月份「雲端沒有」，不做補傳判斷
+        if (res.error || (res.data || []).length >= 1000) return
         const cloudMonths = new Set((res.data || []).map(r => r.month))
         for (const [m, items] of Object.entries(lsGet(lsKey))) {
           if (/^\d{4}-\d{2}$/.test(m) && Array.isArray(items) && items.length && !cloudMonths.has(m)) {

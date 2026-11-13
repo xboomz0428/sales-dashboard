@@ -1,13 +1,17 @@
 import * as XLSX from 'xlsx'
+import { isMofRow, detectOwnTaxId, mofDirection } from './mofInvoice'
 
 /**
  * salesInvoiceImport.js — 電子發票「銷項」→ 發票對帳。雙格式自動辨識：
- * ①財政部平台 OUT 檔（53563252_OUT_*.xlsx，權威來源，含 momo 串接開立）②加值中心匯出（Excel_NoDetail_Invoice*.xlsx）
+ * ①財政部平台進銷項查詢檔（btb411w，權威來源，含 momo 代傳、關貿傳送）②加值中心匯出（Excel_NoDetail_Invoice*.xlsx）
+ * 財政部檔可能進銷項混合：只取賣方＝本公司的列，進項列計入 stats.purchaseSkipped 後略過。
  * 彙總維度：月份 × 買方——
  * ・有統編（平台/通路/機構）→ 以「買方名稱(統編)」為一組
  * ・無統編（終端客戶）→ 依備註歸組：PINKOI／官網（備註含訂單編號）／其他
- * 每組一筆對帳記錄：張數、發票號碼區間、金額合計、狀態=已確認（此為實際已開立事實）。
- * 冪等：note 前綴「來源：電子發票匯出」，重匯同月自動覆蓋同來源列（手動列保留）。
+ * 每組一筆對帳記錄：張數、發票號碼區間、金額合計。
+ * 匯入採「比對後合併」（planSalesInvoiceMerge / applySalesInvoiceMerge）：
+ * 同來源列（note 前綴「來源：電子發票匯出」）以 統編（無統編用店名）為鍵逐筆比對，
+ * 相同略過、金額不同才更新金額、沒有的才新增；既有列的入帳狀態與群組對應一律保留，檔案沒有的既有列不刪。
  */
 
 export const SALES_INV_NOTE_PREFIX = '來源：電子發票匯出'
@@ -57,8 +61,16 @@ function normalizeRow(r) {
 /** rows：sheet_to_json 的原始列 → { months, stats } */
 export function aggregateSalesInvoices(allRows) {
   const agg = {}   // ym|groupKey → data
-  const stats = { invoices: 0, voided: 0, months: new Set(), total: 0 }
+  const stats = { invoices: 0, voided: 0, months: new Set(), total: 0, purchaseSkipped: 0, purchaseSkippedAmt: 0 }
+  const own = detectOwnTaxId(allRows)
   for (const raw of allRows) {
+    if (isMofRow(raw) && mofDirection(raw, own) !== 'out') {
+      if (mofDirection(raw, own) === 'in' && String(raw['發票狀態'] || '').includes('開立')) {
+        stats.purchaseSkipped++
+        stats.purchaseSkippedAmt += Number(raw['總計']) || 0
+      }
+      continue
+    }
     const r0 = normalizeRow(raw)
     const status = r0.status
     const ymRaw = r0.date.replace(/\//g, '-')
@@ -70,7 +82,8 @@ export function aggregateSalesInvoices(allRows) {
     const taxId = r0.taxId
     const name = r0.name
     const group = taxId ? name : (r0.consumerLabel || consumerGroup(r0.note))
-    const key = `${ym}|${group}|${taxId}`
+    // 有統編一律以統編為一組（同統編不同抬頭寫法也併成一筆，名稱取第一次出現的），與比對鍵 keyOf 一致
+    const key = taxId ? `${ym}|t|${taxId}` : `${ym}|s|${group}`
     ;(agg[key] ||= { ym, group, taxId, amount: 0, count: 0, invNos: [] })
     const a = agg[key]
     a.amount += amt
@@ -103,10 +116,139 @@ export function aggregateSalesInvoices(allRows) {
       confirmedAt: a.taxId ? null : lastDay(a.ym),
       confirmedAmount: a.taxId ? null : Math.round(a.amount),
       note: `${SALES_INV_NOTE_PREFIX}（${a.count} 張）`,
+      invNos: a.invNos,   // 僅供比對重複用，applySalesInvoiceMerge 寫入前會拿掉
     })
   }
   for (const ym of Object.keys(months)) months[ym].sort((x, y) => y.amount - x.amount)
   return { months, stats: { ...stats, months: [...stats.months].sort() } }
+}
+
+const normNo = (s) => String(s || '').trim().toUpperCase()
+const amtOf = (r) => Math.round(Number(r.amount) || 0)
+const isSameSource = (r) => String(r.note || '').startsWith(SALES_INV_NOTE_PREFIX)
+const keyOf = (r) => (String(r.taxId || '').trim() ? 't:' + String(r.taxId).trim() : 's:' + String(r.store || '').trim())
+
+/** 發票號碼 n 是否落在既有列的 invoiceNo（單號或「起~迄」區間）內 */
+function noInRange(n, invoiceNo) {
+  const s = normNo(invoiceNo)
+  if (!s || !n) return false
+  const [a, b] = s.split('~').map(x => x.trim())
+  if (!b) return n === a
+  return n.length === a.length && n >= a && n <= b
+}
+
+/** 既有列是否就是 plan 記下的那一筆：有 id 比 id，沒有 id 比物件本身 */
+const isOldRow = (r, old) => r === old || (!!old.id && r.id === old.id)
+
+/**
+ * 比對「既有發票對帳記錄」與「本次解析結果」，逐筆分類（不動任何資料）：
+ * ・same     同來源列、同鍵、金額相同 → 略過
+ * ・change   同來源列、同鍵、金額不同 → 可更新金額（保留入帳狀態）
+ * ・dup      其他來源列已登錄同一張發票（發票號碼相同，或手動列同統編同金額）→ 略過
+ * ・conflict 無法安全判斷（同月同統編有多筆同來源列且合計不符；或消費者發票已用另一種分組方式匯入過）→ 不動，交人工確認
+ * ・add      系統沒有 → 新增
+ * missing：既有同來源列、本次檔案沒有 → 保留不動（檔案可能只是部分匯出）
+ */
+export function planSalesInvoiceMerge(existingByMonth, incomingByMonth) {
+  const plan = { months: {}, add: 0, addAmt: 0, change: 0, same: 0, dup: 0, conflict: 0, missing: 0 }
+  for (const ym of Object.keys(incomingByMonth || {}).sort()) {
+    const existing = existingByMonth?.[ym] || []
+    const ownRows = existing.filter(isSameSource)
+    const own = new Map()   // 鍵 → 同來源列（正常只有一筆）
+    for (const r of ownRows) {
+      const k = keyOf(r)
+      if (!own.has(k)) own.set(k, [])
+      own.get(k).push(r)
+    }
+    const others = existing.filter(r => !isSameSource(r))
+    const incoming = incomingByMonth[ym]
+    const keys = new Set(incoming.map(keyOf))
+    // 既有的無統編同來源列、本次沒有同名分組：可能是同一批消費者發票用另一種分組方式（加值中心格式）匯入的
+    const strayConsumer = ownRows.filter(r => !String(r.taxId || '').trim() && !keys.has(keyOf(r)))
+
+    const rows = incoming.map(item => {
+      const olds = own.get(keyOf(item)) || []
+      if (olds.length === 1) return { kind: amtOf(olds[0]) === item.amount ? 'same' : 'change', item, old: olds[0] }
+      if (olds.length > 1) {
+        const sum = olds.reduce((s, r) => s + amtOf(r), 0)
+        if (sum === item.amount) return { kind: 'same', item, old: olds[0] }
+        return {
+          kind: 'conflict', item, old: olds[0],
+          reason: `系統同月有 ${olds.length} 筆同統編的電子發票列（合計 $${sum.toLocaleString()}），無法判斷要更新哪一筆`,
+        }
+      }
+      const nos = (item.invNos || []).map(normNo)
+      if (!item.taxId) {
+        const clash = strayConsumer.find(r => nos.some(n => noInRange(n, r.invoiceNo)))
+        if (clash) {
+          return {
+            kind: 'conflict', item, old: clash,
+            reason: `系統同月已有不同分組方式的消費者發票列「${clash.store}」，發票號碼重疊，新增會重複計算`,
+          }
+        }
+      }
+      const noSet = new Set(nos)
+      const dup = others.find(r =>
+        (normNo(r.invoiceNo) && noSet.has(normNo(r.invoiceNo))) ||
+        (item.taxId && !String(r.note || '').startsWith('來源：') &&
+          String(r.taxId || '').trim() === item.taxId && amtOf(r) === item.amount))
+      return dup ? { kind: 'dup', item, old: dup } : { kind: 'add', item }
+    })
+    const missing = ownRows.filter(r => !keys.has(keyOf(r)))
+    plan.months[ym] = { rows, missing }
+    for (const p of rows) {
+      plan[p.kind]++
+      if (p.kind === 'add') plan.addAmt += p.item.amount
+    }
+    plan.missing += missing.length
+  }
+  return plan
+}
+
+/** 無統編彙總列（如一般消費者）新增時，沿用最近一個月同名列的通路對應，未開立比對才不會漏 */
+function inheritedStores(existingByMonth, ym, store) {
+  const months = Object.keys(existingByMonth || {}).filter(m => m < ym).sort().reverse()
+  for (const m of months) {
+    const hit = (existingByMonth[m] || []).find(r => !r.taxId && r.store === store && (r.mergedStores || []).length)
+    if (hit) return hit.mergedStores
+  }
+  return null
+}
+
+/**
+ * 依 plan 產生要寫回的月份資料 { ym: rows }（只含有異動的月份）。
+ * 新增列自動套用客戶群組對應；更新列只改金額／發票號碼區間／張數備註。
+ */
+export function applySalesInvoiceMerge(existingByMonth, plan, { genId, billingEntities = [], updateChanged = true } = {}) {
+  const byTaxId = new Map(billingEntities.filter(e => e.taxId).map(e => [e.taxId, e]))
+  const byName = new Map(billingEntities.map(e => [e.name, e]))
+  const out = {}
+  for (const [ym, m] of Object.entries(plan.months)) {
+    let rows = [...(existingByMonth?.[ym] || [])]
+    let touched = false
+    for (const p of m.rows) {
+      if (p.kind === 'add') {
+        const { invNos, ...item } = p.item
+        const ent = (item.taxId && byTaxId.get(item.taxId)) || byName.get(item.store) || null
+        const inherited = !ent && !item.taxId ? inheritedStores(existingByMonth, ym, item.store) : null
+        rows.push({
+          ...item, id: genId(),
+          ...(ent ? { mergedStores: ent.stores || [], billingName: ent.name || item.billingName || '' } : {}),
+          ...(inherited ? { mergedStores: inherited } : {}),
+        })
+        touched = true
+      } else if (p.kind === 'change' && updateChanged) {
+        rows = rows.map(r => (!isOldRow(r, p.old) ? r : {
+          ...r, amount: p.item.amount, invoiceNo: p.item.invoiceNo, note: p.item.note,
+          // 無統編彙總列為即時收款，已收金額跟著發票額走；有統編的已收金額是實際匯款，不動
+          ...(!r.taxId && r.status === 'confirmed' ? { confirmedAmount: p.item.amount } : {}),
+        }))
+        touched = true
+      }
+    }
+    if (touched) out[ym] = rows
+  }
+  return out
 }
 
 /** files: File[]（.xlsx/.xls 或 .zip 內含之） */

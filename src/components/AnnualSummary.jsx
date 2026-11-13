@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend,
 } from 'recharts'
 
 /**
  * AnnualSummary — 📊 年度總表（彈窗）
  * ・年度費用：類別排行（含橫向圖表，一眼看出哪類費用太高）、項目排行（同名跨月加總）、月度費用走勢
- * ・年度發票：客戶發票金額排行（最高/最低）
- * 表格標題皆可點擊排序。
+ * ・年度發票：月度發票金額（已入帳／未入帳）、客戶發票金額排行（最高/最低、未入帳金額）
+ * 表格標題皆可點擊排序。mode="invoice" 時只顯示發票部分（發票對帳管理頁使用）。
  */
 
 const fmtN = (n) => '$' + Math.round(n).toLocaleString()
@@ -47,7 +47,8 @@ function useSort(defaultKey, defaultDir = 'desc') {
   return { sort, onSort, apply }
 }
 
-export default function AnnualSummary({ expenses = {}, invoices = null, categories = [], getColor = () => '#6B7280', onClose }) {
+export default function AnnualSummary({ expenses = {}, invoices = null, categories = [], getColor = () => '#6B7280', onClose, mode = 'all' }) {
+  const invoiceOnly = mode === 'invoice'
   // 可選年份 = 費用與發票資料出現過的年份
   const years = useMemo(() => {
     const ys = new Set()
@@ -56,7 +57,7 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
     return [...ys].sort().reverse()
   }, [expenses, invoices])
   const [year, setYear] = useState(years[0] || String(new Date().getFullYear()))
-  const [tab, setTab] = useState('expense') // expense | invoice
+  const [tab, setTab] = useState(invoiceOnly ? 'invoice' : 'expense') // expense | invoice
   const [showAllLabels, setShowAllLabels] = useState(false)
   const [showAllCust, setShowAllCust] = useState(false)
 
@@ -92,29 +93,37 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
   // ── 年度發票彙總（依客戶）──
   const inv = useMemo(() => {
     const byCust = {}
-    let total = 0, count = 0
+    const byMonth = {}
+    let total = 0, count = 0, paidTotal = 0
     for (const [ym, list] of Object.entries(invoices || {})) {
       if (!ym.startsWith(year)) continue
       for (const r of list || []) {
         const amt = Number(r.amount) || 0
-        total += amt; count++
+        // 已入帳：狀態為已入帳算全額；其餘有填已收金額的算部分入帳
+        const paid = r.status === 'confirmed' ? amt : Math.min(amt, Math.max(0, Number(r.confirmedAmount) || 0))
+        total += amt; count++; paidTotal += paid
         const name = r.billingName || r.store || '（未命名）'
-        const c = (byCust[name] ||= { name, taxId: r.taxId || '', amount: 0, n: 0, months: new Set() })
-        c.amount += amt; c.n++; c.months.add(ym)
+        const c = (byCust[name] ||= { name, taxId: r.taxId || '', amount: 0, paid: 0, n: 0, months: new Set() })
+        c.amount += amt; c.paid += paid; c.n++; c.months.add(ym)
+        const m = (byMonth[ym] ||= { ym, label: Number(ym.slice(5)) + '月', amount: 0, paid: 0, n: 0 })
+        m.amount += amt; m.paid += paid; m.n++
       }
     }
-    const custs = Object.values(byCust).map(c => ({ ...c, monthCount: c.months.size, share: total > 0 ? c.amount / total : 0 }))
-    return { total, count, custs }
+    const custs = Object.values(byCust).map(c => ({ ...c, unpaid: c.amount - c.paid, monthCount: c.months.size, share: total > 0 ? c.amount / total : 0 }))
+    const months = Object.values(byMonth).map(m => ({ ...m, unpaid: m.amount - m.paid })).sort((a, b) => a.ym.localeCompare(b.ym))
+    return { total, count, custs, months, paidTotal, unpaidTotal: total - paidTotal }
   }, [invoices, year])
 
   const catSort = useSort('amount')
   const labelSort = useSort('amount')
   const custSort = useSort('amount')
+  const monthSort = useSort('ym', 'asc')
 
   const sortedCats = catSort.apply(exp.cats)
   const sortedLabels = labelSort.apply(exp.labels)
   const shownLabels = showAllLabels ? sortedLabels : sortedLabels.slice(0, 20)
   const sortedCusts = custSort.apply(inv.custs)
+  const sortedMonths = monthSort.apply(inv.months)
   const shownCusts = showAllCust ? sortedCusts : sortedCusts.slice(0, 20)
 
   const topCat = exp.cats[0], topLabel = [...exp.labels].sort((a, b) => b.amount - a.amount)[0]
@@ -128,7 +137,7 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6" onClick={e => e.stopPropagation()}>
         {/* 標題列 */}
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">📊 {year} 年度總表</h3>
+          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">📊 {year} {invoiceOnly ? '年度發票總表' : '年度總表'}</h3>
           <div className="flex items-center gap-2">
             <select value={year} onChange={e => setYear(e.target.value)}
               className="border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100">
@@ -139,7 +148,7 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
         </div>
 
         {/* KPI 摘要 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+        <div className={invoiceOnly ? 'hidden' : 'grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4'}>
           <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
             <p className="text-xs text-gray-400">年度費用總額（{exp.monthN} 個月）</p>
             <p className="text-lg font-bold font-mono text-gray-800 dark:text-gray-100">{fmtN(exp.total)}</p>
@@ -162,7 +171,7 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
         </div>
 
         {/* 分頁 */}
-        <div className="flex gap-1 mb-3">
+        <div className={invoiceOnly ? 'hidden' : 'flex gap-1 mb-3'}>
           <button onClick={() => setTab('expense')}
             className={`px-4 py-1.5 text-sm font-bold rounded-lg ${tab === 'expense' ? 'bg-indigo-600 text-white' : 'border border-gray-200 dark:border-gray-600 text-gray-500'}`}>💰 費用</button>
           <button onClick={() => setTab('invoice')}
@@ -234,7 +243,7 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
             {/* 項目排行表 */}
             <div className="overflow-x-auto">
               <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-1">項目排行（同名項目跨月加總）</p>
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <SortableHead sort={labelSort.sort} onSort={labelSort.onSort} cols={[
                     { key: 'label', label: '項目' },
@@ -268,10 +277,20 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
 
         {tab === 'invoice' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
               <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
                 <p className="text-xs text-gray-400">年度發票總額</p>
                 <p className="text-base font-bold font-mono text-gray-800 dark:text-gray-100">{fmtN(inv.total)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-400">✅ 已入帳</p>
+                <p className="text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">{fmtN(inv.paidTotal)}</p>
+                <p className="text-xs text-gray-400">{pct(inv.paidTotal, inv.total)}</p>
+              </div>
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
+                <p className="text-xs text-gray-400">⏳ 未入帳</p>
+                <p className="text-base font-bold font-mono text-amber-600 dark:text-amber-400">{fmtN(inv.unpaidTotal)}</p>
+                <p className="text-xs text-gray-400">{pct(inv.unpaidTotal, inv.total)}</p>
               </div>
               <div className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
                 <p className="text-xs text-gray-400">發票記錄筆數</p>
@@ -286,6 +305,48 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
                 <p className="text-xs text-gray-400">金額最低</p>
                 <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate" title={minCust?.name}>{minCust?.name || '—'}</p>
                 <p className="text-xs text-gray-400">{minCust ? fmtN(minCust.amount) : ''}</p>
+              </div>
+            </div>
+
+            {/* 月度發票：已入帳／未入帳 */}
+            <div>
+              <p className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-1">每月發票金額（已入帳／未入帳）</p>
+              <div style={{ height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={inv.months} margin={{ left: 8, right: 8, top: 8, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tickFormatter={v => v >= 1e4 ? (v / 1e4).toFixed(0) + '萬' : v} tick={{ fontSize: 11 }} width={48} />
+                    <Tooltip formatter={(v, name) => [fmtN(v), name]} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="paid" name="已入帳" stackId="a" fill="#10B981" />
+                    <Bar dataKey="unpaid" name="未入帳" stackId="a" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="overflow-x-auto mt-2">
+                <table className="w-full min-w-[480px] text-sm">
+                  <thead>
+                    <SortableHead sort={monthSort.sort} onSort={monthSort.onSort} cols={[
+                      { key: 'ym', label: '月份' },
+                      { key: 'amount', label: '發票金額', right: true },
+                      { key: 'paid', label: '已入帳', right: true },
+                      { key: 'unpaid', label: '未入帳', right: true },
+                      { key: 'n', label: '筆數', right: true },
+                    ]} />
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                    {sortedMonths.map(m => (
+                      <tr key={m.ym}>
+                        <td className={TD + ' font-semibold text-gray-700 dark:text-gray-200'}>{m.ym}</td>
+                        <td className={TD + ' text-right font-mono font-bold tabular-nums'}>{fmtN(m.amount)}</td>
+                        <td className={TD + ' text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400'}>{fmtN(m.paid)}</td>
+                        <td className={TD + ' text-right font-mono tabular-nums text-amber-600 dark:text-amber-400'}>{m.unpaid > 0 ? fmtN(m.unpaid) : '—'}</td>
+                        <td className={TD + ' text-right text-gray-400'}>{m.n}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -315,6 +376,8 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
                     { key: 'name', label: '客戶（發票抬頭）' },
                     { key: 'taxId', label: '統編' },
                     { key: 'amount', label: '年度發票金額', right: true },
+                    { key: 'paid', label: '已入帳', right: true },
+                    { key: 'unpaid', label: '未入帳', right: true },
                     { key: 'n', label: '筆數', right: true },
                     { key: 'monthCount', label: '月數', right: true },
                     { key: 'share', label: '占比', right: true },
@@ -326,6 +389,8 @@ export default function AnnualSummary({ expenses = {}, invoices = null, categori
                       <td className="py-2 px-2 font-semibold text-gray-700 dark:text-gray-200 break-words max-w-[16rem]">{c.name}</td>
                       <td className={TD + ' text-gray-400 font-mono text-xs'}>{c.taxId || '—'}</td>
                       <td className={TD + ' text-right font-mono font-bold'}>{fmtN(c.amount)}</td>
+                      <td className={TD + ' text-right font-mono text-emerald-600 dark:text-emerald-400'}>{c.paid > 0 ? fmtN(c.paid) : '—'}</td>
+                      <td className={TD + ' text-right font-mono text-amber-600 dark:text-amber-400'}>{c.unpaid > 0 ? fmtN(c.unpaid) : '—'}</td>
                       <td className={TD + ' text-right text-gray-400'}>{c.n}</td>
                       <td className={TD + ' text-right text-gray-400'}>{c.monthCount}</td>
                       <td className={TD + ' text-right text-gray-400'}>{pct(c.amount, inv.total)}</td>

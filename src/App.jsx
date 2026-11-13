@@ -1291,6 +1291,7 @@ function AppDashboard() {
               onSave={saveMonthlyExpenses}
               invoices={invoiceRecords}
               onSaveInvoices={saveInvoiceRecords}
+              billingEntities={billingEntities}
             />
           )}
           {activeTab === 'crm' && (
@@ -1319,6 +1320,8 @@ function AppDashboard() {
               billingEntities={billingEntities}
               onSaveBillingEntity={saveBillingEntity}
               onDeleteBillingEntity={deleteBillingEntity}
+              expenses={monthlyExpenses}
+              onSaveExpenses={saveMonthlyExpenses}
             />
           )}
           {activeTab === 'goals' && meta && (

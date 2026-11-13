@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react'
-import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
+import InvoiceFileImport from './InvoiceFileImport'
 import { parseMomoFiles, MOMO_LABELS, MOMO_NOTE_PREFIX } from '../utils/momoStatement'
 import { parseShopeeFiles, SHOPEE_STMT_NOTE_PREFIX, SHOPEE_TAX_ID, SHOPEE_BILLING_NAME } from '../utils/shopeeStatement'
 import { parseHctFiles, HCT_NOTE_PREFIX, HCT_LABEL } from '../utils/hctStatement'
@@ -129,16 +129,13 @@ function ExpenseForm({ form, setForm, categories, onSubmit, onCancel, submitLabe
 }
 
 // ─── 主元件 ────────────────────────────────────────────────────────────────
-export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices = null, onSaveInvoices = null }) {
+export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices = null, onSaveInvoices = null, billingEntities = [] }) {
   const today = new Date()
   const [currentMonth, setCurrentMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
   const [showAddForm, setShowAddForm] = useState(false)
-  // 進項發票匯入
-  const invFileRef = useRef(null)
-  const [importPreview, setImportPreview] = useState(null)
-  const [importBusy, setImportBusy] = useState(false)
+  // 匯入結果訊息（進銷項發票、momo／蝦皮／新竹物流對帳單共用）
   const [importDone, setImportDone] = useState(null)
 
   // momo 對帳單匯入
@@ -198,11 +195,10 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
     (i.category === '物流費用' && String(i.label || '').trim() === HCT_LABEL))
   const momoExisting = (ym) => (expenses[ym] || []).filter(i => String(i.label || '').startsWith('momo '))
   const shopeeExisting = (ym) => (expenses[ym] || []).filter(i => String(i.note || '').startsWith(SHOPEE_STMT_NOTE_PREFIX))
-  const invExisting = (ym) => (expenses[ym] || []).filter(i => String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
   /** 已匯入過的月份 → 彈出覆蓋確認；按取消＝整批放棄 */
   function askOverwrite(name, pairs) {
     if (!pairs.length) return true
-    const lines = pairs.map(p => `・${p.ym}：既有 $${Math.round(p.oldAmt).toLocaleString()}（${p.n} 筆）→ 本次 $${Math.round(p.newAmt).toLocaleString()}`).join('\n')
+    const lines = pairs.map(p => `・${p.ym}：既有 $${Math.round(p.oldAmt).toLocaleString()}（${p.n} 筆）→ 本次 $${Math.round(p.newAmt).toLocaleString()}${Math.round(p.oldAmt) === Math.round(p.newAmt) ? '（金額相同）' : ''}`).join('\n')
     return window.confirm(`⚠ 以下月份先前已匯入過${name}，再匯入會以本次內容覆蓋舊列：\n\n${lines}\n\n按「確定」覆蓋匯入；按「取消」放棄本次全部匯入。`)
   }
   /** 預覽用小徽章：該月已有同來源資料時顯示 */
@@ -310,42 +306,6 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
     setHctPreview(null)
   }
 
-  async function handleInvoiceFiles(fileList) {
-    const files = [...fileList].filter(f => /\.xlsx?$/i.test(f.name))
-    if (!files.length) return
-    setImportBusy(true); setImportDone(null)
-    try {
-      const result = await parseInvoiceFiles(files)
-      setImportPreview(result)
-    } catch (e) {
-      setImportDone({ ok: false, text: '解析失敗：' + (e.message || e) })
-    }
-    setImportBusy(false)
-  }
-
-  function confirmInvoiceImport() {
-    if (!importPreview) return
-    const months = Object.keys(importPreview.months).sort()
-    const ow = months.map(ym => ({ ym, rows: invExisting(ym) })).filter(x => x.rows.length)
-      .map(x => ({ ym: x.ym, n: x.rows.length, oldAmt: sumRows(x.rows), newAmt: importPreview.months[x.ym].reduce((s2, i) => s2 + (i.amount || 0), 0) }))
-    if (!askOverwrite('進項發票', ow)) return
-    let dupSkipped = 0, dupAmt = 0
-    for (const ym of months) {
-      const keep = (expenses[ym] || []).filter(i => !String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
-      // 去重：同月已有同名費用列（來自對帳單/請款明細等其他來源）→ 發票版本略過不重複載入
-      const keepLabels = new Set(keep.map(i => String(i.label || '').trim()))
-      const fresh = []
-      for (const i of importPreview.months[ym]) {
-        if (keepLabels.has(String(i.label || '').trim())) { dupSkipped++; dupAmt += i.amount || 0; continue }
-        fresh.push({ ...i, id: genId(), count: '', unitCost: '' })
-      }
-      onSave(ym, [...keep, ...fresh])
-    }
-    const total = months.reduce((s2, ym) => s2 + importPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0) - dupAmt
-    const n = months.reduce((n2, ym) => n2 + importPreview.months[ym].length, 0) - dupSkipped
-    setImportDone({ ok: true, text: '已匯入 ' + months.join('、') + ' 共 ' + n + ' 筆、$' + total.toLocaleString() + '（同月份舊發票列已自動更新）' + (dupSkipped ? `；略過 ${dupSkipped} 筆與既有對帳單/請款明細同名的重複（$${Math.round(dupAmt).toLocaleString()}）` : '') })
-    setImportPreview(null)
-  }
   // 🔍 費用健檢：全月份自動掃描（同月同名＝確定重複；同月同額同類別不同名＝疑似）
   const [showHealth, setShowHealth] = useState(false)
   const healthIssues = useMemo(() => {
@@ -559,13 +519,12 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             className="px-3 py-1.5 text-sm border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors font-semibold">
             🔍 費用健檢{healthIssues.dup.length + healthIssues.similar.length > 0 ? `（${healthIssues.dup.length + healthIssues.similar.length}）` : ''}
           </button>
-          <button onClick={() => invFileRef.current?.click()} disabled={importBusy}
-            title="上傳財政部進項發票匯出檔（xls/xlsx 可多選）：自動分類為物流/廣告/平台/油資/伙食等並排除商品進貨；重匯同月自動覆蓋舊發票列"
-            className="px-3 py-1.5 text-sm border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-semibold">
-            {importBusy ? '解析中…' : '📥 匯入進項發票'}
-          </button>
-          <input ref={invFileRef} type="file" accept=".xls,.xlsx" multiple className="hidden"
-            onChange={e => { handleInvoiceFiles(e.target.files); e.target.value = '' }} />
+          <InvoiceFileImport
+            label="📥 匯入進銷項發票"
+            className="px-3 py-1.5 text-sm border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-semibold"
+            expenses={expenses} onSaveExpenses={onSave}
+            invoices={invoices} onSaveInvoices={onSaveInvoices}
+            billingEntities={billingEntities} genId={genId} onMessage={setImportDone} />
           <button onClick={() => momoFileRef.current?.click()} disabled={momoBusy}
             title="上傳 momo 供應商對帳單 PDF（可多選或整包 ZIP）：自動拆 物流倉租/廣告贊助(含貨款扣抵廣告費)/平台服務獎勵金 三類，逐項加總與對帳單總計勾稽；重匯同月自動覆蓋"
             className="px-3 py-1.5 text-sm border border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-400 rounded-lg hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors font-semibold">
@@ -734,43 +693,6 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             <div className="flex gap-2 justify-end mt-3">
               <button onClick={() => setHctPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
               <button onClick={confirmHctImport} className="px-4 py-2 text-sm bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {importPreview && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setImportPreview(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 進項發票匯入預覽</h3>
-            <p className="text-xs text-gray-400 mb-3">
-              有效發票 {importPreview.stats.invoices} 張（作廢 {importPreview.stats.voided}）｜月份：{importPreview.stats.months.join('、')}｜
-              已排除商品進貨 ${Math.round(importPreview.stats.goodsTotal).toLocaleString()}（{Object.keys(importPreview.stats.goodsBySeller).length} 家供應商，屬商品成本不入月費用）
-              {importPreview.stats.momoSkipped > 0 && `｜略過 momo $${Math.round(importPreview.stats.momoSkipped).toLocaleString()}（撥款已內扣）`}
-              {importPreview.stats.shopeeFeeSkipped > 0 && `｜略過蝦皮手續費 $${Math.round(importPreview.stats.shopeeFeeSkipped).toLocaleString()}（銷售已內扣 20%）`}
-            </p>
-            {Object.keys(importPreview.stats.unknownSellers || {}).length > 0 && (
-              <p className="text-xs text-amber-600 mb-2">⚠ 未識別賣方（暫歸「其他」）：{Object.entries(importPreview.stats.unknownSellers).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n2, v]) => `${n2} $${Math.round(v).toLocaleString()}`).join('、')}</p>
-            )}
-            {Object.keys(importPreview.months).sort().map(ym => (
-              <div key={ym} className="mb-3">
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1 mb-1">
-                  {ym}（{importPreview.months[ym].length} 筆，${importPreview.months[ym].reduce((s2, i) => s2 + i.amount, 0).toLocaleString()}）<OwBadge rows={invExisting(ym)} />
-                </p>
-                {importPreview.months[ym].map((i, idx) => (
-                  <div key={idx} className="flex justify-between text-sm py-0.5">
-                    <span className="text-gray-600 dark:text-gray-300 break-words">
-                      <span className="text-xs px-1.5 py-0.5 rounded mr-1.5 text-white" style={{ background: CAT_COLORS[i.category] || '#6B7280' }}>{i.category}</span>
-                      {i.label}
-                    </span>
-                    <span className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap ml-2">${i.amount.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-            <div className="flex gap-2 justify-end mt-3">
-              <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
-              <button onClick={confirmInvoiceImport} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
             </div>
           </div>
         </div>

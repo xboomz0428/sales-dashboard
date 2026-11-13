@@ -65,5 +65,9 @@ export async function replaceMonthRows(client, table, month, rows) {
   if (upErr) throw upErr
   const ids = rows.map(r => `"${String(r.id).replace(/["\\]/g, '\\$&')}"`).join(',')
   const { error: delErr } = await client.from(table).delete().eq('month', month).not('id', 'in', `(${ids})`)
-  if (delErr) throw delErr
+  if (delErr) {
+    // 新資料已寫入，只是多餘舊列沒清掉：標記階段，讓提示訊息能說清楚
+    delErr.stage = 'cleanup'
+    throw delErr
+  }
 }

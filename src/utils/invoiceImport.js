@@ -1,13 +1,16 @@
 import * as XLSX from 'xlsx'
+import { isMofRow, detectOwnTaxId, mofDirection } from './mofInvoice'
 
 /**
  * invoiceImport.js — 財政部「進項發票」匯出檔（IN 檔 xls/xlsx）→ 月費用自動分類
+ * 財政部檔可能進銷項混合：只取買方＝本公司的列入費用；賣方＝本公司的銷項列
+ * 原樣放進回傳的 salesRows（交給 salesInvoiceImport 進發票對帳），不會被當成費用。
  * 與 2026-09 首次人工匯入使用同一套規則：
  * ・進貨（商品成本）排除，只入營運費用
  * ・蝦皮拆三類：廣告儲值→廣告費用｜手續費/服務費→平台費用｜平台購物→辦公（待確認）
  * ・momo 拆二類：廣告/行銷贊助→廣告費用｜服務管理費→平台費用
  * ・日藥本舖拆三類：物流管理→物流費用｜檔期推廣→廣告費用｜進貨獎勵金→平台費用
- * 匯入端以 note 前綴「來源：進項發票」做冪等（重匯同月自動先清舊列）。
+ * 匯入端以 note 前綴「來源：進項發票」辨識同來源列，逐筆比對後合併（planExpenseMerge／applyExpenseMerge），不整月覆蓋。
  */
 
 export const IMPORT_NOTE_PREFIX = '來源：進項發票'
@@ -32,20 +35,57 @@ function readWorkbook(buf) {
   return XLSX.read(buf, { type: 'array' })
 }
 
-/** files: File[]（瀏覽器）→ { months, stats } */
+/** 讀出每個活頁簿的主檔列與品項明細；非財政部格式（加值中心銷項匯出）整本視為銷項 */
+async function readBooks(files) {
+  const books = []
+  const add = (wb) => {
+    const mainName = wb.SheetNames.includes('btb411w_xls1') ? 'btb411w_xls1' : wb.SheetNames[0]
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[mainName])
+    if (rows.some(isMofRow)) {
+      const detailName = wb.SheetNames.find(n => n !== mainName)
+      books.push({ mof: true, rows, details: detailName ? XLSX.utils.sheet_to_json(wb.Sheets[detailName]) : [] })
+    } else {
+      const all = []
+      for (const sn of wb.SheetNames) all.push(...XLSX.utils.sheet_to_json(wb.Sheets[sn]))
+      books.push({ mof: false, rows: all, details: [] })
+    }
+  }
+  for (const file of files) {
+    if (/\.zip$/i.test(file.name)) {
+      const JSZip = (await import('jszip')).default
+      const zip = await JSZip.loadAsync(await file.arrayBuffer())
+      for (const entry of Object.values(zip.files)) {
+        if (!entry.dir && /\.xlsx?$/i.test(entry.name)) add(readWorkbook(await entry.async('arraybuffer')))
+      }
+    } else if (/\.xlsx?$/i.test(file.name)) {
+      add(readWorkbook(await file.arrayBuffer()))
+    }
+  }
+  return books
+}
+
+/**
+ * files: File[]（.xls/.xlsx 或內含它們的 .zip）→ { months, salesRows, stats }
+ * 自動判斷每一列的方向：進項 → months（月費用）；銷項 → salesRows（交給 aggregateSalesInvoices）
+ */
 export async function parseInvoiceFiles(files) {
   const agg = {}      // ym|category|label → { amount, sellers:Set }
-  const stats = { invoices: 0, voided: 0, goodsTotal: 0, goodsBySeller: {}, months: new Set(), unknownSellers: {} }
+  const stats = { invoices: 0, voided: 0, goodsTotal: 0, goodsBySeller: {}, months: new Set(), unknownSellers: {}, salesSkipped: 0 }
+  const salesRows = []   // 銷項列（賣方＝本公司，或加值中心銷項匯出），不入費用
 
-  for (const file of files) {
-    const wb = readWorkbook(await file.arrayBuffer())
-    const main = wb.Sheets['btb411w_xls1'] || wb.Sheets[wb.SheetNames[0]]
-    const detailName = wb.SheetNames.find(n => n !== 'btb411w_xls1')
-    const details = detailName ? XLSX.utils.sheet_to_json(wb.Sheets[detailName]) : []
+  const books = await readBooks(files)
+  const own = detectOwnTaxId(books.flatMap(bk => (bk.mof ? bk.rows : [])))
+
+  for (const { mof, rows, details } of books) {
+    if (!mof) { salesRows.push(...rows); stats.salesSkipped += rows.length; continue }
     const itemsByInv = {}
     for (const d of details) (itemsByInv[d['發票號碼']] ||= []).push(String(d['品名'] || ''))
 
-    for (const r of XLSX.utils.sheet_to_json(main)) {
+    for (const r of rows) {
+      if (!isMofRow(r)) continue
+      const dir = mofDirection(r, own)
+      if (dir === 'out') { salesRows.push(r); stats.salesSkipped++; continue }
+      if (dir !== 'in') continue
       const status = String(r['發票狀態'] || '')
       if (!status.includes('開立')) { stats.voided++; continue }
       const seller = String(r['賣方名稱'] || '').trim()
@@ -104,5 +144,82 @@ export async function parseInvoiceFiles(files) {
     ;(months[ym] ||= []).push({ category, label, amount: Math.round(d.amount), note })
   }
   for (const ym of Object.keys(months)) months[ym].sort((a, b) => b.amount - a.amount)
-  return { months, stats: { ...stats, months: [...stats.months].sort() } }
+  return { months, salesRows, stats: { ...stats, months: [...stats.months].sort() } }
+}
+
+// ─── 費用逐筆比對（匯入預覽用）────────────────────────────────────────────────
+const labelOf = (r) => String(r.label || '').trim()
+const isImportRow = (r) => String(r.note || '').startsWith(IMPORT_NOTE_PREFIX)
+const sameRow = (r, old) => r === old || (!!old.id && r.id === old.id)
+
+/**
+ * 比對「既有月費用」與「本次進項發票解析結果」，逐筆分類（不動任何資料）：
+ * ・same     同來源列（備註以「來源：進項發票」開頭）、同項目、金額相同 → 略過
+ * ・change   同來源列、同項目、金額不同 → 可更新金額
+ * ・dupOther 同月已有其他來源（對帳單／請款明細／手動）的同名項目 → 略過，不重複載入
+ * ・add      系統沒有 → 新增
+ * stale：既有同來源列、本次檔案沒有 → 預設保留（可能是你改過名稱或檔案只是部分匯出），可勾選移除
+ */
+export function planExpenseMerge(existingByMonth, incomingByMonth, { amountOf = (r) => Number(r.amount) || 0 } = {}) {
+  const plan = { months: {}, add: 0, addAmt: 0, change: 0, same: 0, dupOther: 0, stale: 0 }
+  for (const ym of Object.keys(incomingByMonth || {}).sort()) {
+    const existing = existingByMonth?.[ym] || []
+    const own = new Map()
+    for (const r of existing) if (isImportRow(r) && !own.has(labelOf(r))) own.set(labelOf(r), r)
+    const others = new Map()
+    for (const r of existing) if (!isImportRow(r) && !others.has(labelOf(r))) others.set(labelOf(r), r)
+    const incoming = incomingByMonth[ym]
+    const labels = new Set(incoming.map(labelOf))
+    const rows = incoming.map(item => {
+      const other = others.get(labelOf(item))
+      if (other) return { kind: 'dupOther', item, old: other, oldAmt: Math.round(amountOf(other)) }
+      const old = own.get(labelOf(item))
+      if (!old) return { kind: 'add', item }
+      const oldAmt = Math.round(amountOf(old))
+      return { kind: oldAmt === item.amount ? 'same' : 'change', item, old, oldAmt }
+    })
+    const stale = existing.filter(r => isImportRow(r) && !labels.has(labelOf(r)))
+      .map(r => ({ old: r, oldAmt: Math.round(amountOf(r)) }))
+    plan.months[ym] = { rows, stale }
+    for (const p of rows) {
+      plan[p.kind]++
+      if (p.kind === 'add') plan.addAmt += p.item.amount
+    }
+    plan.stale += stale.length
+  }
+  return plan
+}
+
+/** 預覽勾選的預設值：新增與更新預設勾選；「檔案未含」的既有列預設不移除 */
+export const expenseDefaultChecked = (kind) => kind === 'add' || kind === 'change'
+
+/**
+ * 依 plan 與勾選狀態產生要寫回的月份資料 { ym: rows }（只含有異動的月份）。
+ * isChecked(ym, kind, label)：kind 為 'add'｜'change'｜'stale'（stale 勾選＝移除）
+ */
+export function applyExpenseMerge(existingByMonth, plan, { genId, isChecked = (ym, kind) => expenseDefaultChecked(kind) } = {}) {
+  const out = {}
+  const done = { add: 0, addAmt: 0, change: 0, removed: 0 }
+  for (const [ym, m] of Object.entries(plan.months)) {
+    let rows = [...(existingByMonth?.[ym] || [])]
+    let touched = false
+    for (const p of m.rows) {
+      if (p.kind === 'add' && isChecked(ym, 'add', labelOf(p.item))) {
+        rows.push({ ...p.item, id: genId(), count: '', unitCost: '' })
+        done.add++; done.addAmt += p.item.amount; touched = true
+      } else if (p.kind === 'change' && isChecked(ym, 'change', labelOf(p.item))) {
+        // 金額以發票為準：清掉數量×單價，否則畫面仍會用舊的乘積
+        rows = rows.map(r => (!sameRow(r, p.old) ? r : { ...r, amount: p.item.amount, note: p.item.note, count: '', unitCost: '' }))
+        done.change++; touched = true
+      }
+    }
+    for (const st of m.stale) {
+      if (isChecked(ym, 'stale', labelOf(st.old))) {
+        rows = rows.filter(r => !sameRow(r, st.old))
+        done.removed++; touched = true
+      }
+    }
+    if (touched) out[ym] = rows
+  }
+  return { months: out, done }
 }

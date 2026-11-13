@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { getInvoiceReminderEnabled, setInvoiceReminderEnabled } from './DashboardReminders'
-import { parseSalesInvoiceFiles, SALES_INV_NOTE_PREFIX } from '../utils/salesInvoiceImport'
+import InvoiceFileImport from './InvoiceFileImport'
+import AnnualSummary from './AnnualSummary'
 import CustomerGroupManager from './CustomerGroupManager'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -1029,48 +1030,12 @@ function GroupRows({
 export default function InvoiceReconciliation({
   invoices = {}, onSave, allRows = [],
   billingEntities = [], onSaveBillingEntity, onDeleteBillingEntity,
+  expenses = null, onSaveExpenses = null,
 }) {
   const [invoiceRemindersEnabled, setInvoiceReminderState] = useState(getInvoiceReminderEnabled)
-  // 📥 電子發票（銷項）匯入
-  const [einvPreview, setEinvPreview] = useState(null)
-  const [einvBusy, setEinvBusy] = useState(false)
+  // 📥 發票檔匯入的結果訊息、📊 年度發票總表
   const [einvMsg, setEinvMsg] = useState(null)
-
-  async function handleEinvFiles(fileList) {
-    const files = [...fileList].filter(f => /\.(xlsx?|zip)$/i.test(f.name))
-    if (!files.length) return
-    setEinvBusy(true); setEinvMsg(null)
-    try {
-      const result = await parseSalesInvoiceFiles(files)
-      if (!result.stats.invoices) setEinvMsg({ ok: false, text: '未解析到任何開立中的發票' })
-      else setEinvPreview(result)
-    } catch (e) {
-      setEinvMsg({ ok: false, text: '解析失敗：' + (e.message || e) })
-    }
-    setEinvBusy(false)
-  }
-
-  function confirmEinvImport() {
-    if (!einvPreview) return
-    // 匯入時自動套用客戶群組對應：買方統編（或抬頭）→ 群組成員通路名稱
-    const byTaxId = new Map(billingEntities.filter(e => e.taxId).map(e => [e.taxId, e]))
-    const byName = new Map(billingEntities.map(e => [e.name, e]))
-    const months = Object.keys(einvPreview.months).sort()
-    for (const ym of months) {
-      const keep = (invoices[ym] || []).filter(i => !String(i.note || '').startsWith(SALES_INV_NOTE_PREFIX))
-      const fresh = einvPreview.months[ym].map(i => {
-        const ent = (i.taxId && byTaxId.get(i.taxId)) || byName.get(i.store) || null
-        return {
-          ...i, id: genId(),
-          ...(ent ? { mergedStores: ent.stores || [], billingName: ent.name || i.billingName || '' } : {}),
-        }
-      })
-      onSave(ym, [...keep, ...fresh])
-    }
-    const total = months.reduce((s2, ym) => s2 + einvPreview.months[ym].reduce((a, i) => a + i.amount, 0), 0)
-    setEinvMsg({ ok: true, text: '已匯入 ' + months.length + ' 個月（' + months[0] + '~' + months[months.length - 1] + '）共 $' + total.toLocaleString() + '，同月舊電子發票列已更新' })
-    setEinvPreview(null)
-  }
+  const [showAnnual, setShowAnnual] = useState(false)
   const toggleInvoiceReminders = () => {
     const next = !invoiceRemindersEnabled
     setInvoiceReminderState(next)
@@ -1577,12 +1542,19 @@ export default function InvoiceReconciliation({
               📋 建立本月清單
             </button>
           )}
-          <label className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-sm font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors cursor-pointer"
-            title="上傳電子發票銷項匯出檔（Excel_NoDetail_Invoice*.xlsx 或 ZIP，可多選）：依 月份×買方 自動彙總入帳；有統編照公司分組、無統編依官網/PINKOI等歸組；作廢自動排除；重匯同月自動覆蓋">
-            {einvBusy ? '解析中…' : '📥 匯入電子發票'}
-            <input type="file" accept=".xls,.xlsx,.zip" multiple className="hidden"
-              onChange={e => { handleEinvFiles(e.target.files); e.target.value = '' }} />
-          </label>
+          <InvoiceFileImport
+            label="📥 匯入進銷項發票"
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-sm font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+            invoices={invoices} onSaveInvoices={onSave}
+            expenses={expenses} onSaveExpenses={onSaveExpenses}
+            billingEntities={billingEntities} genId={genId} onMessage={setEinvMsg} />
+          <button
+            onClick={() => setShowAnnual(true)}
+            className="ml-1 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 text-sm font-semibold hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+            title="年度發票總表：每月發票金額與已入帳／未入帳、客戶發票排行，表格可點標題排序"
+          >
+            📊 年度總表
+          </button>
           <button
             onClick={() => { setEditItem(null); setShowForm(true) }}
             className="ml-1 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
@@ -1592,33 +1564,8 @@ export default function InvoiceReconciliation({
           {einvMsg && (
             <span className={'ml-2 text-sm font-semibold ' + (einvMsg.ok ? 'text-green-600' : 'text-red-500')}>{einvMsg.ok ? '✓ ' : '✕ '}{einvMsg.text}</span>
           )}
-          {einvPreview && (
-            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setEinvPreview(null)}>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e2 => e2.stopPropagation()}>
-                <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 電子發票匯入預覽</h3>
-                <p className="text-xs text-gray-400 mb-3">
-                  有效 {einvPreview.stats.invoices} 張（作廢排除 {einvPreview.stats.voided}）｜總額 ${Math.round(einvPreview.stats.total).toLocaleString()}｜月份：{einvPreview.stats.months.join('、')}
-                </p>
-                {Object.keys(einvPreview.months).sort().map(ym => (
-                  <div key={ym} className="mb-3">
-                    <p className="text-sm font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1 mb-1">
-                      {ym}（{einvPreview.months[ym].length} 組買方，${einvPreview.months[ym].reduce((s2, i) => s2 + i.amount, 0).toLocaleString()}）
-                    </p>
-                    {einvPreview.months[ym].slice(0, 8).map((i, idx) => (
-                      <div key={idx} className="flex justify-between text-sm py-0.5">
-                        <span className="text-gray-600 dark:text-gray-300 break-words">{i.store}{i.taxId ? '' : '（無統編）'}</span>
-                        <span className="font-mono font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap ml-2">${i.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
-                    {einvPreview.months[ym].length > 8 && <p className="text-xs text-gray-400">…及其他 {einvPreview.months[ym].length - 8} 組</p>}
-                  </div>
-                ))}
-                <div className="flex gap-2 justify-end mt-3">
-                  <button onClick={() => setEinvPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
-                  <button onClick={confirmEinvImport} className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
-                </div>
-              </div>
-            </div>
+          {showAnnual && (
+            <AnnualSummary mode="invoice" invoices={invoices} onClose={() => setShowAnnual(false)} />
           )}
         </div>
       </div>
