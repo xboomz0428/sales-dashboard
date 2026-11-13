@@ -7,12 +7,14 @@
  *   • 狀態以 { 'YYYY-MM': [...items] } 格式存於 React state
  *   • 每次 save 時同步更新 localStorage（離線 / 示範模式用）
  *   • 登入後從 Supabase DB 拉取全量資料（合併至本地）
- *   • 每次 save 時非同步同步到 Supabase（以月份為單位：先刪後插）
+ *   • 每次 save 時非同步同步到 Supabase（以月份為單位：先寫入、成功後才刪掉該月多餘的舊列）
  *
+ * 寫入失敗時不刪任何資料，並跳出提醒（不可靜默：曾因「先刪後插＋失敗無聲」整月資料被清空）。
  * Supabase 未設定時降級為純 localStorage。
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase, supabaseReady } from '../config/supabase'
+import { INVOICE_FIELDS, EXPENSE_FIELDS, appToDbRow, replaceMonthRows } from '../utils/monthSync'
 
 const LS_INVOICE  = 'invoice_records'
 const LS_EXPENSE  = 'monthly_expenses'
@@ -51,46 +53,35 @@ function rowsToMonthMap(rows, fields) {
   return map
 }
 
-// ─── Invoice 欄位對應 ─────────────────────────────────────────────────────────
-const INVOICE_FIELDS = [
-  { app: 'id',              db: 'id',              default: '' },
-  { app: 'store',           db: 'store',           default: '' },
-  { app: 'billingName',     db: 'billing_name',    default: '' },
-  { app: 'taxId',           db: 'tax_id',          default: '' },
-  { app: 'mergedStores',    db: 'merged_stores',   default: [] },
-  { app: 'invoiceNo',       db: 'invoice_no',      default: '' },
-  { app: 'billingStart',    db: 'billing_start',   default: null },
-  { app: 'billingEnd',      db: 'billing_end',     default: null },
-  { app: 'amount',          db: 'amount',          default: 0 },
-  { app: 'invoiceType',     db: 'invoice_type',    default: 'electronic' },
-  { app: 'paymentMethod',   db: 'payment_method',  default: 'transfer' },
-  { app: 'paymentTerm',     db: 'payment_term',    default: 30 },
-  { app: 'issueDate',       db: 'issue_date',      default: null },
-  { app: 'status',          db: 'status',          default: 'pending' },
-  { app: 'confirmedAt',     db: 'confirmed_at',    default: null },
-  { app: 'confirmedAmount', db: 'confirmed_amount',default: null },
-  { app: 'note',            db: 'note',            default: '' },
-]
+function notifySaveError(what, month, error) {
+  console.error(`[useBusinessData] ${what} ${month} 雲端儲存失敗`, error)
+  try {
+    window.alert(`⚠ ${what} ${month} 沒有成功存到雲端，目前只存在這台電腦。\n\n原因：${error?.message || error}\n\n雲端原有資料沒有被更動。請不要清除瀏覽器資料，並把這個訊息提供給開發者。`)
+  } catch { /* 非瀏覽器環境 */ }
+}
 
-// ─── Expense 欄位對應 ─────────────────────────────────────────────────────────
-const EXPENSE_FIELDS = [
-  { app: 'id',       db: 'id',        default: '' },
-  { app: 'category', db: 'category',  default: '其他' },
-  { app: 'label',    db: 'label',     default: '' },
-  { app: 'count',    db: 'count',     default: null },
-  { app: 'unitCost', db: 'unit_cost', default: null },
-  { app: 'amount',   db: 'amount',    default: 0 },
-  { app: 'note',     db: 'note',      default: '' },
-]
-
-function appToDbRow(appItem, month, fields) {
-  const row = { month }
-  for (const f of fields) {
-    const v = appItem[f.app]
-    row[f.db] = (v === '' || v === undefined) ? null : v
+/** 本機有、雲端沒有的月份：列給使用者確認後才上傳（不自動上傳，避免把別台電腦刪掉的月份救回來） */
+async function resyncLocalOnly(pending) {
+  const sorted = [...pending].sort((a, b) => (a.what + a.month).localeCompare(b.what + b.month))
+  const lines = sorted.map(p => `・${p.what} ${p.month}（${p.items.length} 筆）`).join('\n')
+  let ok = false
+  try {
+    ok = window.confirm(`偵測到以下月份的資料只存在這台電腦，雲端沒有（通常是先前雲端儲存失敗造成）：\n\n${lines}\n\n按「確定」現在上傳到雲端；按「取消」暫不處理（下次開啟會再詢問）。`)
+  } catch { return }
+  if (!ok) return
+  const failed = []
+  for (const p of sorted) {
+    try {
+      await replaceMonthRows(supabase, p.table, p.month, p.items.map(item => appToDbRow(item, p.month, p.fields)))
+    } catch (e) {
+      failed.push(`${p.what} ${p.month}：${e?.message || e}`)
+    }
   }
-  row.updated_at = new Date().toISOString()
-  return row
+  try {
+    window.alert(failed.length
+      ? `⚠ 有 ${failed.length} 個月份上傳失敗，資料仍保留在這台電腦：\n\n${failed.join('\n')}`
+      : `✓ 已上傳 ${sorted.length} 個月份到雲端。`)
+  } catch { /* 非瀏覽器環境 */ }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -110,6 +101,21 @@ export function useBusinessData(user) {
       supabase.from(TBL_EXPENSE).select('*').order('month'),
       supabase.from(TBL_BILLING).select('*').order('created_at'),
     ]).then(([invRes, expRes, bilRes]) => {
+      // 只存在這台電腦、雲端沒有的月份（多半是先前雲端儲存失敗留下的）→ 詢問後補傳
+      const pending = []
+      const collect = (res, lsKey, table, fields, what) => {
+        if (res.error) return
+        const cloudMonths = new Set((res.data || []).map(r => r.month))
+        for (const [m, items] of Object.entries(lsGet(lsKey))) {
+          if (/^\d{4}-\d{2}$/.test(m) && Array.isArray(items) && items.length && !cloudMonths.has(m)) {
+            pending.push({ what, table, fields, month: m, items })
+          }
+        }
+      }
+      collect(invRes, LS_INVOICE, TBL_INVOICE, INVOICE_FIELDS, '發票對帳')
+      collect(expRes, LS_EXPENSE, TBL_EXPENSE, EXPENSE_FIELDS, '每月費用')
+      if (pending.length) setTimeout(() => resyncLocalOnly(pending), 800)
+
       if (!invRes.error && invRes.data?.length) {
         const map = rowsToMonthMap(invRes.data, INVOICE_FIELDS)
         setInvoiceRecords(prev => {
@@ -158,16 +164,8 @@ export function useBusinessData(user) {
     })
 
     if (!supabaseReady) return
-    // 非同步：先刪該月所有記錄，再批次插入
-    ;(async () => {
-      try {
-        await supabase.from(TBL_INVOICE).delete().eq('month', month)
-        if (items.length) {
-          const rows = items.map(item => appToDbRow(item, month, INVOICE_FIELDS))
-          await supabase.from(TBL_INVOICE).insert(rows)
-        }
-      } catch { /* 靜默失敗 */ }
-    })()
+    replaceMonthRows(supabase, TBL_INVOICE, month, items.map(item => appToDbRow(item, month, INVOICE_FIELDS)))
+      .catch(e => notifySaveError('發票對帳', month, e))
   }, [])
 
   // ── 儲存月費用（月份為單位）──────────────────────────────────────────────
@@ -179,15 +177,8 @@ export function useBusinessData(user) {
     })
 
     if (!supabaseReady) return
-    ;(async () => {
-      try {
-        await supabase.from(TBL_EXPENSE).delete().eq('month', month)
-        if (items.length) {
-          const rows = items.map(item => appToDbRow(item, month, EXPENSE_FIELDS))
-          await supabase.from(TBL_EXPENSE).insert(rows)
-        }
-      } catch { /* 靜默失敗 */ }
-    })()
+    replaceMonthRows(supabase, TBL_EXPENSE, month, items.map(item => appToDbRow(item, month, EXPENSE_FIELDS)))
+      .catch(e => notifySaveError('每月費用', month, e))
   }, [])
 
   // ── 儲存常用抬頭（upsert by id）────────────────────────────────────────
