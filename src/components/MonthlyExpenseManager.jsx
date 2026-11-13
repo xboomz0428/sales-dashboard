@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import { parseInvoiceFiles, IMPORT_NOTE_PREFIX } from '../utils/invoiceImport'
 import { parseMomoFiles, MOMO_LABELS, MOMO_NOTE_PREFIX } from '../utils/momoStatement'
 import { parseShopeeFiles, SHOPEE_STMT_NOTE_PREFIX, SHOPEE_TAX_ID, SHOPEE_BILLING_NAME } from '../utils/shopeeStatement'
+import { parseHctFiles, HCT_NOTE_PREFIX, HCT_LABEL } from '../utils/hctStatement'
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -238,6 +239,46 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
     }
     setImportDone({ ok: true, text: `已匯入蝦皮對帳單 ${months.length} 個月（${months[0]}~${months[months.length - 1]}）：服務費入月費用${invCreated ? `、補建 ${invCreated} 筆發票對帳記錄` : ''}；已有實開發票的月份自動略過` })
     setShopeePreview(null)
+  }
+
+  // 新竹物流對帳單匯入（請款明細表）
+  const hctFileRef = useRef(null)
+  const [hctPreview, setHctPreview] = useState(null)
+  const [hctBusy, setHctBusy] = useState(false)
+
+  async function handleHctFiles(fileList) {
+    const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
+    if (!files.length) return
+    setHctBusy(true); setImportDone(null)
+    try {
+      const result = await parseHctFiles(files)
+      if (!Object.keys(result.months).length) setImportDone({ ok: false, text: '未解析到任何新竹物流請款明細（' + result.stats.failed.length + ' 檔失敗）' })
+      else setHctPreview(result)
+    } catch (e) {
+      setImportDone({ ok: false, text: '新竹物流對帳單解析失敗：' + (e.message || e) })
+    }
+    setHctBusy(false)
+  }
+
+  function confirmHctImport() {
+    if (!hctPreview) return
+    const months = Object.keys(hctPreview.months).sort()
+    let replaced = 0
+    for (const ym of months) {
+      const d = hctPreview.months[ym]
+      // 冪等＋跨來源去重：同月既有的新竹物流列（請款明細版或進項發票版）一律以對帳單為準覆蓋
+      const keep = (expenses[ym] || []).filter(i =>
+        !String(i.note || '').startsWith(HCT_NOTE_PREFIX) &&
+        !(i.category === '物流費用' && String(i.label || '').trim() === HCT_LABEL))
+      if (keep.length !== (expenses[ym] || []).length) replaced++
+      keep.push({
+        id: genId(), category: '物流費用', label: HCT_LABEL, amount: d.amount, count: '', unitCost: '',
+        note: `${HCT_NOTE_PREFIX}（${d.count} 筆託運${d.invoiceNo ? '，請款書 ' + d.invoiceNo : ''}）`,
+      })
+      onSave(ym, keep)
+    }
+    setImportDone({ ok: true, text: `已匯入新竹物流對帳單 ${months.length} 個月（${months[0]}~${months[months.length - 1]}）入物流費用${replaced ? `；${replaced} 個月的既有新竹物流列已以對帳單為準覆蓋` : ''}` })
+    setHctPreview(null)
   }
 
   async function handleInvoiceFiles(fileList) {
@@ -484,6 +525,13 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
           </button>
           <input ref={shopeeFileRef} type="file" accept=".pdf,.zip" multiple className="hidden"
             onChange={e => { handleShopeeFiles(e.target.files); e.target.value = '' }} />
+          <button onClick={() => hctFileRef.current?.click()} disabled={hctBusy}
+            title="上傳新竹物流「請款明細表」PDF（可多選或整包 ZIP）：以末頁含稅總計入月費用（物流費用），銷售額＋稅額與各區段小計雙重勾稽；重匯同月自動覆蓋（含進項發票版的新竹物流列，以對帳單為準）"
+            className="px-3 py-1.5 text-sm border border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-400 rounded-lg hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors font-semibold">
+            {hctBusy ? '解析中…' : '📥 匯入新竹物流對帳單'}
+          </button>
+          <input ref={hctFileRef} type="file" accept=".pdf,.zip" multiple className="hidden"
+            onChange={e => { handleHctFiles(e.target.files); e.target.value = '' }} />
           <button
             onClick={() => { setShowAddForm(v => !v); setEditingId(null) }}
             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
@@ -587,6 +635,45 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             <div className="flex gap-2 justify-end mt-3">
               <button onClick={() => setShopeePreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
               <button onClick={confirmShopeeImport} className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hctPreview && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setHctPreview(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-1">📥 新竹物流對帳單匯入預覽</h3>
+            <p className="text-xs text-gray-400 mb-3">
+              解析 {hctPreview.stats.parsed}/{hctPreview.stats.files} 檔
+              {hctPreview.stats.dups.length > 0 && `｜重複月份已擇優：${[...new Set(hctPreview.stats.dups)].join('、')}`}
+              {hctPreview.stats.failed.length > 0 && `｜⚠ 失敗：${hctPreview.stats.failed.join('、')}`}
+            </p>
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-3 gap-y-1 text-sm">
+              <span className="text-xs font-bold text-gray-400 uppercase">月份</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">運費總計(含稅)</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">銷售額</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">稅額</span>
+              <span className="text-xs font-bold text-gray-400 uppercase text-right">託運筆數</span>
+              {Object.keys(hctPreview.months).sort().map(ym => {
+                const d = hctPreview.months[ym]
+                return (
+                  <div key={ym} className="contents">
+                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 勾稽不符</span>}</span>
+                    <span className="text-right font-mono font-bold text-gray-800 dark:text-gray-100">${d.amount.toLocaleString()}</span>
+                    <span className="text-right font-mono text-gray-500">{d.sales != null ? '$' + d.sales.toLocaleString() : '—'}</span>
+                    <span className="text-right font-mono text-gray-500">{d.tax != null ? '$' + d.tax.toLocaleString() : '—'}</span>
+                    <span className="text-right font-mono text-gray-500">{d.count || '—'}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              匯入規則：以末頁「發送到著請款總計」（含稅）入月費用（物流費用）；同月既有的新竹物流列（含進項發票版）自動以對帳單為準覆蓋，不會重複計算。
+            </p>
+            <div className="flex gap-2 justify-end mt-3">
+              <button onClick={() => setHctPreview(null)} className="px-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl text-gray-500">取消</button>
+              <button onClick={confirmHctImport} className="px-4 py-2 text-sm bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl">✓ 確認匯入</button>
             </div>
           </div>
         </div>
