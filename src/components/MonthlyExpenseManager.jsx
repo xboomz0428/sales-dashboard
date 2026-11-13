@@ -164,6 +164,9 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   function confirmMomoImport() {
     if (!momoPreview) return
     const months = Object.keys(momoPreview.months).sort()
+    const ow = months.map(ym => ({ ym, rows: momoExisting(ym) })).filter(x => x.rows.length)
+      .map(x => ({ ym: x.ym, n: x.rows.length, oldAmt: sumRows(x.rows), newAmt: momoPreview.months[x.ym].sum }))
+    if (!askOverwrite('momo 對帳單', ow)) return
     for (const ym of months) {
       const d = momoPreview.months[ym]
       const keep = (expenses[ym] || []).filter(i => !String(i.label || '').startsWith('momo '))
@@ -187,6 +190,25 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   const ymAdd = (ym, n) => { const d = new Date(ym + '-01'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 7) }
   const ymLast = (ym) => { const [y, m] = ym.split('-').map(Number); return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}` }
 
+  // ── 匯入前「已匯入過」檢查：各來源同月既有列（條件與各 confirm 的覆蓋條件一致）──
+  const sumRows = (rows) => rows.reduce((s, i) => s + itemAmount(i), 0)
+  const hctExisting = (ym) => (expenses[ym] || []).filter(i =>
+    String(i.note || '').startsWith(HCT_NOTE_PREFIX) ||
+    (i.category === '物流費用' && String(i.label || '').trim() === HCT_LABEL))
+  const momoExisting = (ym) => (expenses[ym] || []).filter(i => String(i.label || '').startsWith('momo '))
+  const shopeeExisting = (ym) => (expenses[ym] || []).filter(i => String(i.note || '').startsWith(SHOPEE_STMT_NOTE_PREFIX))
+  const invExisting = (ym) => (expenses[ym] || []).filter(i => String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
+  /** 已匯入過的月份 → 彈出覆蓋確認；按取消＝整批放棄 */
+  function askOverwrite(name, pairs) {
+    if (!pairs.length) return true
+    const lines = pairs.map(p => `・${p.ym}：既有 $${Math.round(p.oldAmt).toLocaleString()}（${p.n} 筆）→ 本次 $${Math.round(p.newAmt).toLocaleString()}`).join('\n')
+    return window.confirm(`⚠ 以下月份先前已匯入過${name}，再匯入會以本次內容覆蓋舊列：\n\n${lines}\n\n按「確定」覆蓋匯入；按「取消」放棄本次全部匯入。`)
+  }
+  /** 預覽用小徽章：該月已有同來源資料時顯示 */
+  const OwBadge = ({ rows }) => rows.length
+    ? <span className="ml-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">⟳ 已匯入過 ${Math.round(sumRows(rows)).toLocaleString()}，將覆蓋</span>
+    : null
+
   async function handleShopeeFiles(fileList) {
     const files = [...fileList].filter(f => /\.(pdf|zip)$/i.test(f.name))
     if (!files.length) return
@@ -204,6 +226,9 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   function confirmShopeeImport() {
     if (!shopeePreview) return
     const months = Object.keys(shopeePreview.months).sort()
+    const ow = months.map(ym => ({ ym, rows: shopeeExisting(ym) })).filter(x => x.rows.length)
+      .map(x => ({ ym: x.ym, n: x.rows.length, oldAmt: sumRows(x.rows), newAmt: shopeePreview.months[x.ym].serviceFee || 0 }))
+    if (!askOverwrite('蝦皮對帳單（服務費列）', ow)) return
     let invCreated = 0
     for (const ym of months) {
       const d = shopeePreview.months[ym]
@@ -263,6 +288,9 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   function confirmHctImport() {
     if (!hctPreview) return
     const months = Object.keys(hctPreview.months).sort()
+    const ow = months.map(ym => ({ ym, rows: hctExisting(ym) })).filter(x => x.rows.length)
+      .map(x => ({ ym: x.ym, n: x.rows.length, oldAmt: sumRows(x.rows), newAmt: hctPreview.months[x.ym].amount }))
+    if (!askOverwrite('新竹物流對帳單', ow)) return
     let replaced = 0
     for (const ym of months) {
       const d = hctPreview.months[ym]
@@ -297,6 +325,9 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
   function confirmInvoiceImport() {
     if (!importPreview) return
     const months = Object.keys(importPreview.months).sort()
+    const ow = months.map(ym => ({ ym, rows: invExisting(ym) })).filter(x => x.rows.length)
+      .map(x => ({ ym: x.ym, n: x.rows.length, oldAmt: sumRows(x.rows), newAmt: importPreview.months[x.ym].reduce((s2, i) => s2 + (i.amount || 0), 0) }))
+    if (!askOverwrite('進項發票', ow)) return
     let dupSkipped = 0, dupAmt = 0
     for (const ym of months) {
       const keep = (expenses[ym] || []).filter(i => !String(i.note || '').startsWith(IMPORT_NOTE_PREFIX))
@@ -621,7 +652,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
                 const d = shopeePreview.months[ym]
                 return (
                   <div key={ym} className="contents">
-                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 驗證不符</span>}</span>
+                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 驗證不符</span>}<OwBadge rows={shopeeExisting(ym)} /></span>
                     <span className="text-right font-mono font-bold text-gray-800 dark:text-gray-100">${d.amount.toLocaleString()}</span>
                     <span className="text-right font-mono text-gray-500">{d.invoiceCount ?? '—'}</span>
                     <span className="text-right font-mono text-gray-500">${(d.serviceFee ?? 0).toLocaleString()}</span>
@@ -659,7 +690,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
                 const d = hctPreview.months[ym]
                 return (
                   <div key={ym} className="contents">
-                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 勾稽不符</span>}</span>
+                    <span className="text-gray-700 dark:text-gray-200 font-semibold">{ym}{!d.ok && <span className="text-red-500 ml-1">⚠ 勾稽不符</span>}<OwBadge rows={hctExisting(ym)} /></span>
                     <span className="text-right font-mono font-bold text-gray-800 dark:text-gray-100">${d.amount.toLocaleString()}</span>
                     <span className="text-right font-mono text-gray-500">{d.sales != null ? '$' + d.sales.toLocaleString() : '—'}</span>
                     <span className="text-right font-mono text-gray-500">{d.tax != null ? '$' + d.tax.toLocaleString() : '—'}</span>
@@ -695,7 +726,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
             {Object.keys(importPreview.months).sort().map(ym => (
               <div key={ym} className="mb-3">
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 pb-1 mb-1">
-                  {ym}（{importPreview.months[ym].length} 筆，${importPreview.months[ym].reduce((s2, i) => s2 + i.amount, 0).toLocaleString()}）
+                  {ym}（{importPreview.months[ym].length} 筆，${importPreview.months[ym].reduce((s2, i) => s2 + i.amount, 0).toLocaleString()}）<OwBadge rows={invExisting(ym)} />
                 </p>
                 {importPreview.months[ym].map((i, idx) => (
                   <div key={idx} className="flex justify-between text-sm py-0.5">
@@ -729,7 +760,7 @@ export default function MonthlyExpenseManager({ expenses = {}, onSave, invoices 
               const d = momoPreview.months[ym]
               return (
                 <div key={ym} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 dark:border-gray-700">
-                  <span className="font-bold text-gray-700 dark:text-gray-200">{ym}{d.ok ? '' : ' ⚠加總不符'}</span>
+                  <span className="font-bold text-gray-700 dark:text-gray-200">{ym}{d.ok ? '' : ' ⚠加總不符'}<OwBadge rows={momoExisting(ym)} /></span>
                   <span className="text-gray-500 dark:text-gray-400 text-xs">
                     物流 {Math.round(d.buckets['物流費用'] || 0).toLocaleString()}｜廣告 {Math.round(d.buckets['廣告費用'] || 0).toLocaleString()}｜平台 {Math.round(d.buckets['平台費用'] || 0).toLocaleString()}
                   </span>
