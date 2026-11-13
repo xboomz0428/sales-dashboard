@@ -1275,26 +1275,51 @@ export default function InvoiceReconciliation({
     setShowForm(true)
   }, [])
 
+  // 這張發票實際存放的月份：清單顯示的是 currentMonth；找不到才退回開立日期的月份
+  const monthOfItem = useCallback((item) => {
+    if ((invoices[currentMonth] || []).some(r => r.id === item.id)) return currentMonth
+    return String(item.issueDate || '').slice(0, 7) || currentMonth
+  }, [invoices, currentMonth])
+
   const handleDelete = useCallback((item) => {
     if (!window.confirm(`確定要刪除「${item.store}」的發票 ${item.invoiceNo}？`)) return
-    const issuedMonth = item.issueDate.slice(0, 7)
-    const existing = invoices[issuedMonth] || []
-    onSave(issuedMonth, existing.filter(r => r.id !== item.id))
-  }, [invoices, onSave])
+    const ym = monthOfItem(item)
+    onSave(ym, (invoices[ym] || []).filter(r => r.id !== item.id))
+  }, [invoices, onSave, monthOfItem])
 
   const handleStatusQuickChange = useCallback((item, newStatus) => {
-    const issuedMonth = item.issueDate.slice(0, 7)
-    const existing = invoices[issuedMonth] || []
+    const ym = monthOfItem(item)
+    const paid = newStatus === 'confirmed' || newStatus === 'partial'
     const updated = {
       ...item,
       status: newStatus,
-      confirmedAt: (newStatus === 'confirmed' || newStatus === 'partial') && !item.confirmedAt
-        ? todayStr() : item.confirmedAt,
-      confirmedAmount: newStatus === 'confirmed' && !item.confirmedAmount
-        ? item.amount : item.confirmedAmount,
+      // 改回待入帳／逾期時清掉入帳日期與金額，不殘留舊的入帳資訊
+      confirmedAt: paid ? (item.confirmedAt || todayStr()) : '',
+      confirmedAmount: paid
+        ? (newStatus === 'confirmed' && !item.confirmedAmount ? item.amount : item.confirmedAmount)
+        : null,
     }
-    onSave(issuedMonth, existing.map(r => r.id === item.id ? updated : r))
-  }, [invoices, onSave])
+    onSave(ym, (invoices[ym] || []).map(r => r.id === item.id ? updated : r))
+  }, [invoices, onSave, monthOfItem])
+
+  // ✓ 一鍵入帳：全額入帳，入帳日為今天（已填過入帳日則保留）
+  const handleQuickConfirm = useCallback((item) => {
+    const ym = monthOfItem(item)
+    const amount = Number(item.amount) || 0
+    // 部分入帳的列已記錄實收金額，改全額前先確認，避免誤按蓋掉
+    const partialAmt = Number(item.confirmedAmount) || 0
+    if (item.status === 'partial' && partialAmt > 0 && partialAmt !== amount &&
+      !window.confirm(`「${item.store}」目前是部分入帳 NT$ ${partialAmt.toLocaleString()}。\n要改成全額入帳 NT$ ${amount.toLocaleString()} 嗎？`)) return
+    const updated = { ...item, status: 'confirmed', confirmedAt: item.confirmedAt || todayStr(), confirmedAmount: amount }
+    onSave(ym, (invoices[ym] || []).map(r => r.id === item.id ? updated : r))
+    setEinvMsg({ ok: true, text: `已標記入帳：${item.store} NT$ ${amount.toLocaleString()}` })
+  }, [invoices, onSave, monthOfItem])
+
+  const handleUndoConfirm = useCallback((item) => {
+    if (!window.confirm(`要把「${item.store}」NT$ ${Number(item.amount || 0).toLocaleString()} 改回待入帳嗎？\n入帳日期與入帳金額會清除。`)) return
+    handleStatusQuickChange(item, 'pending')
+    setEinvMsg({ ok: true, text: `已改回待入帳：${item.store}` })
+  }, [handleStatusQuickChange])
 
   const cancelForm = () => { setShowForm(false); setEditItem(null) }
 
@@ -2195,6 +2220,19 @@ export default function InvoiceReconciliation({
                         </td>
                         <td className="px-3 py-3 text-center">
                           <div className="flex items-center justify-center gap-1 whitespace-nowrap">
+                            {item.status !== 'confirmed' ? (
+                              <button onClick={() => handleQuickConfirm(item)}
+                                title="一鍵入帳：全額入帳，入帳日為今天"
+                                className="px-2.5 py-1 rounded-md text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+                                ✓ 入帳
+                              </button>
+                            ) : (
+                              <button onClick={() => handleUndoConfirm(item)}
+                                title="改回待入帳（會清除入帳日期與金額）"
+                                className="px-2 py-1 rounded-md text-xs text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                ↩ 取消入帳
+                              </button>
+                            )}
                             <button onClick={() => handleEdit(item)}
                               className="px-2 py-1 rounded-md text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors font-semibold">
                               編輯
@@ -2287,10 +2325,15 @@ export default function InvoiceReconciliation({
                     )}
                     <div className="flex gap-2 pt-1">
                       {/* 手機快速狀態切換 */}
-                      {item.status === 'pending' && (
-                        <button onClick={() => handleStatusQuickChange(item, 'confirmed')}
-                          className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-200 transition-colors">
-                          ✓ 標記已入帳
+                      {item.status !== 'confirmed' ? (
+                        <button onClick={() => handleQuickConfirm(item)}
+                          className="flex-1 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+                          ✓ 入帳
+                        </button>
+                      ) : (
+                        <button onClick={() => handleUndoConfirm(item)}
+                          className="flex-1 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          ↩ 取消入帳
                         </button>
                       )}
                       {item.status === 'pending' && (
